@@ -1,3 +1,3 @@
-module github.com/ishidawataru/sctp
+module github.com/skill215/sctp
 
-go 1.12
+go 1.18
