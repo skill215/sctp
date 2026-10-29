@@ -23,6 +23,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -442,8 +443,19 @@ func SCTPBind(fd int, addr *SCTPAddr, flags int) error {
 type SCTPConn struct {
 	_fd                 int32
 	file                *os.File
+	io                  *socketIO
 	initErr             error
 	notificationHandler NotificationHandler
+}
+
+// socketIO serializes each polling direction so an operation's temporary
+// socket timeout cannot change another operation's poll deadline.
+type socketIO struct {
+	file      *os.File
+	readGate  chan struct{}
+	writeGate chan struct{}
+	closing   chan struct{}
+	closeOnce sync.Once
 }
 
 func (c *SCTPConn) fd() int {
@@ -792,6 +804,7 @@ func (c *SCTPConn) SetWriteDeadline(t time.Time) error {
 type SCTPListener struct {
 	fd                  int
 	file                *os.File
+	io                  *socketIO
 	notificationHandler NotificationHandler
 }
 

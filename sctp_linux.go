@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"sync/atomic"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -82,7 +83,7 @@ func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
 		syscall.Close(fd)
 		fd = -1
 	}
-	return &SCTPConn{_fd: int32(fd), file: file, initErr: err, notificationHandler: handler}
+	return &SCTPConn{_fd: int32(fd), file: file, io: newSocketIO(file), initErr: err, notificationHandler: handler}
 }
 
 func (c *SCTPConn) socketRaw() (syscall.RawConn, error) {
@@ -95,7 +96,7 @@ func (c *SCTPConn) socketRaw() (syscall.RawConn, error) {
 	if c.file == nil {
 		return nil, syscall.EBADF
 	}
-	return c.file.SyscallConn()
+	return c.io, nil
 }
 
 func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
@@ -213,7 +214,7 @@ func (c *SCTPConn) Close() error {
 	if c != nil {
 		fd := atomic.SwapInt32(&c._fd, -1)
 		if fd >= 0 && c.file != nil {
-			return c.file.Close()
+			return c.io.Close()
 		}
 	}
 	return syscall.EBADF
@@ -271,22 +272,19 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 		syscall.Close(sock)
 		return nil, err
 	}
+	io := newSocketIO(file)
 
 	// close socket on error
 	defer func() {
 		if err != nil {
-			file.Close()
+			io.Close()
 		}
 	}()
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
 	}
 	if control != nil {
-		rc, rawErr := file.SyscallConn()
-		if rawErr != nil {
-			err = rawErr
-			return nil, err
-		}
+		rc := io
 		var localAddressString string
 		if laddr != nil {
 			localAddressString = laddr.String()
@@ -321,6 +319,7 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 	return &SCTPListener{
 			fd:                  sock,
 			file:                file,
+			io:                  io,
 			notificationHandler: notificationHandler,
 		},
 		nil
@@ -344,6 +343,7 @@ func FileListener(file *os.File) (*SCTPListener, error) {
 	return &SCTPListener{
 		fd:                  int(r1),
 		file:                owned,
+		io:                  newSocketIO(owned),
 		notificationHandler: nil,
 	}, nil
 }
@@ -387,14 +387,14 @@ func (ln *SCTPListener) Close() error {
 	if ln == nil || ln.file == nil {
 		return syscall.EINVAL
 	}
-	return ln.file.Close()
+	return ln.io.Close()
 }
 
 func (ln *SCTPListener) SyscallConn() (syscall.RawConn, error) {
 	if ln == nil || ln.file == nil {
 		return nil, syscall.EINVAL
 	}
-	return ln.file.SyscallConn()
+	return ln.io, nil
 }
 
 // DialSCTP - bind socket to laddr (if given) and connect to raddr
@@ -424,22 +424,19 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 		syscall.Close(sock)
 		return nil, err
 	}
+	io := newSocketIO(file)
 
 	// close socket on error
 	defer func() {
 		if err != nil {
-			file.Close()
+			io.Close()
 		}
 	}()
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
 	}
 	if control != nil {
-		rc, rawErr := file.SyscallConn()
-		if rawErr != nil {
-			err = rawErr
-			return nil, err
-		}
+		rc := io
 		var localAddressString string
 		if laddr != nil {
 			localAddressString = laddr.String()
@@ -476,25 +473,42 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
-	return &SCTPConn{_fd: int32(sock), file: file, notificationHandler: notificationHandler}, nil
+	return &SCTPConn{_fd: int32(sock), file: file, io: io, notificationHandler: notificationHandler}, nil
 }
 
 func waitForSCTPConnect(fd int) error {
-	// ppoll works above FD_SETSIZE, unlike select, and does not restart
-	// the state-changing connect operation when interrupted by a signal.
+	timeout, err := socketTimeout(fd, syscall.SO_SNDTIMEO)
+	if err != nil {
+		return err
+	}
+	var deadline time.Time
+	if timeout > 0 {
+		deadline = time.Now().Add(timeout)
+	}
+	// ppoll avoids FD_SETSIZE limits and restarts only the readiness wait.
 	pollfd := struct {
-		fd      int32
-		events  int16
-		revents int16
+		fd              int32
+		events, revents int16
 	}{fd: int32(fd), events: 0x0004 /* POLLOUT */}
 	for {
-		_, _, errno := syscall.Syscall6(syscall.SYS_PPOLL,
-			uintptr(unsafe.Pointer(&pollfd)), 1, 0, 0, 0, 0)
+		var remaining *syscall.Timespec
+		if !deadline.IsZero() {
+			left := time.Until(deadline)
+			if left <= 0 {
+				return syscall.EINPROGRESS
+			}
+			ts := syscall.NsecToTimespec(left.Nanoseconds())
+			remaining = &ts
+		}
+		n, _, errno := syscall.Syscall6(syscall.SYS_PPOLL, uintptr(unsafe.Pointer(&pollfd)), 1, uintptr(unsafe.Pointer(remaining)), 0, 0, 0)
 		if errno == syscall.EINTR {
 			continue
 		}
 		if errno != 0 {
 			return errno
+		}
+		if n == 0 {
+			return syscall.EINPROGRESS
 		}
 		break
 	}
