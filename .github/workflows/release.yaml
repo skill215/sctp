@@ -2,6 +2,10 @@ name: release
 
 on:
   push:
+    branches:
+      - master
+    paths:
+      - 'releases/*.md'
     tags:
       - '0.*'
 
@@ -10,9 +14,11 @@ permissions:
 
 jobs:
   arch:
+    if: github.ref_type == 'tag'
     uses: ./.github/workflows/arch.yaml
 
   test:
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
@@ -31,6 +37,7 @@ jobs:
           sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s
 
   publish:
+    if: github.ref_type == 'tag'
     needs: [test, arch]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -44,6 +51,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          test "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag
           git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
           test -s "$RUNNER_TEMP/release-notes.md"
           gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file "$RUNNER_TEMP/release-notes.md" --title "$GITHUB_REF_NAME"
+
+  notes:
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update published release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for notes in releases/*.md; do
+            tag="$(basename "$notes" .md)"
+            test -s "$notes"
+            gh release edit "$tag" --notes-file "$notes"
+          done
