@@ -16,9 +16,7 @@
 package sctp
 
 import (
-	"fmt"
 	"io"
-	"math/rand"
 	"net"
 	"reflect"
 	"runtime"
@@ -109,32 +107,51 @@ func TestSCTPConcurrentAccept(t *testing.T) {
 	}
 	const N = 10
 	var wg sync.WaitGroup
+	stopping := make(chan struct{})
+	addr = ln.Addr().(*SCTPAddr)
+	defer func() {
+		close(stopping)
+		// Wake each blocking accept before closing and allowing fd reuse.
+		for i := 0; i < N; i++ {
+			wake, err := DialSCTP("sctp", nil, addr)
+			if err != nil {
+				t.Errorf("failed to wake accept: %v", err)
+			} else {
+				wake.Close()
+			}
+		}
+		wg.Wait()
+		ln.Close()
+	}()
 	wg.Add(N)
 	for i := 0; i < N; i++ {
 		go func() {
+			defer wg.Done()
 			for {
 				c, err := ln.Accept()
 				if err != nil {
 					break
 				}
 				c.Close()
+				select {
+				case <-stopping:
+					return
+				default:
+				}
 			}
-			wg.Done()
 		}()
 	}
 	attempts := 10 * N
 	fails := 0
 	for i := 0; i < attempts; i++ {
-		c, err := DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
+		c, err := DialSCTP("sctp", nil, addr)
 		if err != nil {
+			t.Logf("dial failed: %v", err)
 			fails++
 		} else {
 			c.Close()
 		}
 	}
-	ln.Close()
-	// BUG Accept() doesn't return even if we closed ln
-	//	wg.Wait()
 	if fails > 0 {
 		t.Fatalf("# of failed Dials: %v", fails)
 	}
@@ -147,37 +164,41 @@ func TestSCTPCloseRecv(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var conn net.Conn
-	var wg sync.WaitGroup
-	connReady := make(chan struct{}, 1)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		var xerr error
-		conn, xerr = ln.Accept()
-		if xerr != nil {
-			t.Fatal(xerr)
-		}
-		connReady <- struct{}{}
-		buf := make([]byte, 256)
-		_, xerr = conn.Read(buf)
-		t.Logf("got error while read: %v", xerr)
-		if xerr != io.EOF && xerr != syscall.EBADF {
-			t.Fatalf("read failed: %v", xerr)
-		}
-	}()
-
-	_, err = DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
+	defer ln.Close()
+	client, err := DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
 	if err != nil {
 		t.Fatalf("failed to dial: %s", err)
 	}
 
-	<-connReady
+	defer client.Close()
+	conn, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("failed to accept: %v", err)
+	}
+	readDone := make(chan struct{})
+	var readErr error
+	go func() {
+		defer close(readDone)
+		buf := make([]byte, 256)
+		_, readErr = conn.Read(buf)
+	}()
+	defer func() {
+		conn.Close()
+		<-readDone
+	}()
+
 	err = conn.Close()
 	if err != nil {
 		t.Fatalf("close failed: %v", err)
 	}
-	wg.Wait()
+	select {
+	case <-readDone:
+		if readErr != io.EOF && readErr != syscall.EBADF {
+			t.Fatalf("read failed: %v", readErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("read did not return after close")
+	}
 }
 
 func TestGetStatus(t *testing.T) {
@@ -209,9 +230,8 @@ func TestGetStatus(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Create a random port to avoid conflicts when running tests in parallel
-			port := 5000 + rand.Intn(1000)
-			addr, err := ResolveSCTPAddr("sctp", fmt.Sprintf("127.0.0.1:%d", port))
+			// Let the kernel allocate an unused port.
+			addr, err := ResolveSCTPAddr("sctp", "127.0.0.1:0")
 			if err != nil {
 				t.Fatalf("Failed to resolve address: %v", err)
 			}
@@ -228,19 +248,6 @@ func TestGetStatus(t *testing.T) {
 			}
 			defer ln.Close()
 
-			// Channel to communicate server errors
-			errChan := make(chan error, 1)
-
-			go func() {
-				// Accept a connection session on the listener
-				_, err := ln.Accept()
-				if err != nil {
-					errChan <- fmt.Errorf("server accept error: %v", err)
-					return
-				}
-				errChan <- nil
-			}()
-
 			// Create a client with default streams
 			c, err := DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
 			if err != nil {
@@ -248,15 +255,11 @@ func TestGetStatus(t *testing.T) {
 			}
 			defer c.Close()
 
-			// Check for server errors
-			select {
-			case err := <-errChan:
-				if err != nil {
-					t.Fatal(err)
-				}
-			case <-time.After(100 * time.Millisecond):
-				// Continue if no immediate error
+			server, err := ln.Accept()
+			if err != nil {
+				t.Fatalf("failed to accept: %v", err)
 			}
+			defer server.Close()
 
 			// Get the status
 			status, err := c.GetStatus()
@@ -291,9 +294,8 @@ func TestGetStatus(t *testing.T) {
 }
 
 func TestGetStatusUsage(t *testing.T) {
-	// Create a random port to avoid conflicts when running tests in parallel
-	port := 5000 + rand.Intn(1000)
-	addr, err := ResolveSCTPAddr("sctp", fmt.Sprintf("127.0.0.1:%d", port))
+	// Let the kernel allocate an unused port.
+	addr, err := ResolveSCTPAddr("sctp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to resolve address: %v", err)
 	}
@@ -311,19 +313,6 @@ func TestGetStatusUsage(t *testing.T) {
 	}
 	defer ln.Close()
 
-	// Channel to communicate server errors
-	errChan := make(chan error, 1)
-
-	go func() {
-		// Accept a connection session on the listener
-		_, err := ln.Accept()
-		if err != nil {
-			errChan <- fmt.Errorf("server accept error: %v", err)
-			return
-		}
-		errChan <- nil
-	}()
-
 	// Create a client with default streams
 	c, err := DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
 	if err != nil {
@@ -331,15 +320,11 @@ func TestGetStatusUsage(t *testing.T) {
 	}
 	defer c.Close()
 
-	// Check for server errors
-	select {
-	case err := <-errChan:
-		if err != nil {
-			t.Fatal(err)
-		}
-	case <-time.After(100 * time.Millisecond):
-		// Continue if no immediate error
+	server, err := ln.Accept()
+	if err != nil {
+		t.Fatalf("failed to accept: %v", err)
 	}
+	defer server.Close()
 
 	// Get the status
 	status, err := c.GetStatus()

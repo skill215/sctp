@@ -51,49 +51,110 @@ func TestStreams(t *testing.T) {
 	addr = ln.Addr().(*SCTPAddr)
 	t.Logf("Listen on %s", ln.Addr())
 
-	go func() {
-		for {
-			c, err := ln.Accept()
-			sconn := c.(*SCTPConn)
+	stopping := make(chan struct{})
+	acceptDone := make(chan struct{})
+	var clients, servers sync.WaitGroup
+	var connMu sync.Mutex
+	var connections []*SCTPConn
+	track := func(conn *SCTPConn) bool {
+		connMu.Lock()
+		defer connMu.Unlock()
+		select {
+		case <-stopping:
+			conn.Close()
+			return false
+		default:
+			connections = append(connections, conn)
+			return true
+		}
+	}
+	isStopping := func() bool {
+		select {
+		case <-stopping:
+			return true
+		default:
+			return false
+		}
+	}
+	defer func() {
+		close(stopping)
+		// SCTP shutdown does not wake a blocking accept on this kernel.
+		// A final connection lets the accept loop observe stopping first.
+		select {
+		case <-acceptDone:
+		default:
+			wake, err := DialSCTPExt("sctp", nil, addr, InitMsg{NumOstreams: STREAM_TEST_STREAMS, MaxInstreams: STREAM_TEST_STREAMS})
 			if err != nil {
-				t.Errorf("failed to accept: %v", err)
+				t.Errorf("failed to wake accept: %v", err)
+			} else {
+				wake.Close()
+			}
+		}
+		<-acceptDone
+		ln.Close()
+		connMu.Lock()
+		active := append([]*SCTPConn(nil), connections...)
+		connMu.Unlock()
+		for _, conn := range active {
+			conn.Close()
+		}
+		clients.Wait()
+		servers.Wait()
+	}()
+
+	go func() {
+		defer close(acceptDone)
+		for {
+			sconn, err := ln.AcceptSCTP()
+			if err != nil {
+				if !isStopping() {
+					t.Errorf("failed to accept: %v", err)
+				}
 				return
 			}
-			defer sconn.Close()
+			if !track(sconn) {
+				return
+			}
 
-			sconn.SubscribeEvents(SCTP_EVENT_DATA_IO)
-			go func() {
-				totalrcvd := 0
+			servers.Add(1)
+			go func(sconn *SCTPConn) {
+				defer servers.Done()
+				defer sconn.Close()
+				if err := sconn.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+					if !isStopping() {
+						t.Errorf("failed to subscribe on server: %v", err)
+					}
+					return
+				}
 				for {
 					buf := make([]byte, 512)
 					n, info, err := sconn.SCTPRead(buf)
-					if err != nil {
-						if err == io.EOF || err == io.ErrUnexpectedEOF {
-							if n == 0 {
-								break
-							}
-							t.Logf("EOF on server connection. Total bytes received: %d, bytes received: %d", totalrcvd, n)
-						} else {
-							t.Errorf("Server connection read err: %v. Total bytes received: %d, bytes received: %d", err, totalrcvd, n)
-							return
+					if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+						if !isStopping() {
+							t.Errorf("server read failed: %v", err)
 						}
+						return
+					}
+					if n == 0 {
+						return
 					}
 					t.Logf("server read: info: %+v, payload: %s", info, string(buf[:n]))
 					n, err = sconn.SCTPWrite(buf[:n], info)
 					if err != nil {
-						t.Error(err)
+						if !isStopping() {
+							t.Error(err)
+						}
 						return
 					}
 				}
-			}()
+			}(sconn)
 		}
 	}()
 
-	wait := make(chan struct{})
-	i := 0
-	for ; i < STREAM_TEST_CLIENTS; i++ {
+	clients.Add(STREAM_TEST_CLIENTS)
+	for i := 0; i < STREAM_TEST_CLIENTS; i++ {
 		go func(test int) {
-			defer func() { wait <- struct{}{} }()
+			defer clients.Done()
 			conn, err := DialSCTPExt(
 				"sctp", nil, addr, InitMsg{NumOstreams: STREAM_TEST_STREAMS, MaxInstreams: STREAM_TEST_STREAMS})
 			if err != nil {
@@ -101,7 +162,13 @@ func TestStreams(t *testing.T) {
 				return
 			}
 			defer conn.Close()
-			conn.SubscribeEvents(SCTP_EVENT_DATA_IO)
+			if !track(conn) {
+				return
+			}
+			if err := conn.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+				t.Errorf("failed to subscribe on client: %v", err)
+				return
+			}
 			for ppid := uint16(0); ppid < STREAM_TEST_STREAMS; ppid++ {
 				info := &SndRcvInfo{
 					Stream: uint16(ppid),
@@ -129,6 +196,10 @@ func TestStreams(t *testing.T) {
 						t.Errorf("failed to read: %v", err)
 						return
 					}
+					if info == nil {
+						t.Error("missing stream info")
+						return
+					}
 					if info.Stream != ppid {
 						t.Errorf("Mismatched PPIDs: %d != %d", info.Stream, ppid)
 						return
@@ -140,17 +211,20 @@ func TestStreams(t *testing.T) {
 				}
 				rtext := string(buf[:rn])
 				if rtext != text {
-					t.Fatalf("Mismatched payload: %s != %s", rtext, text)
+					t.Errorf("Mismatched payload: %s != %s", rtext, text)
+					return
 				}
 			}
 		}(i)
 	}
-	for ; i > 0; i-- {
-		select {
-		case <-wait:
-		case <-time.After(time.Second * 30):
-			close(wait)
-			t.Fatal("timed out")
-		}
+	clientsDone := make(chan struct{})
+	go func() {
+		clients.Wait()
+		close(clientsDone)
+	}()
+	select {
+	case <-clientsDone:
+	case <-time.After(30 * time.Second):
+		t.Fatal("timed out")
 	}
 }

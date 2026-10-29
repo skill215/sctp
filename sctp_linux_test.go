@@ -22,6 +22,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -173,13 +174,31 @@ func TestSCTPListenerNameFromFd(t *testing.T) {
 	}
 
 	var fln *SCTPListener
-	raw.Control(func(fd uintptr) {
-		fln, err = FileListener(os.NewFile(uintptr(fd), "listener"))
-		if err != nil {
-			t.Fatal(err)
+	var fileErr error
+	err = raw.Control(func(fd uintptr) {
+		// NewFile owns its fd, so give it a copy rather than ln's fd.
+		dupFD, dupErr := syscall.Dup(int(fd))
+		if dupErr != nil {
+			fileErr = dupErr
+			return
 		}
+		file := os.NewFile(uintptr(dupFD), "listener")
+		defer file.Close()
+		fln, fileErr = FileListener(file)
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fileErr != nil {
+		t.Fatal(fileErr)
+	}
 	defer fln.Close()
+
+	// Closing the temporary file and collecting it must leave both listeners open.
+	runtime.GC()
+	if original, ok := ln.Addr().(*SCTPAddr); !ok || original.String() != la.String() {
+		t.Fatalf("original listener was closed by the temporary file: %v", original)
+	}
 
 	fla, ok := fln.Addr().(*SCTPAddr)
 	if !ok || fla.Port == 0 {
@@ -188,5 +207,57 @@ func TestSCTPListenerNameFromFd(t *testing.T) {
 
 	if la.String() != fla.String() {
 		t.Fatalf("got %v; expected %v", la.String(), fla.String())
+	}
+}
+
+func TestWaitForSCTPConnect(t *testing.T) {
+	for _, refused := range []bool{false, true} {
+		name := "connected"
+		if refused {
+			name = "refused"
+		}
+		t.Run(name, func(t *testing.T) {
+			addr, err := ResolveSCTPAddr("sctp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ln, err := ListenSCTP("sctp", addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			addr = ln.Addr().(*SCTPAddr)
+			if refused {
+				ln.Close()
+			} else {
+				defer ln.Close()
+			}
+			fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC|syscall.SOCK_NONBLOCK, syscall.IPPROTO_SCTP)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer syscall.Close(fd)
+			_, err = SCTPConnect(fd, addr)
+			if err != nil && err != syscall.EINPROGRESS {
+				if refused && err == syscall.ECONNREFUSED {
+					return
+				}
+				t.Fatal(err)
+			}
+			err = waitForSCTPConnect(fd)
+			if refused {
+				if err != syscall.ECONNREFUSED {
+					t.Fatalf("expected connection refused, got %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			server, err := ln.Accept()
+			if err != nil {
+				t.Fatal(err)
+			}
+			server.Close()
+		})
 	}
 }

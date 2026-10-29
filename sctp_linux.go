@@ -360,8 +360,45 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 		}
 	}
 	_, err = SCTPConnect(sock, raddr)
+	if err == syscall.EINTR || err == syscall.EALREADY || err == syscall.EISCONN {
+		// A signal can restart CONNECTX3 after it has already started the
+		// association. This is a fresh socket: wait for that association
+		// instead of discarding it as a failed dial.
+		err = waitForSCTPConnect(sock)
+	}
 	if err != nil {
 		return nil, err
 	}
 	return NewSCTPConn(sock, notificationHandler), nil
+}
+
+func waitForSCTPConnect(fd int) error {
+	// ppoll works above FD_SETSIZE, unlike select, and does not restart
+	// the state-changing connect operation when interrupted by a signal.
+	pollfd := struct {
+		fd      int32
+		events  int16
+		revents int16
+	}{fd: int32(fd), events: 0x0004 /* POLLOUT */}
+	for {
+		_, _, errno := syscall.Syscall6(syscall.SYS_PPOLL,
+			uintptr(unsafe.Pointer(&pollfd)), 1, 0, 0, 0, 0)
+		if errno == syscall.EINTR {
+			continue
+		}
+		if errno != 0 {
+			return errno
+		}
+		break
+	}
+	code, err := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_ERROR)
+	if err != nil {
+		return err
+	}
+	if code != 0 {
+		return syscall.Errno(code)
+	}
+	// Writable alone does not prove the connection succeeded.
+	_, err = syscall.Getpeername(fd)
+	return err
 }
