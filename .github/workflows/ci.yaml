@@ -21,3 +21,7 @@ jobs:
       with:
           go-version: ${{ matrix.go }}
     - run: go test -race ./...
+    - name: Test numeric interface names in an isolated network namespace
+      run: |
+        go test -race -c -o "$RUNNER_TEMP/sctp.test" .
+        sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s

@@ -8,16 +8,22 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 )
 
 func TestIPv6ZoneNameIndexConflict(t *testing.T) {
 	const parentNamespaceEnv = "SCTP_TEST_ZONE_PARENT_NETNS"
+	unavailable := func(format string, args ...any) {
+		t.Helper()
+		if os.Getenv("SCTP_TEST_REQUIRE_NETNS") == "1" {
+			t.Fatalf(format, args...)
+		}
+		t.Skipf(format, args...)
+	}
 	currentNamespace, err := os.Readlink("/proc/self/ns/net")
 	if err != nil {
-		t.Skipf("network namespaces unavailable: %v", err)
+		unavailable("network namespaces unavailable: %v", err)
 	}
 	if parentNamespace := os.Getenv(parentNamespaceEnv); parentNamespace != "" {
 		if currentNamespace == parentNamespace {
@@ -64,10 +70,10 @@ func TestIPv6ZoneNameIndexConflict(t *testing.T) {
 	}
 	unshare, err := exec.LookPath("unshare")
 	if err != nil {
-		t.Skip("unshare is required for the isolated interface test")
+		unavailable("unshare is required for the isolated interface test")
 	}
 	if _, err := exec.LookPath("ip"); err != nil {
-		t.Skip("iproute2 is required for the isolated interface test")
+		unavailable("iproute2 is required for the isolated interface test")
 	}
 	executable, err := os.Executable()
 	if err != nil {
@@ -75,15 +81,23 @@ func TestIPv6ZoneNameIndexConflict(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-	child := exec.CommandContext(ctx, unshare, "--user", "--map-root-user", "--net", executable,
-		"-test.run=^TestIPv6ZoneNameIndexConflict$", "-test.v", "-test.timeout=10s")
+	args := []string{"--net"}
+	if os.Geteuid() != 0 {
+		args = append([]string{"--user", "--map-root-user"}, args...)
+	}
+	// Probe namespace setup separately so permission failures (including uid_map
+	// restrictions) can skip this optional test without hiding child assertions.
+	if output, err := exec.CommandContext(ctx, unshare, append(args, "true")...).CombinedOutput(); err != nil {
+		if ctx.Err() != nil {
+			t.Fatalf("network namespace probe timed out: %v", ctx.Err())
+		}
+		unavailable("isolated network namespaces unavailable: %v\n%s", err, output)
+	}
+	child := exec.CommandContext(ctx, unshare, append(args, executable,
+		"-test.run=^TestIPv6ZoneNameIndexConflict$", "-test.v", "-test.timeout=10s")...)
 	child.Env = append(os.Environ(), parentNamespaceEnv+"="+currentNamespace)
 	output, err := child.CombinedOutput()
 	if err != nil {
-		if strings.Contains(string(output), "unshare failed:") &&
-			(strings.Contains(string(output), "Operation not permitted") || strings.Contains(string(output), "Invalid argument")) {
-			t.Skipf("isolated network namespaces unavailable: %s", output)
-		}
 		t.Fatalf("isolated interface test failed: %v\n%s", err, output)
 	}
 	t.Logf("isolated interface test:\n%s", output)
