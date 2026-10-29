@@ -9,12 +9,15 @@ permissions:
   contents: read
 
 jobs:
+  arch:
+    uses: ./.github/workflows/arch.yaml
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     strategy:
       matrix:
-        go: [1.18.x, 1.22.x, 1.23.x, 1.24.x]
+        go: [1.26.x, 1.27.x]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -24,7 +27,7 @@ jobs:
       - run: go test -race -count=10 -timeout=120s ./...
 
   publish:
-    needs: test
+    needs: [test, arch]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -36,4 +39,7 @@ jobs:
       - name: Publish release from the annotated tag
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --verify-tag --notes-from-tag --title "$GITHUB_REF_NAME"
+        run: |
+          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
+          test -s "$RUNNER_TEMP/release-notes.md"
+          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file "$RUNNER_TEMP/release-notes.md" --title "$GITHUB_REF_NAME"

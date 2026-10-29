@@ -6,10 +6,13 @@ on:
       - master
 
 jobs:
+  arch:
+    uses: ./.github/workflows/arch.yaml
+
   test:
     strategy:
       matrix:
-        go: [1.18.x, 1.22.x, 1.23.x, 1.24.x]
+        go: [1.26.x, 1.27.x]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:

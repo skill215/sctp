@@ -1,0 +1,50 @@
+name: architecture regressions
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  abi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm
+            emulator: arm
+          - arch: arm64
+            emulator: aarch64
+          - arch: mips
+            emulator: mips
+          - arch: mips64
+            emulator: mips64
+          - arch: ppc64
+            emulator: ppc64
+          - arch: s390x
+            emulator: s390x
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.x
+          cache: false
+      - name: Install user-mode emulators
+        run: sudo apt-get update && sudo apt-get install -y qemu-user
+      - name: Compile regression tests
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: go test -c -o "$RUNNER_TEMP/sctp.test" .
+      - name: Test ABI, alignment, and address encoding
+        # QEMU user mode does not translate SCTP socket options. These tests
+        # cover the shared getsockopt syscall with SOL_SOCKET and codecs.
+        run: >-
+          timeout 60s qemu-${{ matrix.emulator }} "$RUNNER_TEMP/sctp.test"
+          -test.run '^Test(NativeCodec.*|ParseSndRcvInfo.*|SocketOptionLengthABI|SocketTimeoutABI|WrappedWriteUnalignedHeader|RawSockaddrMixedFamilies|RawSockaddrInvalidBuffers|NumericIPv6ZoneEncoding|InvalidNetwork)$'
+          -test.count=3 -test.v -test.timeout=45s

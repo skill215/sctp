@@ -16,9 +16,9 @@
 package sctp
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math/bits"
 	"net"
 	"os"
 	"strconv"
@@ -60,13 +60,14 @@ const (
 	SCTP_DELAYED_ACK  = SCTP_DELAYED_ACK_TIME
 	SCTP_DELAYED_SACK = SCTP_DELAYED_ACK_TIME
 
-	SCTP_SOCKOPT_BINDX_ADD = 100
-	SCTP_SOCKOPT_BINDX_REM = 101
-	SCTP_SOCKOPT_PEELOFF   = 102
-	SCTP_GET_PEER_ADDRS    = 108
-	SCTP_GET_LOCAL_ADDRS   = 109
-	SCTP_SOCKOPT_CONNECTX  = 110
-	SCTP_SOCKOPT_CONNECTX3 = 111
+	SCTP_SOCKOPT_BINDX_ADD     = 100
+	SCTP_SOCKOPT_BINDX_REM     = 101
+	SCTP_SOCKOPT_PEELOFF       = 102
+	SCTP_GET_PEER_ADDRS        = 108
+	SCTP_GET_LOCAL_ADDRS       = 109
+	SCTP_SOCKOPT_CONNECTX      = 110
+	SCTP_SOCKOPT_CONNECTX3     = 111
+	SCTP_SOCKOPT_PEELOFF_FLAGS = 122
 )
 
 const (
@@ -164,7 +165,7 @@ const (
 // PeerAddrinfo Parameters defined in RFC 6458 8.2.2 - Peer Address Information (SCTP_GET_PEER_ADDR_INFO)
 type PeerAddrinfo struct {
 	AssocID SCTPAssocID
-	Address [128]byte // if needed from here, retrieve using resolveFromRawAddr(unsafe.Pointer(&PeerAddrinfo.Address), 1), or get it from *SCTPConn.SCTPGetPrimaryPeerAddr()
+	Address [128]byte // Raw sockaddr_storage; use SCTPGetPrimaryPeerAddr to decode the primary address.
 	State   PeerState
 	CWND    uint32
 	SRTT    uint32
@@ -250,29 +251,14 @@ const (
 	SCTP_CANT_STR_ASSOC
 )
 
-var nativeEndian binary.ByteOrder
-var sndRcvInfoSize uintptr
+var nativeEndian = binary.NativeEndian
+var nativeLittleEndian = binary.NativeEndian.Uint16([]byte{1, 0}) == 1
 
-func init() {
-	i := uint16(1)
-	if *(*byte)(unsafe.Pointer(&i)) == 0 {
-		nativeEndian = binary.BigEndian
-	} else {
-		nativeEndian = binary.LittleEndian
-	}
-	info := SndRcvInfo{}
-	sndRcvInfoSize = unsafe.Sizeof(info)
-}
-
-func toBuf(v interface{}) []byte {
-	var buf bytes.Buffer
-	binary.Write(&buf, nativeEndian, v)
-	return buf.Bytes()
-}
+const sndRcvInfoSize = unsafe.Sizeof(SndRcvInfo{})
 
 func htons(h uint16) uint16 {
-	if nativeEndian == binary.LittleEndian {
-		return (h << 8 & 0xff00) | (h >> 8 & 0xff)
+	if nativeLittleEndian {
+		return bits.ReverseBytes16(h)
 	}
 	return h
 }
@@ -280,8 +266,8 @@ func htons(h uint16) uint16 {
 var ntohs = htons
 
 func htonl(h uint32) uint32 {
-	if nativeEndian == binary.LittleEndian {
-		return (h << 24 & 0xff000000) | (h << 8 & 0x00ff0000) | (h >> 8 & 0x0000ff00) | (h >> 24 & 0x000000ff)
+	if nativeLittleEndian {
+		return bits.ReverseBytes32(h)
 	}
 	return h
 }
@@ -330,9 +316,12 @@ func (a *SCTPAddr) ToRawSockAddrBuf() []byte {
 			buf = append(buf, toBuf(s)...)
 		} else {
 			var scopeid uint32
-			ifi, err := net.InterfaceByName(ip.Zone)
-			if err == nil {
+			// Interface names may be numeric; preserve name precedence before
+			// treating an otherwise unknown zone as an interface index.
+			if ifi, err := net.InterfaceByName(ip.Zone); err == nil {
 				scopeid = uint32(ifi.Index)
+			} else if numeric, err := strconv.ParseUint(ip.Zone, 10, 32); err == nil {
+				scopeid = uint32(numeric)
 			}
 			s := syscall.RawSockaddrInet6{
 				Family:   syscall.AF_INET6,
@@ -347,7 +336,7 @@ func (a *SCTPAddr) ToRawSockAddrBuf() []byte {
 }
 
 func (a *SCTPAddr) String() string {
-	var b bytes.Buffer
+	var b strings.Builder
 
 	for n, i := range a.IPAddrs {
 		if i.IP.To4() != nil {
@@ -368,17 +357,28 @@ func (a *SCTPAddr) String() string {
 
 func (a *SCTPAddr) Network() string { return "sctp" }
 
-func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
-	tcpnet := ""
+func normalizeNetwork(network string) (string, error) {
 	switch network {
-	case "", "sctp":
-		tcpnet = "tcp"
+	case "":
+		return "sctp", nil
+	case "sctp", "sctp4", "sctp6":
+		return network, nil
+	default:
+		return "", fmt.Errorf("invalid net: %s", network)
+	}
+}
+
+func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
+	network, err := normalizeNetwork(network)
+	if err != nil {
+		return nil, err
+	}
+	tcpnet := "tcp"
+	switch network {
 	case "sctp4":
 		tcpnet = "tcp4"
 	case "sctp6":
 		tcpnet = "tcp6"
-	default:
-		return nil, fmt.Errorf("invalid net: %s", network)
 	}
 	elems := strings.Split(addrs, "/")
 	if len(elems) == 0 {
@@ -413,8 +413,8 @@ func SCTPConnect(fd int, addr *SCTPAddr) (int, error) {
 		AddrNum: int32(len(buf)),
 		Addrs:   uintptr(uintptr(unsafe.Pointer(&buf[0]))),
 	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := getsockopt(fd, SCTP_SOCKOPT_CONNECTX3, uintptr(unsafe.Pointer(&param)), uintptr(unsafe.Pointer(&optlen)))
+	optlen := uint32(unsafe.Sizeof(param))
+	_, _, err := getsockopt(fd, SCTP_SOCKOPT_CONNECTX3, uintptr(unsafe.Pointer(&param)), &optlen)
 	if err == nil {
 		return int(param.AssocID), nil
 	} else if err != syscall.ENOPROTOOPT {
@@ -441,7 +441,7 @@ func SCTPBind(fd int, addr *SCTPAddr, flags int) error {
 }
 
 type SCTPConn struct {
-	_fd                 int32
+	_fd                 atomic.Int32
 	file                *os.File
 	io                  *socketIO
 	initErr             error
@@ -459,7 +459,7 @@ type socketIO struct {
 }
 
 func (c *SCTPConn) fd() int {
-	return int(atomic.LoadInt32(&c._fd))
+	return int(c._fd.Load())
 }
 
 // NewSCTPConn takes ownership of fd and configures it for runtime polling.
@@ -481,7 +481,7 @@ func (c *SCTPConn) withFD(f func(int) error) error {
 }
 
 //go:uintptrescapes
-func (c *SCTPConn) getsockopt(optname, optval, optlen uintptr) (r0, r1 uintptr, err error) {
+func (c *SCTPConn) getsockopt(optname, optval uintptr, optlen *uint32) (r0, r1 uintptr, err error) {
 	err = c.withFD(func(fd int) error {
 		var opErr error
 		r0, r1, opErr = getsockopt(fd, optname, optval, optlen)
@@ -574,8 +574,8 @@ func (c *SCTPConn) SubscribeEvents(flags int) error {
 
 func (c *SCTPConn) SubscribedEvents() (int, error) {
 	param := EventSubscribe{}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&param)), uintptr(unsafe.Pointer(&optlen)))
+	optlen := uint32(unsafe.Sizeof(param))
+	_, _, err := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&param)), &optlen)
 	if err != nil {
 		return 0, err
 	}
@@ -614,15 +614,22 @@ func (c *SCTPConn) SubscribedEvents() (int, error) {
 }
 
 func (c *SCTPConn) SetDefaultSentParam(info *SndRcvInfo) error {
-	optlen := unsafe.Sizeof(*info)
-	_, _, err := c.setsockopt(SCTP_DEFAULT_SENT_PARAM, uintptr(unsafe.Pointer(info)), uintptr(optlen))
+	if info == nil {
+		return syscall.EINVAL
+	}
+	copyInfo := *info
+	copyInfo.PPID = htonl(copyInfo.PPID)
+	_, _, err := c.setsockopt(SCTP_DEFAULT_SENT_PARAM, uintptr(unsafe.Pointer(&copyInfo)), unsafe.Sizeof(copyInfo))
 	return err
 }
 
 func (c *SCTPConn) GetDefaultSentParam() (*SndRcvInfo, error) {
 	info := &SndRcvInfo{}
-	optlen := unsafe.Sizeof(*info)
-	_, _, err := c.getsockopt(SCTP_DEFAULT_SENT_PARAM, uintptr(unsafe.Pointer(info)), uintptr(unsafe.Pointer(&optlen)))
+	optlen := uint32(unsafe.Sizeof(*info))
+	_, _, err := c.getsockopt(SCTP_DEFAULT_SENT_PARAM, uintptr(unsafe.Pointer(info)), &optlen)
+	if err == nil {
+		info.PPID = ntohl(info.PPID)
+	}
 	return info, err
 }
 
@@ -634,29 +641,39 @@ func (c *SCTPConn) SetSackTimer(timer *SackTimer) error { // SackTimer
 
 func (c *SCTPConn) GetSackTimer() (*SackTimer, error) { // SackTimer
 	timer := &SackTimer{}
-	optlen := unsafe.Sizeof(*timer)
+	optlen := uint32(unsafe.Sizeof(*timer))
 	_, _, err := c.getsockopt(
 		SCTP_DELAYED_SACK,
 		uintptr(unsafe.Pointer(timer)),
-		uintptr(unsafe.Pointer(&optlen)),
+		&optlen,
 	)
 	return timer, err
 }
 
 func (c *SCTPConn) GetStatus() (*Status, error) { // Status
 	sctpStatus := &Status{}
-	optlen := unsafe.Sizeof(*sctpStatus)
+	optlen := uint32(unsafe.Sizeof(*sctpStatus))
 	_, _, err := c.getsockopt(
 		SCTP_STATUS,
 		uintptr(unsafe.Pointer(sctpStatus)),
-		uintptr(unsafe.Pointer(&optlen)),
+		&optlen,
 	)
 	return sctpStatus, err
 }
 
+// Getsockopt invokes a Linux SCTP socket option. optlen points to a uint32
+// socklen_t, including on 64-bit architectures.
+//
 //go:uintptrescapes
-func (c *SCTPConn) Getsockopt(optname, optval, optlen uintptr) (uintptr, uintptr, error) {
-	return c.getsockopt(optname, optval, optlen)
+func (c *SCTPConn) Getsockopt(optname, optval, optlen uintptr) (r0, r1 uintptr, err error) {
+	// Keep the public uintptr API as raw syscall arguments. Converting an
+	// incoming uintptr back into a Go pointer would violate checkptr rules.
+	err = c.withFD(func(fd int) error {
+		var opErr error
+		r0, r1, opErr = getSocketOption(fd, SOL_SCTP, optname, optval, optlen)
+		return opErr
+	})
+	return
 }
 
 //go:uintptrescapes
@@ -664,37 +681,48 @@ func (c *SCTPConn) Setsockopt(optname, optval, optlen uintptr) (uintptr, uintptr
 	return c.setsockopt(optname, optval, optlen)
 }
 
-func resolveFromRawAddr(ptr unsafe.Pointer, n int) (*SCTPAddr, error) {
-	addr := &SCTPAddr{
-		IPAddrs: make([]net.IPAddr, n),
+func resolveFromRawAddr(buf []byte, n int) (*SCTPAddr, error) {
+	const size4 = int(unsafe.Sizeof(syscall.RawSockaddrInet4{}))
+	const size6 = int(unsafe.Sizeof(syscall.RawSockaddrInet6{}))
+	if n < 0 || n > len(buf)/size4 {
+		return nil, syscall.EINVAL
 	}
-
-	switch family := (*(*syscall.RawSockaddrAny)(ptr)).Addr.Family; family {
-	case syscall.AF_INET:
-		addr.Port = int(ntohs(uint16((*(*syscall.RawSockaddrInet4)(ptr)).Port)))
-		tmp := syscall.RawSockaddrInet4{}
-		size := unsafe.Sizeof(tmp)
-		for i := 0; i < n; i++ {
-			a := *(*syscall.RawSockaddrInet4)(unsafe.Pointer(
-				uintptr(ptr) + size*uintptr(i)))
-			addr.IPAddrs[i] = net.IPAddr{IP: a.Addr[:]}
+	addr := &SCTPAddr{
+		IPAddrs: make([]net.IPAddr, 0, n),
+	}
+	for i := range n {
+		if len(buf) < 2 {
+			return nil, syscall.EINVAL
 		}
-	case syscall.AF_INET6:
-		addr.Port = int(ntohs(uint16((*(*syscall.RawSockaddrInet4)(ptr)).Port)))
-		tmp := syscall.RawSockaddrInet6{}
-		size := unsafe.Sizeof(tmp)
-		for i := 0; i < n; i++ {
-			a := *(*syscall.RawSockaddrInet6)(unsafe.Pointer(
-				uintptr(ptr) + size*uintptr(i)))
-			var zone string
-			ifi, err := net.InterfaceByIndex(int(a.Scope_id))
-			if err == nil {
-				zone = ifi.Name
+		var ip net.IPAddr
+		var size int
+		switch family := nativeEndian.Uint16(buf[:2]); family {
+		case syscall.AF_INET:
+			size = size4
+			if len(buf) < size {
+				return nil, syscall.EINVAL
 			}
-			addr.IPAddrs[i] = net.IPAddr{IP: a.Addr[:], Zone: zone}
+			ip.IP = append(net.IP(nil), buf[4:8]...)
+		case syscall.AF_INET6:
+			size = size6
+			if len(buf) < size {
+				return nil, syscall.EINVAL
+			}
+			ip.IP = append(net.IP(nil), buf[8:24]...)
+			if scopeID := nativeEndian.Uint32(buf[24:28]); scopeID != 0 {
+				ip.Zone = strconv.FormatUint(uint64(scopeID), 10)
+				if ifi, err := net.InterfaceByIndex(int(scopeID)); err == nil {
+					ip.Zone = ifi.Name
+				}
+			}
+		default:
+			return nil, fmt.Errorf("unknown address family: %d", family)
 		}
-	default:
-		return nil, fmt.Errorf("unknown address family: %d", family)
+		if i == 0 {
+			addr.Port = int(binary.BigEndian.Uint16(buf[2:4]))
+		}
+		addr.IPAddrs = append(addr.IPAddrs, ip)
+		buf = buf[size:]
 	}
 	return addr, nil
 }
@@ -709,12 +737,24 @@ func sctpGetAddrs(fd, id, optname int) (*SCTPAddr, error) {
 	param := getaddrs{
 		assocId: int32(id),
 	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := getsockopt(fd, uintptr(optname), uintptr(unsafe.Pointer(&param)), uintptr(unsafe.Pointer(&optlen)))
+	optlen := uint32(unsafe.Sizeof(param))
+	_, _, err := getsockopt(fd, uintptr(optname), uintptr(unsafe.Pointer(&param)), &optlen)
 	if err != nil {
 		return nil, err
 	}
-	return resolveFromRawAddr(unsafe.Pointer(&param.addrs), int(param.addrNum))
+	// Linux's local-address option returns only the address bytes in optlen;
+	// the peer-address option also counts the sctp_getaddrs header.
+	if optname == SCTP_GET_PEER_ADDRS {
+		headerLen := uint32(unsafe.Offsetof(param.addrs))
+		if optlen < headerLen {
+			return nil, syscall.EINVAL
+		}
+		optlen -= headerLen
+	}
+	if optlen > uint32(len(param.addrs)) {
+		return nil, syscall.EINVAL
+	}
+	return resolveFromRawAddr(param.addrs[:optlen], int(param.addrNum))
 }
 
 func (c *SCTPConn) SCTPGetPrimaryPeerAddr() (*SCTPAddr, error) {
@@ -726,12 +766,12 @@ func (c *SCTPConn) SCTPGetPrimaryPeerAddr() (*SCTPAddr, error) {
 	param := sctpGetSetPrim{
 		assocId: int32(0),
 	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := c.getsockopt(SCTP_PRIMARY_ADDR, uintptr(unsafe.Pointer(&param)), uintptr(unsafe.Pointer(&optlen)))
+	optlen := uint32(unsafe.Sizeof(param))
+	_, _, err := c.getsockopt(SCTP_PRIMARY_ADDR, uintptr(unsafe.Pointer(&param)), &optlen)
 	if err != nil {
 		return nil, err
 	}
-	return resolveFromRawAddr(unsafe.Pointer(&param.addrs), 1)
+	return resolveFromRawAddr(param.addrs[:], 1)
 }
 
 func (c *SCTPConn) getAddrs(id, optname int) (*SCTPAddr, error) {
@@ -769,19 +809,16 @@ func (c *SCTPConn) RemoteAddr() net.Addr {
 }
 
 func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
-	type peeloffArg struct {
-		assocId int32
-		sd      int32
-	}
-	param := peeloffArg{
-		assocId: int32(id),
-	}
-	optlen := unsafe.Sizeof(param)
-	_, _, err := c.getsockopt(SCTP_SOCKOPT_PEELOFF, uintptr(unsafe.Pointer(&param)), uintptr(unsafe.Pointer(&optlen)))
+	var peeledFD int
+	err := c.withFD(func(fd int) error {
+		var err error
+		peeledFD, err = peelOffSocket(fd, id)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	conn := NewSCTPConn(int(param.sd), c.notificationHandler)
+	conn := NewSCTPConn(peeledFD, c.notificationHandler)
 	if conn.initErr != nil {
 		conn.Close()
 		return nil, conn.initErr
@@ -839,8 +876,14 @@ func (c *SCTPSndRcvInfoWrappedConn) Write(b []byte) (int, error) {
 	if len(b) < int(sndRcvInfoSize) {
 		return 0, syscall.EINVAL
 	}
-	info := (*SndRcvInfo)(unsafe.Pointer(&b[0]))
-	n, err := c.conn.SCTPWrite(b[sndRcvInfoSize:], info)
+	var info SndRcvInfo
+	if err := decodeNative(b[:sndRcvInfoSize], &info); err != nil {
+		return 0, err
+	}
+	n, err := c.conn.SCTPWrite(b[sndRcvInfoSize:], &info)
+	if n <= 0 && err != nil {
+		return 0, err
+	}
 	return n + int(sndRcvInfoSize), err
 }
 

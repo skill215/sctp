@@ -1,5 +1,4 @@
 //go:build linux && !386
-// +build linux,!386
 
 package sctp
 
@@ -7,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"runtime"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -75,6 +75,153 @@ func TestReadSocketTimeout(t *testing.T) {
 	awaitSocketTimeout(t, done, client.Close, start)
 }
 
+func TestReadSocketTimeoutIncludesNotifications(t *testing.T) {
+	for _, method := range []string{"Read", "SCTPRead", "wrapped Read"} {
+		t.Run(method, func(t *testing.T) {
+			client, server := timeoutPair(t, syscall.SO_RCVTIMEO)
+			read := client.Read
+			switch method {
+			case "SCTPRead":
+				read = func(b []byte) (int, error) { n, _, err := client.SCTPRead(b); return n, err }
+			case "wrapped Read":
+				read = NewSCTPSndRcvInfoWrappedConn(client).Read
+			}
+			var notifications atomic.Int32
+			client.notificationHandler = func([]byte) error {
+				notifications.Add(1)
+				return nil
+			}
+			if err := client.SubscribeEvents(SCTP_EVENT_SENDER_DRY); err != nil {
+				t.Fatal(err)
+			}
+			done := make(chan error, 1)
+			start := time.Now()
+			go func() { _, err := read(make([]byte, 4096)); done <- err }()
+			// Re-subscribing on an empty sender generates real kernel notifications
+			// without delivering application data to the reader.
+			ticker := time.NewTicker(testSocketTimeout / 8)
+			defer ticker.Stop()
+			guard := time.NewTimer(time.Second)
+			defer guard.Stop()
+			for {
+				select {
+				case err := <-done:
+					if !errors.Is(err, syscall.EAGAIN) {
+						t.Fatalf("expected read timeout, got %v", err)
+					}
+					if count := notifications.Load(); count < 2 {
+						t.Fatalf("only %d notifications handled", count)
+					}
+					if elapsed := time.Since(start); elapsed < testSocketTimeout/2 || elapsed > 8*testSocketTimeout {
+						t.Fatalf("notifications changed the read budget: %v", elapsed)
+					}
+					// The expired budget belongs only to the completed read.
+					if _, err := server.Write([]byte("next read")); err != nil {
+						t.Fatal(err)
+					}
+					buf := make([]byte, 4096)
+					if n, err := client.Read(buf); err != nil || string(buf[:n]) != "next read" {
+						t.Fatalf("read after timeout: n=%d, err=%v", n, err)
+					}
+					return
+				case <-ticker.C:
+					if err := client.SubscribeEvents(0); err != nil {
+						client.Close()
+						<-done
+						t.Fatal(err)
+					}
+					if err := client.SubscribeEvents(SCTP_EVENT_SENDER_DRY); err != nil {
+						client.Close()
+						<-done
+						t.Fatal(err)
+					}
+				case <-guard.C:
+					client.Close()
+					<-done
+					t.Fatalf("read timeout was reset by %d notifications", notifications.Load())
+				}
+			}
+		})
+	}
+}
+
+func TestNotificationHandlerCanCloseConnection(t *testing.T) {
+	client, _ := timeoutPair(t, syscall.SO_RCVTIMEO)
+	client.notificationHandler = func([]byte) error { return client.Close() }
+	if err := client.SubscribeEvents(SCTP_EVENT_SENDER_DRY); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { _, err := client.Read(make([]byte, 4096)); done <- err }()
+	select {
+	case err := <-done:
+		if !errors.Is(err, net.ErrClosed) {
+			t.Fatalf("handler closed connection: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("notification handler deadlocked while closing connection")
+	}
+}
+
+func TestReadNotificationsWithoutSocketTimeout(t *testing.T) {
+	client, server := lifecyclePair(t)
+	handled := make(chan struct{}, 1)
+	client.notificationHandler = func([]byte) error {
+		select {
+		case handled <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+	if err := client.SubscribeEvents(SCTP_EVENT_SENDER_DRY); err != nil {
+		t.Fatal(err)
+	}
+	done, stopped := make(chan error, 1), make(chan struct{})
+	go func() {
+		defer close(stopped)
+		buf := make([]byte, 4096)
+		n, err := client.Read(buf)
+		if err == nil && string(buf[:n]) != "after notification" {
+			err = errors.New("unexpected data after notification")
+		}
+		done <- err
+	}()
+	t.Cleanup(func() { client.Close(); <-stopped })
+	select {
+	case <-handled:
+	case <-time.After(time.Second):
+		t.Fatal("notification handler was not called")
+	}
+	select {
+	case err := <-done:
+		t.Fatalf("unlimited read returned after a notification: %v", err)
+	case <-time.After(2 * testSocketTimeout):
+	}
+	if _, err := server.Write([]byte("after notification")); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("read did not resume after a notification")
+	}
+}
+
+func TestNotificationHandlerErrorWithSocketTimeout(t *testing.T) {
+	client, _ := timeoutPair(t, syscall.SO_RCVTIMEO)
+	want := errors.New("notification handler failed")
+	client.notificationHandler = func([]byte) error { return want }
+	if err := client.SubscribeEvents(SCTP_EVENT_SENDER_DRY); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.Read(make([]byte, 4096)); !errors.Is(err, want) {
+		t.Fatalf("expected handler error, got %v", err)
+	}
+}
+
 func TestWriteSocketTimeout(t *testing.T) {
 	client, server := timeoutPair(t, syscall.SO_SNDTIMEO)
 	if err := client.SetWriteBuffer(4096); err != nil {
@@ -86,7 +233,7 @@ func TestWriteSocketTimeout(t *testing.T) {
 	done := make(chan error, 1)
 	start := time.Now()
 	go func() {
-		for i := 0; i < 4096; i++ {
+		for range 4096 {
 			if _, err := client.Write(make([]byte, 1024)); err != nil {
 				done <- err
 				return
@@ -287,14 +434,14 @@ func TestQueuedReadHasIndependentTimeout(t *testing.T) {
 func TestCloseUnblocksQueuedReads(t *testing.T) {
 	client, _ := lifecyclePair(t)
 	done := make(chan error, 2)
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		go func() { _, err := client.Read(make([]byte, 16)); done <- err }()
 	}
 	time.Sleep(20 * time.Millisecond)
 	if err := client.Close(); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		select {
 		case err := <-done:
 			if !errors.Is(err, net.ErrClosed) {
@@ -317,7 +464,7 @@ func TestWriteSocketTimeoutCanBeCleared(t *testing.T) {
 	done := make(chan error, 1)
 	start := time.Now()
 	go func() {
-		for i := 0; i < 4096; i++ {
+		for range 4096 {
 			if _, err := client.Write(make([]byte, 1024)); err != nil {
 				done <- err
 				return

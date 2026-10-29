@@ -1,5 +1,4 @@
 //go:build !linux || (linux && 386)
-// +build !linux linux,386
 
 // Copyright 2019 Wataru Ishida. All rights reserved.
 //
@@ -29,7 +28,9 @@ import (
 var ErrUnsupported = errors.New("SCTP is unsupported on " + runtime.GOOS + "/" + runtime.GOARCH)
 
 func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
-	return &SCTPConn{_fd: int32(fd), notificationHandler: handler, initErr: ErrUnsupported}
+	conn := &SCTPConn{notificationHandler: handler, initErr: ErrUnsupported}
+	conn._fd.Store(int32(fd))
+	return conn
 }
 
 func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
@@ -40,8 +41,16 @@ func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, erro
 	return 0, 0, ErrUnsupported
 }
 
-func getsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+func getsockopt(fd int, optname, optval uintptr, optlen *uint32) (uintptr, uintptr, error) {
 	return 0, 0, ErrUnsupported
+}
+
+func getSocketOption(fd int, level, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+	return 0, 0, ErrUnsupported
+}
+
+func peelOffSocket(fd, id int) (int, error) {
+	return -1, ErrUnsupported
 }
 
 func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {

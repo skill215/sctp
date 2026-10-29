@@ -18,7 +18,7 @@ package sctp
 import (
 	"fmt"
 	"io"
-	"math/rand"
+	"math/rand/v2"
 	"sync"
 	"testing"
 	"time"
@@ -30,16 +30,12 @@ const (
 )
 
 func TestStreams(t *testing.T) {
-	var rMu sync.Mutex
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 	randomStr := func(strlen int) string {
 		const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 		result := make([]byte, strlen)
-		rMu.Lock()
 		for i := range result {
-			result[i] = chars[r.Intn(len(chars))]
+			result[i] = chars[rand.IntN(len(chars))]
 		}
-		rMu.Unlock()
 		return string(result)
 	}
 
@@ -104,9 +100,7 @@ func TestStreams(t *testing.T) {
 				return
 			}
 
-			servers.Add(1)
-			go func(sconn *SCTPConn) {
-				defer servers.Done()
+			servers.Go(func() {
 				defer sconn.Close()
 				if err := sconn.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
 					if !isStopping() {
@@ -135,14 +129,12 @@ func TestStreams(t *testing.T) {
 						return
 					}
 				}
-			}(sconn)
+			})
 		}
 	}()
 
-	clients.Add(STREAM_TEST_CLIENTS)
-	for i := 0; i < STREAM_TEST_CLIENTS; i++ {
-		go func(test int) {
-			defer clients.Done()
+	for test := range STREAM_TEST_CLIENTS {
+		clients.Go(func() {
 			conn, err := DialSCTPExt(
 				"sctp", nil, addr, InitMsg{NumOstreams: STREAM_TEST_STREAMS, MaxInstreams: STREAM_TEST_STREAMS})
 			if err != nil {
@@ -157,14 +149,12 @@ func TestStreams(t *testing.T) {
 				t.Errorf("failed to subscribe on client: %v", err)
 				return
 			}
-			for ppid := uint16(0); ppid < STREAM_TEST_STREAMS; ppid++ {
+			for ppid := range uint16(STREAM_TEST_STREAMS) {
 				info := &SndRcvInfo{
 					Stream: uint16(ppid),
 					PPID:   uint32(ppid),
 				}
-				rMu.Lock()
-				randomLen := r.Intn(255)
-				rMu.Unlock()
+				randomLen := rand.IntN(255)
 				text := fmt.Sprintf("Test %s ***\n\t\t%d %d ***", randomStr(randomLen), test, ppid)
 				n, err := conn.SCTPWrite([]byte(text), info)
 				if err != nil {
@@ -203,7 +193,7 @@ func TestStreams(t *testing.T) {
 					return
 				}
 			}
-		}(i)
+		})
 	}
 	clientsDone := make(chan struct{})
 	go func() {

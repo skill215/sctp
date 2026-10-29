@@ -1,5 +1,4 @@
 //go:build linux && !386
-// +build linux,!386
 
 // Copyright 2019 Wataru Ishida. All rights reserved.
 //
@@ -23,7 +22,6 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"sync/atomic"
 	"syscall"
 	"time"
 	"unsafe"
@@ -46,14 +44,17 @@ func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, erro
 }
 
 //go:uintptrescapes
-func getsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
-	if runtime.GOARCH == "s390x" {
-		optlen = uintptr(unsafe.Pointer(&optlen))
-	}
+func getsockopt(fd int, optname, optval uintptr, optlen *uint32) (uintptr, uintptr, error) {
+	return getSocketOption(fd, SOL_SCTP, optname, optval, uintptr(unsafe.Pointer(optlen)))
+}
+
+//go:uintptrescapes
+func getSocketOption(fd int, level, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+	// Linux socklen_t is 32 bits on every supported architecture.
 	// FIXME: syscall.SYS_GETSOCKOPT is undefined on 386
 	r0, r1, errno := syscall.Syscall6(syscall.SYS_GETSOCKOPT,
 		uintptr(fd),
-		SOL_SCTP,
+		level,
 		optname,
 		optval,
 		optlen,
@@ -83,10 +84,12 @@ func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
 		syscall.Close(fd)
 		fd = -1
 	}
-	return &SCTPConn{_fd: int32(fd), file: file, io: newSocketIO(file), initErr: err, notificationHandler: handler}
+	conn := &SCTPConn{file: file, io: newSocketIO(file), initErr: err, notificationHandler: handler}
+	conn._fd.Store(int32(fd))
+	return conn
 }
 
-func (c *SCTPConn) socketRaw() (syscall.RawConn, error) {
+func (c *SCTPConn) socketRaw() (*socketIO, error) {
 	if c == nil {
 		return nil, syscall.EBADF
 	}
@@ -103,7 +106,11 @@ func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
 	if c == nil || c.fd() < 0 {
 		return nil, syscall.EINVAL
 	}
-	return c.socketRaw()
+	raw, err := c.socketRaw()
+	if err != nil {
+		return nil, err
+	}
+	return raw, nil
 }
 
 func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
@@ -155,7 +162,13 @@ func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
 		if m.Header.Level == syscall.IPPROTO_SCTP {
 			switch m.Header.Type {
 			case SCTP_CMSG_SNDRCV:
-				dst := (*SndRcvInfo)(unsafe.Pointer(&m.Data[0]))
+				if len(m.Data) < int(sndRcvInfoSize) {
+					return nil, syscall.EINVAL
+				}
+				dst := new(SndRcvInfo)
+				if err := decodeNative(m.Data[:sndRcvInfoSize], dst); err != nil {
+					return nil, err
+				}
 				// Fix PPID to host byte order
 				dst.PPID = ntohl(dst.PPID)
 				return dst, nil
@@ -170,11 +183,18 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 	if err != nil {
 		return 0, nil, err
 	}
+	deadline, err := raw.deadline(true)
+	if err != nil {
+		if c.fd() < 0 {
+			return 0, nil, net.ErrClosed
+		}
+		return 0, nil, err
+	}
 	oob := make([]byte, 254)
 	for {
 		var n, oobn, recvflags int
 		var readErr error
-		err := raw.Read(func(fd uintptr) bool {
+		err := raw.pollDeadline(true, deadline, func(fd uintptr) bool {
 			for {
 				n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
 				if readErr != syscall.EINTR {
@@ -212,7 +232,7 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 
 func (c *SCTPConn) Close() error {
 	if c != nil {
-		fd := atomic.SwapInt32(&c._fd, -1)
+		fd := c._fd.Swap(-1)
 		if fd >= 0 && c.file != nil {
 			return c.io.Close()
 		}
@@ -258,6 +278,10 @@ func ListenSCTPExt(network string, laddr *SCTPAddr, options InitMsg) (*SCTPListe
 
 // listenSCTPExtConfig - start listener on specified address/port with given SCTP options and socket configuration
 func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network, address string, c syscall.RawConn) error, notificationHandler NotificationHandler) (*SCTPListener, error) {
+	network, err := normalizeNetwork(network)
+	if err != nil {
+		return nil, err
+	}
 	af, ipv6only := favoriteAddrFamily(network, laddr, nil, "listen")
 	sock, err := syscall.Socket(
 		af,
@@ -409,6 +433,10 @@ func DialSCTPExt(network string, laddr, raddr *SCTPAddr, options InitMsg) (*SCTP
 
 // dialSCTPExtConfig - same as DialSCTP but with given SCTP options and socket configuration
 func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, control func(network, address string, c syscall.RawConn) error, notificationHandler NotificationHandler) (*SCTPConn, error) {
+	network, err := normalizeNetwork(network)
+	if err != nil {
+		return nil, err
+	}
 	af, ipv6only := favoriteAddrFamily(network, laddr, raddr, "dial")
 	sock, err := syscall.Socket(
 		af,
@@ -473,7 +501,45 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
-	return &SCTPConn{_fd: int32(sock), file: file, io: io, notificationHandler: notificationHandler}, nil
+	conn := &SCTPConn{file: file, io: io, notificationHandler: notificationHandler}
+	conn._fd.Store(int32(sock))
+	return conn, nil
+}
+
+func peelOffSocket(fd, id int) (int, error) {
+	param := struct {
+		assocID int32
+		sd      int32
+		flags   uint32
+	}{assocID: int32(id), flags: syscall.SOCK_CLOEXEC | syscall.SOCK_NONBLOCK}
+	optlen := uint32(unsafe.Sizeof(param))
+	_, _, err := getsockopt(fd, SCTP_SOCKOPT_PEELOFF_FLAGS, uintptr(unsafe.Pointer(&param)), &optlen)
+	if err == syscall.ENOPROTOOPT {
+		return peelOffSocketLegacy(fd, id)
+	}
+	return int(param.sd), err
+}
+
+func peelOffSocketLegacy(fd, id int) (int, error) {
+	param := struct {
+		assocID int32
+		sd      int32
+	}{assocID: int32(id)}
+	optlen := uint32(unsafe.Sizeof(param))
+	// Old kernels cannot atomically set CLOEXEC on a peeled socket. Exclude
+	// Go's fork/exec until the descriptor has its close-on-exec flag.
+	syscall.ForkLock.RLock()
+	defer syscall.ForkLock.RUnlock()
+	_, _, err := getsockopt(fd, SCTP_SOCKOPT_PEELOFF, uintptr(unsafe.Pointer(&param)), &optlen)
+	if err != nil {
+		return -1, err
+	}
+	_, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(param.sd), syscall.F_SETFD, syscall.FD_CLOEXEC)
+	if errno != 0 {
+		syscall.Close(int(param.sd))
+		return -1, errno
+	}
+	return int(param.sd), nil
 }
 
 func waitForSCTPConnect(fd int) error {

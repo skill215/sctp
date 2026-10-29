@@ -1,9 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"flag"
 	"log"
-	"math/rand"
 	"net"
 	"strings"
 	"time"
@@ -12,8 +12,9 @@ import (
 )
 
 func serveClient(conn net.Conn, bufsize int) error {
+	defer conn.Close()
+	buf := make([]byte, bufsize+128) // add overhead of SCTPSndRcvInfoWrappedConn
 	for {
-		buf := make([]byte, bufsize+128) // add overhead of SCTPSndRcvInfoWrappedConn
 		n, err := conn.Read(buf)
 		if err != nil {
 			log.Printf("read failed: %v", err)
@@ -42,7 +43,7 @@ func main() {
 
 	ips := []net.IPAddr{}
 
-	for _, i := range strings.Split(*ip, ",") {
+	for i := range strings.SplitSeq(*ip, ",") {
 		if a, err := net.ResolveIPAddr("ip", i); err == nil {
 			log.Printf("Resolved address '%s' to %s", i, a)
 			ips = append(ips, *a)
@@ -87,7 +88,7 @@ func main() {
 			if err != nil {
 				log.Fatalf("failed to get write buf: %v", err)
 			}
-			*rcvbuf, err = wconn.GetWriteBuffer()
+			*rcvbuf, err = wconn.GetReadBuffer()
 			if err != nil {
 				log.Fatalf("failed to get read buf: %v", err)
 			}
@@ -143,6 +144,9 @@ func main() {
 			conn.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO)
 			buf := make([]byte, *bufsize)
 			n, err := rand.Read(buf)
+			if err != nil {
+				log.Fatalf("failed to generate random payload: %v", err)
+			}
 			if n != *bufsize {
 				log.Fatalf("failed to generate random string len: %d", *bufsize)
 			}

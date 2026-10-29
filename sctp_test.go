@@ -116,10 +116,8 @@ func TestSCTPConcurrentAccept(t *testing.T) {
 		ln.Close()
 		wg.Wait()
 	}()
-	wg.Add(N)
-	for i := 0; i < N; i++ {
-		go func() {
-			defer wg.Done()
+	for range N {
+		wg.Go(func() {
 			for {
 				c, err := ln.Accept()
 				if err != nil {
@@ -132,11 +130,11 @@ func TestSCTPConcurrentAccept(t *testing.T) {
 				default:
 				}
 			}
-		}()
+		})
 	}
 	attempts := 10 * N
 	fails := 0
-	for i := 0; i < attempts; i++ {
+	for range attempts {
 		c, err := DialSCTP("sctp", nil, addr)
 		if err != nil {
 			t.Logf("dial failed: %v", err)

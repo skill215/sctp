@@ -1,5 +1,4 @@
 //go:build linux && !386
-// +build linux,!386
 
 package sctp
 
@@ -24,9 +23,9 @@ func newSocketIO(file *os.File) *socketIO {
 func socketTimeout(fd, option int) (time.Duration, error) {
 	var value syscall.Timeval
 	size := uint32(unsafe.Sizeof(value))
-	_, _, errno := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(fd), syscall.SOL_SOCKET, uintptr(option), uintptr(unsafe.Pointer(&value)), uintptr(unsafe.Pointer(&size)), 0)
-	if errno != 0 {
-		return 0, errno
+	_, _, err := getSocketOption(fd, syscall.SOL_SOCKET, uintptr(option), uintptr(unsafe.Pointer(&value)), uintptr(unsafe.Pointer(&size)))
+	if err != nil {
+		return 0, err
 	}
 	const max = int64(1<<63 - 1)
 	sec, usec := int64(value.Sec), int64(value.Usec)
@@ -87,28 +86,45 @@ func (s *socketIO) acquire(gate chan struct{}, deadline time.Time) error {
 }
 
 func (s *socketIO) poll(read bool, f func(uintptr) bool) error {
-	option, gate := syscall.SO_SNDTIMEO, s.writeGate
-	setDeadline := s.file.SetWriteDeadline
+	deadline, err := s.deadline(read)
+	if err != nil {
+		return err
+	}
+	return s.pollDeadline(read, deadline, f)
+}
+
+// deadline snapshots the socket timeout once for a whole public operation.
+// A read that consumes notifications reuses it for every readiness wait.
+func (s *socketIO) deadline(read bool) (time.Time, error) {
+	option := syscall.SO_SNDTIMEO
 	if read {
-		option, gate, setDeadline = syscall.SO_RCVTIMEO, s.readGate, s.file.SetReadDeadline
+		option = syscall.SO_RCVTIMEO
 	}
 	var timeout time.Duration
 	var optionErr error
 	if err := s.Control(func(fd uintptr) { timeout, optionErr = socketTimeout(int(fd), option) }); err != nil {
-		return err
+		return time.Time{}, err
 	}
 	if optionErr != nil {
-		return optionErr
+		return time.Time{}, optionErr
 	}
-	var deadline time.Time
 	if timeout > 0 {
-		deadline = time.Now().Add(timeout)
+		return time.Now().Add(timeout), nil
+	}
+	return time.Time{}, nil
+}
+
+func (s *socketIO) pollDeadline(read bool, deadline time.Time, f func(uintptr) bool) error {
+	gate := s.writeGate
+	setDeadline := s.file.SetWriteDeadline
+	if read {
+		gate, setDeadline = s.readGate, s.file.SetReadDeadline
 	}
 	if err := s.acquire(gate, deadline); err != nil {
 		return err
 	}
 	defer func() { <-gate }()
-	if timeout > 0 {
+	if !deadline.IsZero() {
 		if time.Until(deadline) <= 0 {
 			return syscall.EAGAIN
 		}
@@ -127,7 +143,7 @@ func (s *socketIO) poll(read bool, f func(uintptr) bool) error {
 	} else {
 		err = raw.Write(f)
 	}
-	if timeout > 0 && errors.Is(err, os.ErrDeadlineExceeded) {
+	if !deadline.IsZero() && errors.Is(err, os.ErrDeadlineExceeded) {
 		return syscall.EAGAIN
 	}
 	return err

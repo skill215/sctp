@@ -1,5 +1,4 @@
 //go:build linux && !386
-// +build linux,!386
 
 package sctp
 
@@ -129,7 +128,7 @@ func TestListenerCloseUnblocksAllAccepts(t *testing.T) {
 			const workers = 4
 			started := make(chan struct{}, workers)
 			results := make(chan error, workers)
-			for i := 0; i < workers; i++ {
+			for range workers {
 				go func() {
 					started <- struct{}{}
 					c, err := ln.AcceptSCTP()
@@ -139,7 +138,7 @@ func TestListenerCloseUnblocksAllAccepts(t *testing.T) {
 					results <- err
 				}()
 			}
-			for i := 0; i < workers; i++ {
+			for range workers {
 				<-started
 			}
 			// Exercise an accept already waiting in the poller, not only calls after Close.
@@ -147,7 +146,7 @@ func TestListenerCloseUnblocksAllAccepts(t *testing.T) {
 			if err := ln.Close(); err != nil {
 				t.Fatal(err)
 			}
-			for i := 0; i < workers; i++ {
+			for range workers {
 				select {
 				case err := <-results:
 					if err == nil {
@@ -371,21 +370,19 @@ func TestConcurrentWritesPreserveSendInfo(t *testing.T) {
 	const messages = 16
 	var wg sync.WaitGroup
 	t.Cleanup(func() { client.Close(); server.Close(); wg.Wait() })
-	for i := 0; i < writers; i++ {
-		wg.Add(1)
-		go func(writer int) {
-			defer wg.Done()
-			for j := 0; j < messages; j++ {
-				payload := []byte(fmt.Sprintf("%d:%d", writer, j))
+	for writer := range writers {
+		wg.Go(func() {
+			for j := range messages {
+				payload := fmt.Appendf(nil, "%d:%d", writer, j)
 				if n, err := client.SCTPWrite(payload, info); err != nil || n != len(payload) {
 					t.Errorf("SCTPWrite=%d,%v", n, err)
 					return
 				}
 			}
-		}(i)
+		})
 	}
 	seen := make(map[string]bool)
-	for i := 0; i < writers*messages; i++ {
+	for range writers * messages {
 		buf := make([]byte, 64)
 		n, received, err := server.SCTPRead(buf)
 		if err != nil {

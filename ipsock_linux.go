@@ -184,10 +184,10 @@ func (a *SCTPAddr) family() int {
 
 //from https://github.com/golang/go
 func favoriteAddrFamily(network string, laddr *SCTPAddr, raddr *SCTPAddr, mode string) (family int, ipv6only bool) {
-	switch network[len(network)-1] {
-	case '4':
+	switch network {
+	case "sctp4":
 		return syscall.AF_INET, false
-	case '6':
+	case "sctp6":
 		return syscall.AF_INET6, true
 	}
 
