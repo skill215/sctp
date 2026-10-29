@@ -1,4 +1,6 @@
+//go:build !linux || (linux && 386)
 // +build !linux linux,386
+
 // Copyright 2019 Wataru Ishida. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,6 +27,14 @@ import (
 )
 
 var ErrUnsupported = errors.New("SCTP is unsupported on " + runtime.GOOS + "/" + runtime.GOARCH)
+
+func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
+	return &SCTPConn{_fd: int32(fd), notificationHandler: handler, initErr: ErrUnsupported}
+}
+
+func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
+	return nil, ErrUnsupported
+}
 
 func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
 	return 0, 0, ErrUnsupported

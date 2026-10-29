@@ -78,20 +78,8 @@ func TestStreams(t *testing.T) {
 	}
 	defer func() {
 		close(stopping)
-		// SCTP shutdown does not wake a blocking accept on this kernel.
-		// A final connection lets the accept loop observe stopping first.
-		select {
-		case <-acceptDone:
-		default:
-			wake, err := DialSCTPExt("sctp", nil, addr, InitMsg{NumOstreams: STREAM_TEST_STREAMS, MaxInstreams: STREAM_TEST_STREAMS})
-			if err != nil {
-				t.Errorf("failed to wake accept: %v", err)
-			} else {
-				wake.Close()
-			}
-		}
-		<-acceptDone
 		ln.Close()
+		<-acceptDone
 		connMu.Lock()
 		active := append([]*SCTPConn(nil), connections...)
 		connMu.Unlock()

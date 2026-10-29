@@ -28,6 +28,7 @@ import (
 	"unsafe"
 )
 
+//go:uintptrescapes
 func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
 	// FIXME: syscall.SYS_SETSOCKOPT is undefined on 386
 	r0, r1, errno := syscall.Syscall6(syscall.SYS_SETSOCKOPT,
@@ -43,6 +44,7 @@ func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, erro
 	return r0, r1, nil
 }
 
+//go:uintptrescapes
 func getsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
 	if runtime.GOARCH == "s390x" {
 		optlen = uintptr(unsafe.Pointer(&optlen))
@@ -61,39 +63,55 @@ func getsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, erro
 	return r0, r1, nil
 }
 
-type rawConn struct {
-	sockfd int
+// socketFile owns fd. Non-blocking syscalls let the runtime poller wake all
+// readers, writers and acceptors on Close, while pinning fd during callbacks.
+func socketFile(fd int) (*os.File, error) {
+	if err := syscall.SetNonblock(fd, true); err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(fd), "sctp")
+	if file == nil {
+		return nil, syscall.EBADF
+	}
+	return file, nil
 }
 
-func (r rawConn) Control(f func(fd uintptr)) error {
-	f(uintptr(r.sockfd))
-	return nil
+func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
+	file, err := socketFile(fd)
+	if err != nil {
+		syscall.Close(fd)
+		fd = -1
+	}
+	return &SCTPConn{_fd: int32(fd), file: file, initErr: err, notificationHandler: handler}
 }
 
-func (r rawConn) Read(f func(fd uintptr) (done bool)) error {
-	panic("not implemented")
-}
-
-func (r rawConn) Write(f func(fd uintptr) (done bool)) error {
-	panic("not implemented")
+func (c *SCTPConn) socketRaw() (syscall.RawConn, error) {
+	if c == nil {
+		return nil, syscall.EBADF
+	}
+	if c.initErr != nil {
+		return nil, c.initErr
+	}
+	if c.file == nil {
+		return nil, syscall.EBADF
+	}
+	return c.file.SyscallConn()
 }
 
 func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
-	fd := c.fd()
-	if fd < 0 {
+	if c == nil || c.fd() < 0 {
 		return nil, syscall.EINVAL
 	}
-	return &rawConn{sockfd: int(fd)}, nil
+	return c.socketRaw()
 }
 
 func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 	var cbuf []byte
 	if info != nil {
 		// Fix PPID to network byte order
-		oldPPID := info.PPID
-		info.PPID = htonl(info.PPID)
-		cmsgBuf := toBuf(info)
-		info.PPID = oldPPID
+		copyInfo := *info
+		copyInfo.PPID = htonl(copyInfo.PPID)
+		cmsgBuf := toBuf(&copyInfo)
 		hdr := &syscall.Cmsghdr{
 			Level: syscall.IPPROTO_SCTP,
 			Type:  SCTP_CMSG_SNDRCV,
@@ -104,7 +122,27 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 		hdr.SetLen(syscall.CmsgSpace(len(cmsgBuf)))
 		cbuf = append(toBuf(hdr), cmsgBuf...)
 	}
-	return syscall.SendmsgN(c.fd(), b, cbuf, nil, 0)
+	raw, err := c.socketRaw()
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	var writeErr error
+	err = raw.Write(func(fd uintptr) bool {
+		for {
+			n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
+			if writeErr != syscall.EINTR {
+				return writeErr != syscall.EAGAIN
+			}
+		}
+	})
+	if err != nil {
+		if c.fd() < 0 {
+			return 0, net.ErrClosed
+		}
+		return 0, err
+	}
+	return n, writeErr
 }
 
 func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
@@ -127,11 +165,30 @@ func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
 }
 
 func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
+	raw, err := c.socketRaw()
+	if err != nil {
+		return 0, nil, err
+	}
 	oob := make([]byte, 254)
 	for {
-		n, oobn, recvflags, _, err := syscall.Recvmsg(c.fd(), b, oob, 0)
+		var n, oobn, recvflags int
+		var readErr error
+		err := raw.Read(func(fd uintptr) bool {
+			for {
+				n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
+				if readErr != syscall.EINTR {
+					return readErr != syscall.EAGAIN
+				}
+			}
+		})
 		if err != nil {
-			return n, nil, err
+			if c.fd() < 0 {
+				return 0, nil, net.ErrClosed
+			}
+			return 0, nil, err
+		}
+		if readErr != nil {
+			return n, nil, readErr
 		}
 
 		if n == 0 && oobn == 0 {
@@ -155,32 +212,37 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 func (c *SCTPConn) Close() error {
 	if c != nil {
 		fd := atomic.SwapInt32(&c._fd, -1)
-		if fd > 0 {
-			info := &SndRcvInfo{
-				Flags: SCTP_EOF,
-			}
-			c.SCTPWrite(nil, info)
-			syscall.Shutdown(int(fd), syscall.SHUT_RDWR)
-			return syscall.Close(int(fd))
+		if fd >= 0 && c.file != nil {
+			return c.file.Close()
 		}
 	}
 	return syscall.EBADF
 }
 
 func (c *SCTPConn) SetWriteBuffer(bytes int) error {
-	return syscall.SetsockoptInt(c.fd(), syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes)
+	return c.withFD(func(fd int) error { return syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF, bytes) })
 }
 
-func (c *SCTPConn) GetWriteBuffer() (int, error) {
-	return syscall.GetsockoptInt(c.fd(), syscall.SOL_SOCKET, syscall.SO_SNDBUF)
+func (c *SCTPConn) GetWriteBuffer() (size int, err error) {
+	err = c.withFD(func(fd int) error {
+		var err error
+		size, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_SNDBUF)
+		return err
+	})
+	return
 }
 
 func (c *SCTPConn) SetReadBuffer(bytes int) error {
-	return syscall.SetsockoptInt(c.fd(), syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes)
+	return c.withFD(func(fd int) error { return syscall.SetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF, bytes) })
 }
 
-func (c *SCTPConn) GetReadBuffer() (int, error) {
-	return syscall.GetsockoptInt(c.fd(), syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+func (c *SCTPConn) GetReadBuffer() (size int, err error) {
+	err = c.withFD(func(fd int) error {
+		var err error
+		size, err = syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_RCVBUF)
+		return err
+	})
+	return
 }
 
 // ListenSCTP - start listener on specified address/port
@@ -204,18 +266,27 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 	if err != nil {
 		return nil, err
 	}
+	file, err := socketFile(sock)
+	if err != nil {
+		syscall.Close(sock)
+		return nil, err
+	}
 
 	// close socket on error
 	defer func() {
 		if err != nil {
-			syscall.Close(sock)
+			file.Close()
 		}
 	}()
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
 	}
 	if control != nil {
-		rc := rawConn{sockfd: sock}
+		rc, rawErr := file.SyscallConn()
+		if rawErr != nil {
+			err = rawErr
+			return nil, err
+		}
 		var localAddressString string
 		if laddr != nil {
 			localAddressString = laddr.String()
@@ -249,6 +320,7 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 	}
 	return &SCTPListener{
 			fd:                  sock,
+			file:                file,
 			notificationHandler: notificationHandler,
 		},
 		nil
@@ -258,28 +330,52 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 // a SCTPListener created from the dup'd fd.
 func FileListener(file *os.File) (*SCTPListener, error) {
 	r1, _, err := syscall.Syscall(syscall.SYS_FCNTL, file.Fd(), syscall.F_DUPFD_CLOEXEC, 0)
+	runtime.KeepAlive(file)
 	if err != 0 {
 		return nil, os.NewSyscallError("fcntl", err)
 	}
 
-	// Clear the non-blocking flag on the dup'd fd. This is needed to make sure
-	// an SCTPListener created with FileListener will behave like other
-	// listeners. Namely, its Accept methods will block until a connection is
-	// available.
-	if err := syscall.SetNonblock(int(r1), false); err != nil {
-		return nil, os.NewSyscallError("fcntl", err)
+	owned, initErr := socketFile(int(r1))
+	if initErr != nil {
+		syscall.Close(int(r1))
+		return nil, initErr
 	}
 
 	return &SCTPListener{
 		fd:                  int(r1),
+		file:                owned,
 		notificationHandler: nil,
 	}, nil
 }
 
 // AcceptSCTP waits for and returns the next SCTP connection to the listener.
 func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
-	fd, _, err := syscall.Accept4(ln.fd, 0)
-	return NewSCTPConn(fd, ln.notificationHandler), err
+	raw, err := ln.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+	var fd int
+	var acceptErr error
+	err = raw.Read(func(listenFD uintptr) bool {
+		for {
+			fd, _, acceptErr = syscall.Accept4(int(listenFD), syscall.SOCK_CLOEXEC|syscall.SOCK_NONBLOCK)
+			if acceptErr != syscall.EINTR {
+				return acceptErr != syscall.EAGAIN
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	if acceptErr != nil {
+		return nil, acceptErr
+	}
+	conn := NewSCTPConn(fd, ln.notificationHandler)
+	if conn.initErr != nil {
+		conn.Close()
+		return nil, conn.initErr
+	}
+	return conn, nil
 }
 
 // Accept waits for and returns the next connection connection to the listener.
@@ -288,16 +384,17 @@ func (ln *SCTPListener) Accept() (net.Conn, error) {
 }
 
 func (ln *SCTPListener) Close() error {
-	syscall.Shutdown(ln.fd, syscall.SHUT_RDWR)
-	return syscall.Close(ln.fd)
+	if ln == nil || ln.file == nil {
+		return syscall.EINVAL
+	}
+	return ln.file.Close()
 }
 
 func (ln *SCTPListener) SyscallConn() (syscall.RawConn, error) {
-	fd := ln.fd
-	if fd < 0 {
+	if ln == nil || ln.file == nil {
 		return nil, syscall.EINVAL
 	}
-	return &rawConn{sockfd: int(fd)}, nil
+	return ln.file.SyscallConn()
 }
 
 // DialSCTP - bind socket to laddr (if given) and connect to raddr
@@ -322,17 +419,27 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 		return nil, err
 	}
 
+	file, err := socketFile(sock)
+	if err != nil {
+		syscall.Close(sock)
+		return nil, err
+	}
+
 	// close socket on error
 	defer func() {
 		if err != nil {
-			syscall.Close(sock)
+			file.Close()
 		}
 	}()
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
 	}
 	if control != nil {
-		rc := rawConn{sockfd: sock}
+		rc, rawErr := file.SyscallConn()
+		if rawErr != nil {
+			err = rawErr
+			return nil, err
+		}
 		var localAddressString string
 		if laddr != nil {
 			localAddressString = laddr.String()
@@ -360,7 +467,7 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 		}
 	}
 	_, err = SCTPConnect(sock, raddr)
-	if err == syscall.EINTR || err == syscall.EALREADY || err == syscall.EISCONN {
+	if err == syscall.EINPROGRESS || err == syscall.EINTR || err == syscall.EALREADY || err == syscall.EISCONN {
 		// A signal can restart CONNECTX3 after it has already started the
 		// association. This is a fresh socket: wait for that association
 		// instead of discarding it as a failed dial.
@@ -369,7 +476,7 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
-	return NewSCTPConn(sock, notificationHandler), nil
+	return &SCTPConn{_fd: int32(sock), file: file, notificationHandler: notificationHandler}, nil
 }
 
 func waitForSCTPConnect(fd int) error {

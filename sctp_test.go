@@ -16,8 +16,10 @@
 package sctp
 
 import (
+	"errors"
 	"io"
 	"net"
+	"os"
 	"reflect"
 	"runtime"
 	"sync"
@@ -111,17 +113,8 @@ func TestSCTPConcurrentAccept(t *testing.T) {
 	addr = ln.Addr().(*SCTPAddr)
 	defer func() {
 		close(stopping)
-		// Wake each blocking accept before closing and allowing fd reuse.
-		for i := 0; i < N; i++ {
-			wake, err := DialSCTP("sctp", nil, addr)
-			if err != nil {
-				t.Errorf("failed to wake accept: %v", err)
-			} else {
-				wake.Close()
-			}
-		}
-		wg.Wait()
 		ln.Close()
+		wg.Wait()
 	}()
 	wg.Add(N)
 	for i := 0; i < N; i++ {
@@ -193,7 +186,7 @@ func TestSCTPCloseRecv(t *testing.T) {
 	}
 	select {
 	case <-readDone:
-		if readErr != io.EOF && readErr != syscall.EBADF {
+		if readErr != io.EOF && readErr != syscall.EBADF && !errors.Is(readErr, os.ErrClosed) && !errors.Is(readErr, net.ErrClosed) {
 			t.Fatalf("read failed: %v", readErr)
 		}
 	case <-time.After(5 * time.Second):
