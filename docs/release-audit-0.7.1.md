@@ -4,6 +4,8 @@
 
 **结论：0.7.1 存在两个已复现的缺陷，不能认定为无已知 bug。** 原有测试通过，但补充的异常断连和共享地址探测失败。下一版本应优先修复这两个发布阻塞项，见 [v0.7.2 目标](release-plan-v0.7.2.md)。
 
+本报告记录首轮审计。后续复查另确认八类缺陷，已登记为 #4–#11；完整发布阻塞清单与复现源码入口见 [v0.7.2 目标](release-plan-v0.7.2.md)及 [GitHub 发布规划 #3](https://github.com/skill215/sctp/issues/3)。
+
 ## 审计基线
 
 - 正式 release：[0.7.1](https://github.com/skill215/sctp/releases/tag/0.7.1)。
