@@ -1,0 +1,99 @@
+//go:build linux && !386
+
+package sctp
+
+import (
+	"errors"
+	"io"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+)
+
+func TestReleaseAuditReadAfterPeerAbort(t *testing.T) {
+	for _, method := range []string{"Read", "SCTPRead", "wrapped Read"} {
+		t.Run(method, func(t *testing.T) {
+			client, server := lifecyclePair(t)
+			read := client.Read
+			switch method {
+			case "SCTPRead":
+				read = func(b []byte) (int, error) { n, _, err := client.SCTPRead(b); return n, err }
+			case "wrapped Read":
+				read = NewSCTPSndRcvInfoWrappedConn(client).Read
+			}
+			raw, err := server.SyscallConn()
+			if err != nil {
+				t.Fatal(err)
+			}
+			var optionErr error
+			if err := raw.Control(func(fd uintptr) {
+				optionErr = syscall.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{Onoff: 1, Linger: 0})
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if optionErr != nil {
+				t.Fatal(optionErr)
+			}
+			if err := server.Close(); err != nil {
+				t.Fatal(err)
+			}
+			consumedReset := false
+			for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+				_, err := client.Write([]byte("after abort"))
+				if errors.Is(err, syscall.ECONNRESET) {
+					consumedReset = true
+					break
+				}
+				if err != nil {
+					t.Fatalf("write before consuming reset: %v", err)
+				}
+				time.Sleep(time.Millisecond)
+			}
+			if !consumedReset {
+				t.Fatal("peer abort did not reach client")
+			}
+			done := make(chan error, 1)
+			go func() {
+				_, err := read(make([]byte, 64))
+				done <- err
+			}()
+			select {
+			case err := <-done:
+				if !errors.Is(err, io.EOF) && !errors.Is(err, syscall.ECONNRESET) {
+					t.Fatalf("read after peer abort: %v", err)
+				}
+			case <-time.After(250 * time.Millisecond):
+				client.Close()
+				select {
+				case <-done:
+				case <-time.After(time.Second):
+					t.Fatal("read did not stop after Close")
+				}
+				t.Fatal("read blocked after Write consumed ECONNRESET; the association no longer exists")
+			}
+		})
+	}
+}
+
+func TestReleaseAuditSharedWildcardAddr(t *testing.T) {
+	addr := &SCTPAddr{Port: 0}
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 8 {
+		wg.Go(func() {
+			<-start
+			ln, err := ListenSCTP("sctp4", addr)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ln.Close()
+		})
+	}
+	close(start)
+	wg.Wait()
+	if len(addr.IPAddrs) != 0 {
+		t.Errorf("ListenSCTP mutated caller's wildcard address: %v", addr)
+	}
+}

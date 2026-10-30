@@ -29,6 +29,13 @@ go get github.com/skill215/sctp
 
 See the [releases](https://github.com/skill215/sctp/releases) for changes and
 [package reference](https://pkg.go.dev/github.com/skill215/sctp) for the full API.
+For implementation tradeoffs and API differences, see the
+[Go SCTP library comparison](docs/comparison.md) (中文).
+
+The [0.7.1 audit](docs/release-audit-0.7.1.md) documents known issues with
+reads after a peer abort and concurrent use of a wildcard address.
+See the [v0.7.2 release goals](docs/release-plan-v0.7.2.md) for fixes and
+acceptance criteria (中文).
 
 ## Quick start
 
