@@ -45,6 +45,8 @@ GOGC=20 go test -race -gcflags=all=-d=checkptr=2 \
 
 ## P1 对端 ABORT 后读取持续等待
 
+跟踪 issue：[#1](https://github.com/skill215/sctp/issues/1)，关联 [v0.7.2 发布规划 #3](https://github.com/skill215/sctp/issues/3)。
+
 ### 触发条件与结果
 
 1. 建立 SCTP client/server 关联。
@@ -69,6 +71,8 @@ TestReleaseAuditReadAfterPeerAbort/wrapped_Read: read blocked after Write consum
 修复必须区分“关联仍活跃但暂无数据”和“关联已经终止”，同时保留已缓冲数据、通知处理、超时预算和 Close 唤醒语义。临时调用方措施是在遇到 reset 等关联终止错误后及时关闭连接；接收超时只能限制等待时间。
 
 ## P2 并发监听修改共享通配地址
+
+跟踪 issue：[#2](https://github.com/skill215/sctp/issues/2)，关联 [v0.7.2 发布规划 #3](https://github.com/skill215/sctp/issues/3)。
 
 ### 触发条件与结果
 

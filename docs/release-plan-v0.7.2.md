@@ -4,7 +4,7 @@
 
 **目标：发布一个修复已知终止等待和地址共享竞争问题的稳定性版本，并规范 Go 模块版本标签。** 当前审计发现两个已复现缺陷，见 [0.7.1 审计报告](release-audit-0.7.1.md)。所有目标均须完成并验证后才能发布；本计划不是完成记录或发布日期承诺。
 
-仓库目前禁用了 GitHub Issues，因此本文件作为可在 GitHub 上审阅和更新的版本目标清单。
+发布进度统一跟踪于 [GitHub issue #3](https://github.com/skill215/sctp/issues/3)。两个发布阻塞缺陷分别为 [#1 对端 ABORT 后读取持续等待](https://github.com/skill215/sctp/issues/1)和 [#2 共享通配地址的数据竞争](https://github.com/skill215/sctp/issues/2)。本文件保留版本目标与验收基线，实际修复进度见关联 issue。
 
 ## 发布阻塞项
 
