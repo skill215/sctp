@@ -1,0 +1,279 @@
+//go:build linux && !386
+
+// Audit observation controls only. Some assertions describe the unfixed 0.7.1 behavior.
+// These are not post-fix regression acceptance tests; run with the two repro fixtures.
+
+package sctp
+
+import (
+	"bytes"
+	"errors"
+	"io"
+	"net"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func confirmTimeout(t *testing.T, c *SCTPConn) {
+	t.Helper()
+	raw, err := c.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConfirmNormalPayloadAndMetadata(t *testing.T) {
+	client, server := lifecyclePair(t)
+	wrapped := NewSCTPSndRcvInfoWrappedConn(server)
+	confirmTimeout(t, server)
+	payload := []byte("normal payload")
+	want := SndRcvInfo{Stream: 1, PPID: 42}
+	if n, err := client.SCTPWrite(payload, &want); err != nil || n != len(payload) {
+		t.Fatalf("write=%d,%v", n, err)
+	}
+	buf := bytes.Repeat([]byte{0xa5}, 128)
+	n, err := wrapped.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got SndRcvInfo
+	if err := decodeNative(buf[:sndRcvInfoSize], &got); err != nil {
+		t.Fatal(err)
+	}
+	if n != int(sndRcvInfoSize)+len(payload) || !bytes.Equal(buf[sndRcvInfoSize:n], payload) || got.Stream != 1 || got.PPID != 42 {
+		t.Fatalf("normal wrapped data n=%d info=%+v", n, got)
+	}
+}
+
+func TestConfirmRawEmptySend(t *testing.T) {
+	client, server := lifecyclePair(t)
+	confirmTimeout(t, server)
+	control := sndRcvControlMessage(toBuf(&SndRcvInfo{PPID: htonl(42)}))
+	msg := syscall.Msghdr{Control: &control[0]}
+	msg.SetControllen(len(control))
+	var sendErr syscall.Errno
+	if err := client.withFD(func(fd int) error {
+		_, _, sendErr = syscall.Syscall(syscall.SYS_SENDMSG, uintptr(fd), uintptr(unsafe.Pointer(&msg)), 0)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if sendErr != syscall.EINVAL {
+		t.Fatalf("raw zero-payload send=%v; expected kernel EINVAL", sendErr)
+	}
+	buf := make([]byte, 16)
+	n, err := server.Read(buf)
+	if n != 0 || !errors.Is(err, syscall.EAGAIN) {
+		t.Fatalf("raw rejected empty send delivered data: %d,%v,%x", n, err, buf[:n])
+	}
+	if _, err := client.Write([]byte("ok")); err != nil {
+		t.Fatal(err)
+	}
+	n, err = server.Read(buf)
+	if err != nil || string(buf[:n]) != "ok" {
+		t.Fatalf("association after EINVAL=%d,%v,%q", n, err, buf[:n])
+	}
+}
+
+func TestConfirmAbortErrorConsumption(t *testing.T) {
+	for _, consume := range []bool{false, true} {
+		name := "reset_unconsumed"
+		if consume {
+			name = "reset_consumed"
+		}
+		t.Run(name, func(t *testing.T) {
+			client, server := lifecyclePair(t)
+			live, err := client.GetStatus()
+			if err != nil || live.State != SCTP_ESTABLISHED {
+				t.Fatalf("live association status=%+v err=%v", live, err)
+			}
+			raw, _ := server.SyscallConn()
+			var optionErr error
+			if err := raw.Control(func(fd uintptr) {
+				optionErr = syscall.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{Onoff: 1, Linger: 0})
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if optionErr != nil {
+				t.Fatal(optionErr)
+			}
+			if err := server.Close(); err != nil {
+				t.Fatal(err)
+			}
+			if consume {
+				reset := false
+				for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+					_, err := client.Write([]byte("consume reset"))
+					if errors.Is(err, syscall.ECONNRESET) {
+						reset = true
+						break
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					time.Sleep(time.Millisecond)
+				}
+				if !reset {
+					t.Fatal("did not consume reset")
+				}
+				status, err := client.GetStatus()
+				if err == nil && status.State == SCTP_ESTABLISHED {
+					t.Fatal("association unexpectedly still established")
+				}
+				t.Logf("status after consumed reset: status=%+v err=%v", status, err)
+			}
+			done := make(chan error, 1)
+			go func() { _, err := client.Read(make([]byte, 16)); done <- err }()
+			if !consume {
+				select {
+				case err := <-done:
+					if !errors.Is(err, syscall.ECONNRESET) && !errors.Is(err, io.EOF) {
+						t.Fatalf("unconsumed reset read=%v", err)
+					}
+				case <-time.After(time.Second):
+					client.Close()
+					<-done
+					t.Fatal("unconsumed reset control blocked")
+				}
+				return
+			}
+			select {
+			case err := <-done:
+				t.Fatalf("consumed-reset blockage did not reproduce: %v", err)
+			case <-time.After(time.Second):
+				if err := client.Close(); err != nil {
+					t.Fatal(err)
+				}
+				select {
+				case <-done:
+					t.Log("read remained blocked for 1s on an absent association and Close woke it")
+				case <-time.After(time.Second):
+					t.Fatal("Close did not stop read")
+				}
+			}
+		})
+	}
+}
+
+func TestConfirmPrivateWildcardAddresses(t *testing.T) {
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	for range 8 {
+		wg.Go(func() {
+			<-start
+			addr := &SCTPAddr{Port: 0}
+			ln, err := ListenSCTP("sctp4", addr)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ln.Close()
+		})
+	}
+	close(start)
+	wg.Wait()
+}
+
+func TestConfirmShutdownSubscription(t *testing.T) {
+	seen := errors.New("shutdown notification seen")
+	for _, wrap := range []bool{false, true} {
+		name := "plain"
+		if wrap {
+			name = "wrapped"
+		}
+		t.Run(name, func(t *testing.T) {
+			count := 0
+			cfg := SocketConfig{NotificationHandler: func(b []byte) error {
+				if len(b) >= 8 && SCTPNotificationType(nativeEndian.Uint16(b[:2])) == SCTP_SHUTDOWN_EVENT {
+					count++
+					return seen
+				}
+				return nil
+			}}
+			ln := lifecycleListener(t)
+			client, err := cfg.Dial("sctp4", nil, ln.Addr().(*SCTPAddr))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { client.Close() })
+			server, err := ln.AcceptSCTP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { server.Close() })
+			if err := client.SubscribeEvents(SCTP_EVENT_SHUTDOWN); err != nil {
+				t.Fatal(err)
+			}
+			read := client.Read
+			if wrap {
+				read = NewSCTPSndRcvInfoWrappedConn(client).Read
+			}
+			confirmTimeout(t, client)
+			if err := server.Close(); err != nil {
+				t.Fatal(err)
+			}
+			_, err = read(make([]byte, 256))
+			t.Logf("wrap=%v shutdown callbacks=%d read=%v", wrap, count, err)
+			if !wrap && (count != 1 || !errors.Is(err, seen)) {
+				t.Fatal("plain shutdown handler control did not run")
+			}
+			if wrap && (count != 0 || !errors.Is(err, io.EOF)) {
+				t.Fatal("expected wrapped subscription loss was not observed")
+			}
+		})
+	}
+}
+
+func TestConfirmAddressValidationAndWildcard(t *testing.T) {
+	if c, err := net.DialTCP("tcp4", nil, nil); err == nil {
+		c.Close()
+		t.Fatal("stdlib nil remote was accepted")
+	} else {
+		t.Logf("standard DialTCP nil remote: %v", err)
+	}
+	if ln, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 65536}); err == nil {
+		ln.Close()
+		t.Fatal("stdlib accepted invalid port")
+	} else {
+		t.Logf("standard ListenTCP port 65536: %v", err)
+	}
+	for _, input := range []string{"127.0.0.1:0", ":0", "127.0.0.1/:0"} {
+		addr, err := ResolveSCTPAddr("sctp4", input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ln, err := ListenSCTP("sctp4", addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var actual syscall.Sockaddr
+		var sockErr error
+		raw, _ := ln.SyscallConn()
+		if err := raw.Control(func(fd uintptr) { actual, sockErr = syscall.Getsockname(int(fd)) }); err != nil {
+			ln.Close()
+			t.Fatal(err)
+		}
+		ln.Close()
+		if sockErr != nil {
+			t.Fatal(sockErr)
+		}
+		ipv4, ok := actual.(*syscall.SockaddrInet4)
+		if !ok {
+			t.Fatalf("unexpected socket address: %T", actual)
+		}
+		t.Logf("input=%q bound IP=%v", input, ipv4.Addr)
+		want := [4]byte{}
+		if input == "127.0.0.1:0" {
+			want = [4]byte{127, 0, 0, 1}
+		}
+		if ipv4.Addr != want {
+			t.Fatalf("binding observation changed: %v vs %v", ipv4.Addr, want)
+		}
+	}
+}

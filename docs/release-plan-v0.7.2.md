@@ -6,6 +6,8 @@
 
 发布进度统一跟踪于 [GitHub issue #3](https://github.com/skill215/sctp/issues/3)。首轮缺陷分别为 [#1 对端 ABORT 后读取持续等待](https://github.com/skill215/sctp/issues/1)和 [#2 共享通配地址的数据竞争](https://github.com/skill215/sctp/issues/2)，后续复查的 issue 列于下方。本文件保留版本目标与验收基线，实际修复进度见关联 issue。
 
+[2026-10-30 真实性复核](issue-verification-2026-10-30.md)已重新复现全部十项并通过正常行为对照；#7、#10、#11 按参数校验与输入健壮性问题保留，不扩大为正常连接流程普遍出错。
+
 ## 发布阻塞项
 
 ### P1 修复对端 ABORT 后读取持续等待
