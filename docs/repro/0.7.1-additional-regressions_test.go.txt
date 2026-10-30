@@ -1,0 +1,252 @@
+//go:build linux && !386
+
+package sctp
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func TestReviewWrappedPreservesEvents(t *testing.T) {
+	client, _ := lifecyclePair(t)
+	want := SCTP_EVENT_ASSOCIATION | SCTP_EVENT_SHUTDOWN
+	if err := client.SubscribeEvents(want); err != nil {
+		t.Fatal(err)
+	}
+	_ = NewSCTPSndRcvInfoWrappedConn(client)
+	got, err := client.SubscribedEvents()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got&want != want {
+		t.Fatalf("wrapper replaced event mask: got=%#x, want previous=%#x plus DATA_IO", got, want)
+	}
+}
+
+func TestReviewWrappedReadNoMetadata(t *testing.T) {
+	client, _ := lifecyclePair(t)
+	wrapped := NewSCTPSndRcvInfoWrappedConn(client)
+	if err := client.SubscribeEvents(SCTP_EVENT_DATA_IO | SCTP_EVENT_SENDER_DRY); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := client.SyscallConn()
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	buf := bytes.Repeat([]byte{0xa5}, 128)
+	defer func() {
+		if p := recover(); p != nil {
+			t.Errorf("wrapped notification read panicked: %v", p)
+		}
+	}()
+	n, err := wrapped.Read(buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("wrapped n=%d header=%x notification=%x", n, buf[:sndRcvInfoSize], buf[sndRcvInfoSize:n])
+	if n < int(sndRcvInfoSize)+8 || SCTPNotificationType(nativeEndian.Uint16(buf[sndRcvInfoSize:])) != SCTP_SENDER_DRY_EVENT {
+		t.Fatal("did not receive sender-dry notification")
+	}
+	if bytes.Equal(buf[:sndRcvInfoSize], bytes.Repeat([]byte{0xa5}, int(sndRcvInfoSize))) {
+		t.Fatal("Read counted a 32-byte metadata header but left the caller's old bytes unchanged")
+	}
+}
+
+func TestReviewEmptyRead(t *testing.T) {
+	client, server := lifecyclePair(t)
+	raw, _ := client.SyscallConn()
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Write([]byte("still alive")); err != nil {
+		t.Fatal(err)
+	}
+	n, err := client.Read(nil)
+	buf := make([]byte, 32)
+	next, nextErr := client.Read(buf)
+	t.Logf("Read(nil)=%d,%v; next=%d,%v,%q", n, err, next, nextErr, buf[:next])
+	if n != 0 || err != nil {
+		t.Fatalf("zero-length read reported %v on a live association", err)
+	}
+	if nextErr != nil || string(buf[:next]) != "still alive" {
+		t.Fatal("zero-length read lost pending payload")
+	}
+}
+
+func TestReviewInvalidPorts(t *testing.T) {
+	t.Run("Listen", func(t *testing.T) {
+		addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 65536}
+		ln, err := ListenSCTP("sctp4", addr)
+		if err == nil {
+			defer ln.Close()
+			t.Fatalf("accepted invalid port 65536 and actually bound %v", ln.Addr())
+		}
+	})
+	t.Run("Dial", func(t *testing.T) {
+		ln := lifecycleListener(t)
+		actual := ln.Addr().(*SCTPAddr)
+		bad := &SCTPAddr{IPAddrs: actual.IPAddrs, Port: actual.Port + 65536}
+		cfg := socketTimeoutConfig(syscall.SO_SNDTIMEO, 100*time.Millisecond)
+		client, err := cfg.Dial("sctp4", nil, bad)
+		if err == nil {
+			defer client.Close()
+			server, err := ln.AcceptSCTP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Close()
+			t.Fatalf("Dial accepted invalid port %d and connected to %v", bad.Port, client.RemoteAddr())
+		}
+	})
+}
+
+func TestReviewNilRemote(t *testing.T) {
+	var owner *socketIO
+	cfg := SocketConfig{Control: func(_, _ string, raw syscall.RawConn) error { owner = raw.(*socketIO); return nil }}
+	defer func() {
+		if owner != nil {
+			owner.Close()
+		}
+		if p := recover(); p != nil {
+			t.Errorf("Dial(nil remote) panicked instead of returning an error: %v", p)
+		}
+	}()
+	conn, err := cfg.Dial("sctp4", nil, nil)
+	if conn != nil {
+		conn.Close()
+	}
+	if err == nil {
+		t.Fatal("nil remote did not produce an error")
+	}
+}
+
+func TestReviewResolveTrailingEmptyAddress(t *testing.T) {
+	for _, input := range []string{"127.0.0.1/:9000", "[::1]/:9000"} {
+		addr, err := ResolveSCTPAddr("sctp", input)
+		if err == nil && len(addr.IPAddrs) == 0 {
+			t.Errorf("%q silently became wildcard %q and discarded explicit addresses", input, addr.String())
+		}
+	}
+}
+
+func TestReviewWriteErrorCount(t *testing.T) {
+	client, _ := lifecyclePair(t)
+	raw, _ := client.SyscallConn()
+	var shutdownErr error
+	if err := raw.Control(func(fd uintptr) { shutdownErr = syscall.Shutdown(int(fd), syscall.SHUT_WR) }); err != nil {
+		t.Fatal(err)
+	}
+	if shutdownErr != nil {
+		t.Fatal(shutdownErr)
+	}
+	n, err := client.Write([]byte("after shutdown"))
+	if err == nil {
+		t.Fatal("expected send failure")
+	}
+	t.Logf("Write=%d,%v", n, err)
+	if n < 0 {
+		t.Fatalf("net.Conn.Write returned negative byte count %d", n)
+	}
+}
+
+func TestReviewEmptyWriteWithMetadata(t *testing.T) {
+	client, server := lifecyclePair(t)
+	raw, _ := server.SyscallConn()
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 50*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	n, err := client.SCTPWrite(nil, &SndRcvInfo{PPID: 42})
+	if err != nil {
+		t.Logf("empty message rejected: %v", err)
+		return
+	}
+	buf := make([]byte, 16)
+	got, readErr := server.Read(buf)
+	t.Logf("SCTPWrite(nil,info)=%d,%v; peer Read=%d,%v,%x", n, err, got, readErr, buf[:got])
+	if got > 0 {
+		t.Fatal("zero-byte write injected a byte into the peer's payload")
+	}
+}
+
+func TestReviewWrappedHeaderOnlyRead(t *testing.T) {
+	client, server := lifecyclePair(t)
+	wrapped := NewSCTPSndRcvInfoWrappedConn(client)
+	raw, _ := client.SyscallConn()
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 100*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.Write([]byte("payload")); err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, int(sndRcvInfoSize))
+	n, err := wrapped.Read(buf)
+	rest := make([]byte, 16)
+	got, readErr := client.Read(rest)
+	t.Logf("wrapped Read(len=%d)=%d,%v; next=%q,%v", len(buf), n, err, rest[:got], readErr)
+	if n > len(buf) {
+		t.Fatalf("Read returned n=%d beyond buffer length %d and lost part of the payload", n, len(buf))
+	}
+}
+
+func TestReviewEOFFlag(t *testing.T) {
+	if SCTP_EOF != syscall.MSG_FIN {
+		t.Errorf("SCTP_EOF=%#x, Linux SCTP_EOF=MSG_FIN=%#x", SCTP_EOF, syscall.MSG_FIN)
+	}
+	for _, flag := range []uint16{uint16(SCTP_EOF), uint16(syscall.MSG_FIN)} {
+		t.Run(fmt.Sprintf("flags_%#x", flag), func(t *testing.T) {
+			ln := lifecycleListener(t)
+			fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, syscall.IPPROTO_SCTP)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
+			if err != nil {
+				syscall.Close(fd)
+				t.Fatal(err)
+			}
+			original := NewSCTPConn(fd, nil)
+			t.Cleanup(func() { original.Close() })
+			server, err := ln.AcceptSCTP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { server.Close() })
+			raw, _ := server.SyscallConn()
+			if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 100*time.Millisecond); err != nil {
+				t.Fatal(err)
+			}
+			info := SndRcvInfo{Flags: flag, AssocID: int32(id)}
+			control := sndRcvControlMessage(toBuf(&info))
+			msg := syscall.Msghdr{Control: &control[0]}
+			msg.SetControllen(len(control))
+			var sendErr syscall.Errno
+			if err := original.withFD(func(fd int) error {
+				_, _, sendErr = syscall.Syscall(syscall.SYS_SENDMSG, uintptr(fd), uintptr(unsafe.Pointer(&msg)), 0)
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("raw zero-payload send flags=%#x => %v", flag, sendErr)
+			if sendErr != 0 {
+				if flag == uint16(syscall.MSG_FIN) {
+					t.Fatalf("kernel MSG_FIN control failed: %v", sendErr)
+				}
+				t.Errorf("exported SCTP_EOF is rejected instead of shutting down: %v", sendErr)
+				return
+			}
+			buf := make([]byte, 16)
+			n, readErr := server.Read(buf)
+			t.Logf("peer Read=%d,%v", n, readErr)
+			if !errors.Is(readErr, io.EOF) {
+				t.Errorf("shutdown flag %#x did not produce EOF: %v", flag, readErr)
+			}
+		})
+	}
+}
