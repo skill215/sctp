@@ -3,6 +3,7 @@
 package sctp
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -149,7 +150,7 @@ func TestStabilityInvalidEndpointInputs(t *testing.T) {
 }
 
 func TestStabilityMultihomingEmptyHosts(t *testing.T) {
-	for _, input := range []string{"127.0.0.1/:0", "/127.0.0.1:0", "127.0.0.1//127.0.0.2:0", "[::1]/:0", "/[::1]:0", "/:0"} {
+	for _, input := range []string{"127.0.0.1/:0", "/127.0.0.1:0", "127.0.0.1//127.0.0.2:0", "[::1]/:0", "/[::1]:0", "/:0", "[]/127.0.0.1:0", "127.0.0.1/[]:0", "[]/[::1]:0"} {
 		if a, err := ResolveSCTPAddr("sctp", input); err == nil {
 			t.Errorf("accepted %q as %v", input, a)
 		}
@@ -214,5 +215,44 @@ func TestStabilityAddressSnapshot(t *testing.T) {
 	defer ln.Close()
 	if got := ln.Addr().(*SCTPAddr); !got.IPAddrs[0].IP.Equal(net.IPv4(127, 0, 0, 1)) {
 		t.Fatalf("internal snapshot changed: %v", got)
+	}
+}
+
+func TestStabilityAddressFailureSnapshots(t *testing.T) {
+	for _, network := range []string{"sctp4", "sctp6"} {
+		t.Run(network, func(t *testing.T) {
+			host := "127.0.0.1"
+			if network == "sctp6" {
+				host = "[::1]"
+			}
+			a, err := ResolveSCTPAddr(network, host+":0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ln, err := ListenSCTP(network, a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer ln.Close()
+			remote := ln.Addr().(*SCTPAddr)
+			alias := []net.IPAddr{{IP: net.IP{1, 2, 3, 4}, Zone: "keep"}}
+			input := &SCTPAddr{Port: remote.Port, IPAddrs: alias[:0]}
+			if other, err := ListenSCTP(network, input); err == nil {
+				other.Close()
+				t.Fatal("bind conflict not exercised")
+			}
+			if len(input.IPAddrs) != 0 || alias[0].Zone != "keep" || !bytes.Equal(alias[0].IP, []byte{1, 2, 3, 4}) {
+				t.Fatal("bind failure mutated input")
+			}
+			ln.Close()
+			input.Port = 0
+			if c, err := DialSCTP(network, input, remote); err == nil {
+				c.Close()
+				t.Fatal("connection refusal not exercised")
+			}
+			if len(input.IPAddrs) != 0 || alias[0].Zone != "keep" || !bytes.Equal(alias[0].IP, []byte{1, 2, 3, 4}) {
+				t.Fatal("connect failure mutated input")
+			}
+		})
 	}
 }

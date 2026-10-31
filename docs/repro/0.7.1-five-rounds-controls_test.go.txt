@@ -1,0 +1,347 @@
+//go:build linux && !386
+
+package sctp
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"os"
+	"runtime"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func fiveTimeout(t *testing.T, c *SCTPConn) {
+	t.Helper()
+	raw, err := c.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, opt := range []int{syscall.SO_RCVTIMEO, syscall.SO_SNDTIMEO} {
+		if err := setSocketTimeout(raw, opt, 2*time.Second); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestFiveMessageMatrix(t *testing.T) {
+	for _, wrapped := range []bool{false, true} {
+		for _, size := range []int{1, 2, 31, 32, 33, 1024, 16384} {
+			t.Run(fmt.Sprintf("wrapped=%v/size=%d", wrapped, size), func(t *testing.T) {
+				client, server := lifecyclePair(t)
+				fiveTimeout(t, client)
+				fiveTimeout(t, server)
+				if err := server.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+					t.Fatal(err)
+				}
+				info := SndRcvInfo{Stream: 1, PPID: 0xfedcba98, Flags: SCTP_UNORDERED}
+				original := info
+				payload := bytes.Repeat([]byte{0x87}, size)
+				if wrapped {
+					w := NewSCTPSndRcvInfoWrappedConn(client)
+					frame := append(toBuf(&info), payload...)
+					if n, err := w.Write(frame); n != len(frame) || err != nil {
+						t.Fatalf("Write=%d,%v", n, err)
+					}
+				} else {
+					if n, err := client.SCTPWrite(payload, &info); n != size || err != nil {
+						t.Fatalf("Write=%d,%v", n, err)
+					}
+				}
+				if info != original {
+					t.Fatal("caller metadata changed")
+				}
+				buf := make([]byte, size+1)
+				n, got, err := server.SCTPRead(buf)
+				if err != nil || n != size || !bytes.Equal(buf[:n], payload) {
+					t.Fatalf("Read=%d,%v", n, err)
+				}
+				if got == nil || got.Stream != info.Stream || got.PPID != info.PPID || got.Flags&SCTP_UNORDERED == 0 {
+					t.Fatalf("metadata=%+v", got)
+				}
+			})
+		}
+	}
+}
+
+func TestFivePartialReadReassembly(t *testing.T) {
+	client, server := lifecyclePair(t)
+	fiveTimeout(t, client)
+	fiveTimeout(t, server)
+	if err := server.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+		t.Fatal(err)
+	}
+	payload := bytes.Repeat([]byte("partial-message"), 2048)
+	if _, err := client.SCTPWrite(payload, &SndRcvInfo{PPID: 123, Stream: 1}); err != nil {
+		t.Fatal(err)
+	}
+	var result []byte
+	for len(result) < len(payload) {
+		buf := make([]byte, 127)
+		n, _, err := server.SCTPRead(buf)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n <= 0 || n > len(buf) {
+			t.Fatalf("invalid count %d", n)
+		}
+		result = append(result, buf[:n]...)
+	}
+	if !bytes.Equal(result, payload) {
+		t.Fatal("partial read lost or changed bytes")
+	}
+}
+
+func TestFiveConcurrentIO(t *testing.T) {
+	client, server := lifecyclePair(t)
+	fiveTimeout(t, client)
+	fiveTimeout(t, server)
+	const workers, messages = 4, 16
+	results := make(chan string, workers*messages)
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Go(func() {
+			for range messages {
+				buf := make([]byte, 128)
+				n, err := server.Read(buf)
+				if err != nil {
+					t.Errorf("reader: %v", err)
+					return
+				}
+				results <- string(buf[:n])
+			}
+		})
+		wg.Go(func() {
+			for j := 0; j < messages; j++ {
+				if _, err := client.Write(fmt.Appendf(nil, "writer=%d/message=%d", i, j)); err != nil {
+					t.Errorf("writer: %v", err)
+					return
+				}
+			}
+		})
+	}
+	wg.Wait()
+	close(results)
+	seen := map[string]bool{}
+	for msg := range results {
+		if seen[msg] {
+			t.Errorf("duplicate %s", msg)
+		}
+		seen[msg] = true
+	}
+	if len(seen) != workers*messages {
+		t.Fatalf("received %d messages", len(seen))
+	}
+}
+
+func TestFiveCloseQueuedIO(t *testing.T) {
+	_, server := lifecyclePair(t)
+	const readers = 8
+	results := make(chan error, readers)
+	var wg sync.WaitGroup
+	for range readers {
+		wg.Go(func() { _, err := server.Read(make([]byte, 128)); results <- err })
+	}
+	time.Sleep(10 * time.Millisecond)
+	var closes sync.WaitGroup
+	for range 8 {
+		closes.Go(func() { server.Close() })
+	}
+	closes.Wait()
+	wg.Wait()
+	close(results)
+	for err := range results {
+		if !errors.Is(err, net.ErrClosed) && !errors.Is(err, os.ErrClosed) && !errors.Is(err, syscall.EINVAL) {
+			t.Errorf("closed reader error=%v", err)
+		}
+	}
+}
+
+func TestFiveLifecycleFDCount(t *testing.T) {
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
+	warm, err := ListenSCTP("sctp4", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	warm.Close()
+	before, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 32 {
+		ln, err := ListenSCTP("sctp4", addr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client, err := DialSCTP("sctp4", nil, ln.Addr().(*SCTPAddr))
+		if err != nil {
+			ln.Close()
+			t.Fatal(err)
+		}
+		server, err := ln.AcceptSCTP()
+		if err != nil {
+			client.Close()
+			ln.Close()
+			t.Fatal(err)
+		}
+		client.Close()
+		server.Close()
+		ln.Close()
+	}
+	runtime.GC()
+	after, err := os.ReadDir("/proc/self/fd")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("fd before=%d after=%d", len(before), len(after))
+	if len(after) > len(before) {
+		t.Fatal("file descriptors leaked")
+	}
+}
+
+func TestFiveEventSubscriptions(t *testing.T) {
+	client, _ := lifecyclePair(t)
+	for flags := 0; flags <= SCTP_EVENT_ALL; flags++ {
+		if err := client.SubscribeEvents(flags); err != nil {
+			t.Fatalf("flags=%x: %v", flags, err)
+		}
+		got, err := client.SubscribedEvents()
+		if err != nil || got != flags {
+			t.Fatalf("flags=%x got=%x err=%v", flags, got, err)
+		}
+	}
+}
+
+func TestFiveNotificationAndPayload(t *testing.T) {
+	notifications := 0
+	cfg := SocketConfig{NotificationHandler: func(b []byte) error {
+		if len(b) < 8 {
+			return fmt.Errorf("truncated notification: %d", len(b))
+		}
+		length := nativeEndian.Uint32(b[4:8])
+		if int(length) != len(b) {
+			return fmt.Errorf("notification length=%d got=%d", length, len(b))
+		}
+		notifications++
+		return nil
+	}, Control: func(_, _ string, raw syscall.RawConn) error {
+		var err error
+		outer := raw.Control(func(fd uintptr) {
+			v := EventSubscribe{Association: 1, Shutdown: 1, DataIO: 1}
+			_, _, err = setsockopt(int(fd), SCTP_EVENTS, uintptr(unsafe.Pointer(&v)), 10)
+		})
+		if outer != nil {
+			return outer
+		}
+		return err
+	}}
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
+	ln, err := cfg.Listen("sctp4", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	client, err := DialSCTP("sctp4", nil, ln.Addr().(*SCTPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	server, err := ln.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer server.Close()
+	fiveTimeout(t, server)
+	if _, err := client.SCTPWrite([]byte("payload"), &SndRcvInfo{PPID: 42}); err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 256)
+	n, info, err := server.SCTPRead(buf)
+	if err != nil || string(buf[:n]) != "payload" || info == nil || info.PPID != 42 {
+		t.Fatalf("Read=%d,%+v,%v", n, info, err)
+	}
+	client.Close()
+	if _, _, err := server.SCTPRead(buf); err != io.EOF {
+		t.Fatalf("shutdown read=%v", err)
+	}
+	if notifications < 2 {
+		t.Fatalf("association/shutdown notifications=%d", notifications)
+	}
+}
+
+func TestFiveSocketOptions(t *testing.T) {
+	client, _ := lifecyclePair(t)
+	for _, size := range []int{4096, 32768, 65536} {
+		if err := client.SetReadBuffer(size); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := client.GetReadBuffer(); err != nil || got < size {
+			t.Fatalf("receive buffer=%d,%v", got, err)
+		}
+		if err := client.SetWriteBuffer(size); err != nil {
+			t.Fatal(err)
+		}
+		if got, err := client.GetWriteBuffer(); err != nil || got < size {
+			t.Fatalf("send buffer=%d,%v", got, err)
+		}
+	}
+	timer := &SackTimer{SackDelay: 100, SackFrequency: 2}
+	if err := client.SetSackTimer(timer); err != nil {
+		t.Fatal(err)
+	}
+	got, err := client.GetSackTimer()
+	if err != nil || got.SackDelay != 100 || got.SackFrequency != 2 {
+		t.Fatalf("timer=%+v,%v", got, err)
+	}
+	if err := client.SetDefaultSentParam(nil); !errors.Is(err, syscall.EINVAL) {
+		t.Fatalf("nil default=%v", err)
+	}
+	if _, err := client.SCTPGetPrimaryPeerAddr(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFiveAddressFamilies(t *testing.T) {
+	for _, entry := range []struct{ network, stringAddr string }{
+		{"sctp4", "127.0.0.1:0"}, {"sctp6", "[::1]:0"},
+		{"sctp", "127.0.0.1/[::1]:0"}, {"sctp", "[::1]/127.0.0.1:0"},
+	} {
+		t.Run(entry.stringAddr, func(t *testing.T) {
+			addr, err := ResolveSCTPAddr(entry.network, entry.stringAddr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ln, err := ListenSCTP(entry.network, addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer ln.Close()
+			bound := ln.Addr().(*SCTPAddr)
+			client, err := DialSCTP(entry.network, nil, bound)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer client.Close()
+			server, err := ln.AcceptSCTP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Close()
+			fiveTimeout(t, server)
+			if _, err := client.Write([]byte("family")); err != nil {
+				t.Fatal(err)
+			}
+			buf := make([]byte, 64)
+			n, err := server.Read(buf)
+			if err != nil || string(buf[:n]) != "family" {
+				t.Fatalf("Read=%d,%v", n, err)
+			}
+		})
+	}
+}

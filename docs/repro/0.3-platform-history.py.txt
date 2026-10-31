@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+# Historical platform observations for SCTP 0.3 with success controls.
+# Listener.SyscallConn was absent on every 0.3 target; those compile failures
+# establish API availability, not the later platform-parity defect.
+# Linux with native amd64 + 386 execution and kernel SCTP is required.
+# python3 this_file.py --repo /path/to/sctp --go /path/to/go --count 5
+import argparse, json, os, subprocess, tempfile
+from pathlib import Path
+
+PROGRAMS = {'public-sentinel': 'package main\nimport (\n "errors"\n "github.com/skill215/sctp"\n)\nfunc main() {\n _,err := sctp.ListenSCTP("sctp4",nil)\n if errors.Is(err,sctp.ErrUnsupported) { return }\n}\n', 'public-listener-raw': 'package main\nimport (\n "syscall"\n "github.com/skill215/sctp"\n)\nvar _ syscall.Conn = (*sctp.SCTPListener)(nil)\nfunc main() {}\n', 'ownership': 'package main\nimport (\n "fmt"\n "os"\n "syscall"\n "github.com/skill215/sctp"\n)\nfunc main() {\n fd,err:=syscall.Socket(syscall.AF_INET,syscall.SOCK_STREAM,132)\n if err!=nil {panic(err)}\n defer syscall.Close(fd)\n protocol,err:=syscall.GetsockoptInt(fd,syscall.SOL_SOCKET,38)\n if err!=nil||protocol!=132 {panic(fmt.Sprintf("SCTP setup=%d,%v",protocol,err))}\n conn:=sctp.NewSCTPConn(fd,nil)\n closeErr:=conn.Close()\n _,fdErr:=syscall.GetsockoptInt(fd,syscall.SOL_SOCKET,syscall.SO_TYPE)\n fmt.Printf("Close=%v; fd status=%v\\n",closeErr,fdErr)\n if fdErr==nil {fmt.Println("owned SCTP fd remains open after Close"); os.Exit(1)}\n}\n'}
+
+parser=argparse.ArgumentParser()
+parser.add_argument('--repo',default='.')
+parser.add_argument('--go',default='go')
+parser.add_argument('--count',type=int,default=5)
+args=parser.parse_args()
+repo=Path(args.repo).resolve()
+if not (repo/'go.mod').exists(): parser.error('--repo must point to the SCTP repository')
+failures=0
+with tempfile.TemporaryDirectory(prefix='sctp-platform-repro-') as directory:
+    root=Path(directory)
+    for name,source in PROGRAMS.items():
+        path=root/name;path.mkdir()
+        (path/'main.go').write_text(source)
+        (path/'go.mod').write_text('module example.com/'+name+'\n\ngo 1.18\nrequire github.com/skill215/sctp v0.0.0\nreplace github.com/skill215/sctp => '+json.dumps(str(repo))+'\n')
+    for iteration in range(1,args.count+1):
+        for name in PROGRAMS:
+            targets=[('linux','amd64'),('linux','386')]
+            if name!='ownership': targets += [('darwin','amd64'),('windows','amd64')]
+            for target,arch in targets:
+                env=os.environ.copy();env.update(GOOS=target,GOARCH=arch,CGO_ENABLED='0')
+                cmd=[args.go,'run','-buildvcs=false','.'] if name=='ownership' else [args.go,'build','-buildvcs=false','-o',str(root/'consumer'),'.']
+                result=subprocess.run(cmd,cwd=root/name,env=env,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,timeout=120)
+                print(json.dumps(dict(iteration=iteration,scenario=name,os=target,arch=arch,exit=result.returncode,output=result.stdout)),flush=True)
+                failures += result.returncode!=0
+# Exit status reports failed commands in this observation matrix.
+# It does not classify every unavailable historical API as a defect.
+raise SystemExit(bool(failures))

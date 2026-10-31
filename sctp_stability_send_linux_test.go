@@ -5,6 +5,7 @@ package sctp
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"syscall"
 	"testing"
@@ -167,5 +168,45 @@ func TestStabilityDefaultSendControls(t *testing.T) {
 		} else if got != 0 || !errors.Is(recvErr, syscall.ECONNRESET) {
 			t.Fatalf("default control peer=%d,%v", got, recvErr)
 		}
+	}
+}
+
+func TestStabilityControlCombinations(t *testing.T) {
+	for _, flags := range []uint16{SCTP_EOF | SCTP_ABORT, 0xffff} {
+		t.Run(fmt.Sprintf("%x", flags), func(t *testing.T) {
+			c, p, id := stabilityEndpoint(t)
+			control, controlPeer, controlID := stabilityEndpoint(t)
+			rawInfo := SndRcvInfo{AssocID: int32(controlID), Flags: flags}
+			var rawErr error
+			if err := control.withFD(func(fd int) error { _, rawErr = sendmsgZero(fd, sndRcvControlMessage(toBuf(&rawInfo))); return nil }); err != nil {
+				t.Fatal(err)
+			}
+			if n, err := c.SCTPWrite(nil, &SndRcvInfo{AssocID: int32(id), Flags: flags}); n != 0 || !errors.Is(err, rawErr) {
+				t.Fatalf("flags=%x send=%d,%v raw=%v", flags, n, err, rawErr)
+			}
+			if rawErr != nil {
+				for i, conn := range []*SCTPConn{c, control} {
+					assoc := id
+					if i == 1 {
+						assoc = controlID
+					}
+					if _, err := conn.SCTPWrite([]byte("alive"), &SndRcvInfo{AssocID: int32(assoc)}); err != nil {
+						t.Fatal(err)
+					}
+				}
+				for _, peer := range []*SCTPConn{p, controlPeer} {
+					b := make([]byte, 64)
+					if n, err := peer.Read(b); err != nil || string(b[:max(0, n)]) != "alive" {
+						t.Fatalf("rejected control affected data=%d,%v", n, err)
+					}
+				}
+			} else {
+				n, err := p.Read(make([]byte, 64))
+				rn, re := controlPeer.Read(make([]byte, 64))
+				if n != 0 || rn != 0 || !errors.Is(err, re) {
+					t.Fatalf("control outcome=%d,%v raw=%d,%v", n, err, rn, re)
+				}
+			}
+		})
 	}
 }

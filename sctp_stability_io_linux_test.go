@@ -258,3 +258,32 @@ func TestStabilityAcceptErrorNil(t *testing.T) {
 		t.Fatalf("Accept=%v,%v", c, err)
 	}
 }
+
+func TestStabilityNotificationHeader(t *testing.T) {
+	c, p := lifecyclePair(t)
+	w := NewSCTPSndRcvInfoWrappedConn(c)
+	if _, err := p.SCTPWrite([]byte("metadata"), &SndRcvInfo{Stream: 1, PPID: 42}); err != nil {
+		t.Fatal(err)
+	}
+	b := bytes.Repeat([]byte{0xa5}, 128)
+	n, err := w.Read(b)
+	var info SndRcvInfo
+	if err != nil || n != 40 {
+		t.Fatalf("metadata control=%d,%v", n, err)
+	}
+	if err := decodeNative(b[:32], &info); err != nil || info.PPID != 42 || info.Stream != 1 {
+		t.Fatalf("metadata=%+v,%v", info, err)
+	}
+	for range 2 {
+		if err := c.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+			t.Fatal(err)
+		}
+		if err := c.SubscribeEvents(SCTP_EVENT_DATA_IO | SCTP_EVENT_SENDER_DRY); err != nil {
+			t.Fatal(err)
+		}
+		n, err = w.Read(b)
+		if err != nil || n != 44 || nativeEndian.Uint16(b[32:34]) != uint16(SCTP_SENDER_DRY_EVENT) || !bytes.Equal(b[:32], make([]byte, 32)) {
+			t.Fatalf("reused notification frame=%d,%v %x", n, err, b[:44])
+		}
+	}
+}

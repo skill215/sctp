@@ -395,6 +395,9 @@ func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
 		if err != nil {
 			return nil, err
 		}
+		if tcpa.IP == nil {
+			return nil, &net.AddrError{Err: "empty multihoming host", Addr: addrs}
+		}
 		ipaddrs = append(ipaddrs, net.IPAddr{IP: tcpa.IP, Zone: tcpa.Zone})
 	}
 	tcpa, err := net.ResolveTCPAddr(tcpnet, elems[len(elems)-1])

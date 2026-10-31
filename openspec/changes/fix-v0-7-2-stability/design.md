@@ -27,7 +27,7 @@
 
 覆盖 #1。接收回调始终先执行非阻塞 Recvmsg，读到的 payload 或通知按现有流程处理。只有返回 EAGAIN/EWOULDBLOCK 时，才判断是否应继续等待。
 
-引入内部 associationScope，区分单关联连接与 one-to-many/未知端点。Dial、Accept 和本库 PeelOff 的返回路径标记单关联；NewSCTPConn 对 SOCK_STREAM 可确定单关联，对 SOCK_SEQPACKET 仅在已成功查询 assoc_id=0 的 SCTP_STATUS 时确定为独占关联。其余保守按端点处理。分类在返回对象前完成；PeelOff 显式保留来源，不能只依据 SO_TYPE，因为 peeled socket 仍可能是 SOCK_SEQPACKET。
+引入内部 associationScope，区分单关联连接与 one-to-many/未知端点。Dial、Accept 和本库 PeelOff 的返回路径标记单关联；NewSCTPConn 先确认 SO_PROTOCOL=132，再对 SOCK_STREAM 确定单关联，对 SOCK_SEQPACKET 仅在已成功查询 assoc_id=0 的 SCTP_STATUS 时确定为独占关联。其余保守按端点处理。分类在返回对象前完成；PeelOff 显式保留来源，不能只依据 SO_TYPE，因为 peeled socket 仍可能是 SOCK_SEQPACKET。
 
 单关联 EAGAIN 路径在同一个已固定 fd 的回调内直接查询 SCTP_STATUS，使用正确大小的 Status、assoc_id=0 和 uint32 socklen_t：
 
@@ -39,6 +39,8 @@
 | one-to-many 或无法确定的端点 | 保留原有等待行为，不因 assoc_id=0 查询失败而终止端点 |
 
 EINVAL 的解释只用于此处格式已知正确的内部 SCTP_STATUS 查询，不能扩展为“任意 getsockopt 的 EINVAL 都表示断连”。Linux v6.6 实现中，状态查询的 EINVAL 来源包括结构体长度不足和关联不存在；因此 ABI 校验是启用该判定的前提。每次查询都会重新初始化参数，避免输入垃圾影响判断。
+
+实施复查补充：状态查询判定无关联后再执行一次非阻塞接收；两次调用之间可能刚到达正常 EOF 或缓冲数据，必须先交付该结果。只有第二次仍为 EAGAIN 才返回 ENOTCONN。
 
 此顺序保证先处理内核仍返回的数据，再解释无数据状态。不会提前丢弃缓冲区、吞掉真正的 ECONNRESET，也不读取会消费错误的 SO_ERROR。已有操作 deadline 在进入通知循环前取得，查询后仍沿用原预算。
 

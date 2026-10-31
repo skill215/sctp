@@ -1,0 +1,58 @@
+name: release validation
+on:
+  workflow_call:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        go: [1.26.x, 1.27.x]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - run: sudo modprobe sctp
+      - run: bash .github/scripts/validate.sh
+      - name: Require three actual numeric-zone namespace tests
+        run: |
+          go test -race -c -o "$RUNNER_TEMP/sctp.test" .
+          sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s
+      - name: Compile independent downstream consumers
+        run: python3 .github/scripts/consumer.py
+      - name: Compile and run README examples
+        run: python3 .github/scripts/readme.py
+  unsupported:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest]
+        go: [1.26.x, 1.27.x]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - if: runner.os == 'Linux'
+        run: sudo modprobe sctp
+      - name: Execute real Linux/386 SCTP ownership tests
+        if: runner.os == 'Linux'
+        env:
+          GOARCH: '386'
+          CGO_ENABLED: '0'
+        run: go test -run '^TestUnsupported' -count=3 -v -timeout=60s .
+      - name: Execute native Winsock ownership tests
+        if: runner.os == 'Windows'
+        run: go test -run '^TestUnsupported' -count=3 -v -timeout=60s .
+  arch:
+    uses: ./.github/workflows/arch.yaml

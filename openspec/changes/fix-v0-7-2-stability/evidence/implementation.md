@@ -101,3 +101,20 @@ Review: unsupported constructors close before storing fd=-1, using close on
 Unix and closesocket on Windows, without int32 truncation or retry. Close is
 immutable and cannot affect a reused number. errors.Join retains both the
 platform sentinel and native cleanup cause. Methods surface the saved error.
+
+## Final review and validation preparation
+
+Local ten-process race/shuffle rounds (seeds 7272001..7272010), vet, strict
+checkptr, low-GOGC and four 10-second fuzz targets passed on both Go versions.
+Subsequent review added [] empty-host rejection and focused tests for real
+bind/connect failures, independent reused notification headers, and raw control
+combinations. All new focused tests pass three times. The final candidate must
+rerun all gates in CI, including native Windows and six QEMU architectures.
+README echo/timeout examples compile and verify actual payload, stream and PPID.
+
+Release publishing uses the repository's Actions GITHUB_TOKEN after every
+required reusable validation job succeeds. A newly added canonical release-notes
+file on master creates an annotated tag for that validated commit; edits to
+existing notes do not create tags. Existing tags are never overwritten. The
+publish job verifies tag type/commit and performs an independent canonical
+module-version check after creating the release.
