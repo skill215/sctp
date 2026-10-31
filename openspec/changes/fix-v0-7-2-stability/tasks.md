@@ -2,7 +2,7 @@
 
 - [x] 1.1 在 codex/fix-v0-7-2-stability 分支准备实现，记录起点提交与已有未提交审计证据，保持历史标签及证据不变。
 - [ ] 1.2 将14条阻塞项映射到正式测试名，记录0.7.1失败原因及正常对照；排除期待旧错误行为的观察断言。
-- [ ] 1.3 在本机及另一原生Linux内核核对SCTP_STATUS的有效结构体大小、单关联EINVAL边界和PeelOff类型；保存设计判据的可重跑探针。
+- [x] 1.3 在本机及另一原生Linux内核核对SCTP_STATUS的有效结构体大小、单关联EINVAL边界和PeelOff类型；保存设计判据的可重跑探针。
 - [x] 1.4 确认消息表中的空读、空写真实syscall、默认控制位、header-only、部分数据加error及对象错误优先级都有明确预期；若与设计不一致，先更新设计。
 
 ## 2. 批次A 读取与wrapper完整性
@@ -26,11 +26,11 @@
 
 ## 4. 批次C 空载荷与控制发送
 
-- [ ] 4.1 为#5加入空普通写、空metadata写和header-only数据帧回归，用原始sendmsg/标记payload证明没有注入字节。
-- [ ] 4.2 为所有空payload加入私有Linux sendmsg helper，放入已有Write gate、EINTR/EAGAIN和超时流程，保留ancillary及对象生存期。
-- [ ] 4.3 保留内核默认发送参数；验证显式控制、info=nil默认ABORT、普通空消息拒绝及wrapper失败零计数，避免空写被吞成no-op。
-- [ ] 4.4 为#6显式定义EOF=0x200；验证one-to-many EOF、ABORT、abort reason及控制组合/不适用socket的内核错误。
-- [ ] 4.5 验证调用方SndRcvInfo不变、PPID字节序、失败发送零计数和wrapped frame重试。
+- [x] 4.1 为#5加入空普通写、空metadata写和header-only数据帧回归，用原始sendmsg/标记payload证明没有注入字节。
+- [x] 4.2 为所有空payload加入私有Linux sendmsg helper，放入已有Write gate、EINTR/EAGAIN和超时流程，保留ancillary及对象生存期。
+- [x] 4.3 保留内核默认发送参数；验证显式控制、info=nil默认ABORT、普通空消息拒绝及wrapper失败零计数，避免空写被吞成no-op。
+- [x] 4.4 为#6显式定义EOF=0x200；验证one-to-many EOF、ABORT、abort reason及控制组合/不适用socket的内核错误。
+- [x] 4.5 验证调用方SndRcvInfo不变、PPID字节序、失败发送零计数和wrapped frame重试。
 - [ ] 4.6 用非SCTP socket验证零iov/ancillary的32位、大端及对齐ABI，再运行原生SCTP控制消息回归。
 
 ## 5. 批次D 地址准备与查询

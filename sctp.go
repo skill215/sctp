@@ -131,7 +131,7 @@ const (
 	SCTP_ADDR_OVER
 	SCTP_ABORT
 	SCTP_SACK_IMMEDIATELY
-	SCTP_EOF
+	SCTP_EOF = 0x200 // Linux MSG_FIN; not the next iota bit.
 )
 
 const (

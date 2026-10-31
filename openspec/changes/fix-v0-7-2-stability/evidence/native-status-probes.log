@@ -1,0 +1,14 @@
+Source: https://github.com/skill215/sctp/actions/runs/41162240590
+All four jobs passed (Go 1.26.x/1.27.x, ubuntu-22.04/24.04).
+2026-10-31T02:57:27.4424619Z go version go1.26.10 linux/amd64
+2026-10-31T02:57:27.6434415Z Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+2026-10-31T02:57:27.6467750Z go version go1.26.10 linux/amd64
+2026-10-31T02:57:38.7062649Z --- PASS: TestStabilityAssociationStatusProbe (0.01s)
+2026-10-31T02:57:38.7200281Z --- PASS: TestStabilityAssociationStatusProbe (0.01s)
+2026-10-31T02:57:38.7340456Z --- PASS: TestStabilityAssociationStatusProbe (0.01s)
+2026-10-31T02:57:27.3464567Z go version go1.26.10 linux/amd64
+2026-10-31T02:57:27.6935427Z Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+2026-10-31T02:57:27.6973212Z go version go1.26.10 linux/amd64
+2026-10-31T02:57:41.5252006Z --- PASS: TestStabilityAssociationStatusProbe (0.02s)
+2026-10-31T02:57:41.5413162Z --- PASS: TestStabilityAssociationStatusProbe (0.02s)
+2026-10-31T02:57:41.5567456Z --- PASS: TestStabilityAssociationStatusProbe (0.02s)

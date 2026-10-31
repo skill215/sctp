@@ -24,3 +24,30 @@ retain a fully initialized frame. Input buffers remain untouched on short reads.
 
 The SCTP_STATUS ABI/scope probe passes three local repetitions. Additional
 native-kernel evidence is still required before batch B is implemented.
+
+## Native liveness design gate
+
+Actions run 41162240590 passed all four probe jobs before implementing B:
+Ubuntu 22.04 kernel 6.8.0-1070-azure and Ubuntu 24.04 kernel 7.0.0-1017-azure,
+Go 1.26.x/1.27.x, three probe repetitions per job. Together with local WSL2
+6.6 these confirm Status=176 bytes, single-association EINVAL, endpoint
+exclusion, and SOCK_SEQPACKET peeled scope. See native-status-probes.log.
+
+## Batch C — zero-payload sends and EOF
+
+Before: metadata empty send returned 0,nil; wrapper empty frame returned 32,nil;
+EOF was 0x10. After: three focused race repetitions and full race suites on
+Go 1.26.10/1.27.2 passed. Actual EOF, ABORT, abort reason, wrapper EOF and
+post-error marker payloads are covered. Non-SCTP SCM_RIGHTS zero-iov ABI test
+passes natively; QEMU verification remains a later gate.
+
+Review: the new raw sendmsg helper is only for empty payloads, within the
+existing direction gate and retry/deadline loop. It retains ancillary memory
+through KeepAlive and platform Msghdr layouts. Nonempty path and metadata
+copies remain unchanged. Failed counts are normalized to zero.
+
+Kernel nuance: zero-length sends with default ABORT are rejected on the local
+kernel before defaults are applied; the test compares directly with raw sendmsg,
+then compares nonempty default-parameter sends with syscall.SendmsgN as well.
+The local kernel does not apply the non-defaultable ABORT bit in that path.
+The tests do not assert unsupported controls or swallow EINVAL as a no-op.

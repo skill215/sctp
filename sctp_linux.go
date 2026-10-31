@@ -141,7 +141,11 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 	var writeErr error
 	err = raw.Write(func(fd uintptr) bool {
 		for {
-			n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
+			if len(b) == 0 {
+				n, writeErr = sendmsgZero(int(fd), cbuf)
+			} else {
+				n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
+			}
 			if writeErr != syscall.EINTR {
 				return writeErr != syscall.EAGAIN
 			}
@@ -153,7 +157,7 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 		}
 		return 0, err
 	}
-	return n, writeErr
+	return max(n, 0), writeErr
 }
 
 func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
