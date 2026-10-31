@@ -118,3 +118,38 @@ file on master creates an annotated tag for that validated commit; edits to
 existing notes do not create tags. Existing tags are never overwritten. The
 publish job verifies tag type/commit and performs an independent canonical
 module-version check after creating the release.
+
+## Final candidate CI — all 14 jobs passed
+
+PR #17, head 03b894745cb42ad2a8aed0f30cbed4d1f95d88e7:
+https://github.com/skill215/sctp/actions/runs/41163857034
+
+Native Linux 6.8.0-1070-azure / 7.0.0-1017-azure × Go 1.26.10 / 1.27.3:
+each cell completed ten independent race/shuffle rounds, vet, strict checkptr,
+low-GOGC and four fuzz targets, three actual parent/child namespace runs,
+five external-consumer targets, and native README echo/timeout verification.
+Windows Winsock and Linux/386 ownership tests passed three repetitions on both
+Go versions. All six QEMU targets passed the actual zero-iov ancillary and query
+boundary tests three times, in addition to the existing ABI/codec suite.
+
+An independent module downloaded the remote candidate without replace and
+verified its exported APIs and native SCTP payload/stream/PPID. Version resolution
+was the expected pre-tag pseudo-version for that exact commit. The PR was merged
+as 5359b448f9a2dbc21d779e485b92c5751f9f2237 only after all checks passed.
+The release workflow must validate that merge commit again before publishing.
+
+## Publication complete — 2026-10-31
+
+Release workflow 41164226789 passed validation, publish and notes jobs. The
+annotated v0.7.2 tag object 6046b8ac1eeec2fbec579d4c289bab4df28b59cc points to
+5359b448f9a2dbc21d779e485b92c5751f9f2237. All eight previous tag refs were
+verified byte-for-byte unchanged. The Release is published, not draft/prerelease.
+Independent go get @v0.7.2 and @latest resolve to v0.7.2; downloaded API and
+native SCTP payload/stream/PPID checks pass. All 16 issues, including tracker #3
+and the P3 #13 improvement, are closed with English completion evidence.
+
+Post-publication review: Git's default tag cleanup removed the issue-reference
+line beginning with #1 from the annotation. Release body matches the full notes
+file after the notes job. The immutable published tag is preserved; future tag
+creation uses --cleanup=verbatim, tested in an isolated temporary repository.
+This follow-up changes workflow formatting and completion records only.

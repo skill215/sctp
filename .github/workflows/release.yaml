@@ -47,7 +47,7 @@ jobs:
                 echo "Tag already exists: $tag" >&2
                 exit 1
               fi
-              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' tag -a "$tag" "$GITHUB_SHA" -F "$note"
+              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' tag -a --cleanup=verbatim "$tag" "$GITHUB_SHA" -F "$note"
               git push origin "refs/tags/$tag"
               tags+=("$tag")
             done

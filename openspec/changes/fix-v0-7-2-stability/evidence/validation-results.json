@@ -1,0 +1,362 @@
+{
+  "candidate": "03b894745cb42ad2a8aed0f30cbed4d1f95d88e7",
+  "merge": "5359b448f9a2dbc21d779e485b92c5751f9f2237",
+  "ciRun": 41163857034,
+  "native": [
+    {
+      "job": 124427061937,
+      "go": [
+        "go version go1.26.10 linux/amd64"
+      ],
+      "kernel": "Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+      "rounds": 10,
+      "namespaceParents": 3,
+      "namespaceChildren": 3,
+      "consumerTargets": 5,
+      "readme": true
+    },
+    {
+      "job": 124427061972,
+      "go": [
+        "go version go1.26.10 linux/amd64"
+      ],
+      "kernel": "Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+      "rounds": 10,
+      "namespaceParents": 3,
+      "namespaceChildren": 3,
+      "consumerTargets": 5,
+      "readme": true
+    },
+    {
+      "job": 124427061980,
+      "go": [
+        "go version go1.27.3 linux/amd64"
+      ],
+      "kernel": "Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+      "rounds": 10,
+      "namespaceParents": 3,
+      "namespaceChildren": 3,
+      "consumerTargets": 5,
+      "readme": true
+    },
+    {
+      "job": 124427061982,
+      "go": [
+        "go version go1.27.3 linux/amd64"
+      ],
+      "kernel": "Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+      "rounds": 10,
+      "namespaceParents": 3,
+      "namespaceChildren": 3,
+      "consumerTargets": 5,
+      "readme": true
+    }
+  ],
+  "jobs": [
+    {
+      "id": 124427061798,
+      "name": "validate / unsupported (windows-latest, 1.26.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061937,
+      "name": "validate / native (ubuntu-22.04, 1.26.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061961,
+      "name": "validate / arch / abi (arm, arm)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061966,
+      "name": "validate / unsupported (windows-latest, 1.27.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061972,
+      "name": "validate / native (ubuntu-24.04, 1.26.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061978,
+      "name": "validate / arch / abi (mips, mips)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061980,
+      "name": "validate / native (ubuntu-22.04, 1.27.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061982,
+      "name": "validate / native (ubuntu-24.04, 1.27.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061987,
+      "name": "validate / arch / abi (arm64, aarch64)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427061998,
+      "name": "validate / arch / abi (mips64, mips64)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427062023,
+      "name": "validate / unsupported (ubuntu-24.04, 1.26.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427062027,
+      "name": "validate / arch / abi (ppc64, ppc64)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427062035,
+      "name": "validate / unsupported (ubuntu-24.04, 1.27.x)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 124427062057,
+      "name": "validate / arch / abi (s390x, s390x)",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "probeRun": 41162240590,
+  "localGo": [
+    "1.26.10",
+    "1.27.2"
+  ],
+  "ciGo": [
+    "1.26.10",
+    "1.27.3"
+  ],
+  "localKernel": "6.6.114.1-microsoft-standard-WSL2",
+  "regressions": 14,
+  "optionalImprovement": 13,
+  "release": {
+    "url": "https://github.com/skill215/sctp/releases/tag/v0.7.2",
+    "tag": "v0.7.2",
+    "tagObject": "6046b8ac1eeec2fbec579d4c289bab4df28b59cc",
+    "commit": "5359b448f9a2dbc21d779e485b92c5751f9f2237",
+    "run": 41164226789,
+    "conclusion": "success",
+    "native": [
+      {
+        "job": 124428185952,
+        "name": "validate / native (ubuntu-22.04, 1.27.x)",
+        "go": [
+          "go version go1.27.3 linux/amd64"
+        ],
+        "kernel": "Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "rounds": 10,
+        "namespaceParents": 3,
+        "namespaceChildren": 3,
+        "consumerTargets": 5,
+        "readme": true
+      },
+      {
+        "job": 124428186131,
+        "name": "validate / native (ubuntu-24.04, 1.26.x)",
+        "go": [
+          "go version go1.26.10 linux/amd64"
+        ],
+        "kernel": "Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "rounds": 10,
+        "namespaceParents": 3,
+        "namespaceChildren": 3,
+        "consumerTargets": 5,
+        "readme": true
+      },
+      {
+        "job": 124428186144,
+        "name": "validate / native (ubuntu-24.04, 1.27.x)",
+        "go": [
+          "go version go1.27.3 linux/amd64"
+        ],
+        "kernel": "Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "rounds": 10,
+        "namespaceParents": 3,
+        "namespaceChildren": 3,
+        "consumerTargets": 5,
+        "readme": true
+      },
+      {
+        "job": 124428186172,
+        "name": "validate / native (ubuntu-22.04, 1.26.x)",
+        "go": [
+          "go version go1.26.10 linux/amd64"
+        ],
+        "kernel": "Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "rounds": 10,
+        "namespaceParents": 3,
+        "namespaceChildren": 3,
+        "consumerTargets": 5,
+        "readme": true
+      }
+    ],
+    "jobs": [
+      {
+        "id": 124428185952,
+        "name": "validate / native (ubuntu-22.04, 1.27.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186131,
+        "name": "validate / native (ubuntu-24.04, 1.26.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186140,
+        "name": "validate / unsupported (ubuntu-24.04, 1.27.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186144,
+        "name": "validate / native (ubuntu-24.04, 1.27.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186172,
+        "name": "validate / native (ubuntu-22.04, 1.26.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186183,
+        "name": "validate / unsupported (windows-latest, 1.27.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186208,
+        "name": "validate / arch / abi (ppc64, ppc64)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186215,
+        "name": "validate / unsupported (windows-latest, 1.26.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186261,
+        "name": "validate / arch / abi (s390x, s390x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186264,
+        "name": "validate / arch / abi (arm64, aarch64)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186297,
+        "name": "validate / arch / abi (mips64, mips64)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186325,
+        "name": "validate / arch / abi (mips, mips)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186379,
+        "name": "validate / unsupported (ubuntu-24.04, 1.26.x)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124428186487,
+        "name": "validate / arch / abi (arm, arm)",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124429031021,
+        "name": "publish",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "id": 124429118627,
+        "name": "notes",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ],
+    "canonicalGoGet": "v0.7.2",
+    "latestVersion": "v0.7.2",
+    "downloadedAPISmoke": "native SCTP payload/stream/PPID passed",
+    "notesBodyMatchesFile": true,
+    "tagAnnotationUsesDefaultGitCommentCleanup": true,
+    "futureTagCleanup": "verbatim, tested in isolated Git repository",
+    "oldTagRefs": [
+      {
+        "name": "0.1",
+        "unchanged": true,
+        "sha": "7ff4192f6ff2b4b181ec7dce269bdf4076ff90a0"
+      },
+      {
+        "name": "0.2",
+        "unchanged": true,
+        "sha": "f5dbad44113e19a32bdf30237514830cc3e81aeb"
+      },
+      {
+        "name": "0.3",
+        "unchanged": true,
+        "sha": "f5dbad44113e19a32bdf30237514830cc3e81aeb"
+      },
+      {
+        "name": "0.4",
+        "unchanged": true,
+        "sha": "07258fafdae8e782daebecd9221aaa7314c5d0b8"
+      },
+      {
+        "name": "0.5",
+        "unchanged": true,
+        "sha": "a5035582f265420c0109542a13b4972798ac4f69"
+      },
+      {
+        "name": "0.6",
+        "unchanged": true,
+        "sha": "61cb22ceae5d6acb377b117a5ec905a13e4ba2d9"
+      },
+      {
+        "name": "0.7",
+        "unchanged": true,
+        "sha": "9b91db8d52cb7bb3faa39e1a0b99546ed5e77cdd"
+      },
+      {
+        "name": "0.7.1",
+        "unchanged": true,
+        "sha": "94205c3d64fa8173bc37f557f4890467f8e7925a"
+      }
+    ],
+    "issues": "all 16 closed with English completion evidence"
+  }
+}
