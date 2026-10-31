@@ -86,6 +86,16 @@ func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
 	}
 	conn := &SCTPConn{file: file, io: newSocketIO(file), initErr: err, notificationHandler: handler}
 	conn._fd.Store(int32(fd))
+	if err == nil {
+		kind, kindErr := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_TYPE)
+		protocol, protocolErr := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_PROTOCOL)
+		if kindErr == nil && protocolErr == nil && protocol == syscall.IPPROTO_SCTP {
+			conn.singleAssociation = kind == syscall.SOCK_STREAM
+			if kind == syscall.SOCK_SEQPACKET {
+				conn.singleAssociation = associationReadError(fd) == nil
+			}
+		}
+	}
 	return conn
 }
 
@@ -208,6 +218,13 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 			for {
 				n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
 				if readErr != syscall.EINTR {
+					if readErr == syscall.EAGAIN && c.singleAssociation {
+						readErr = associationReadError(int(fd))
+						if readErr == nil {
+							return false
+						}
+						return true // preserve every status-query error
+					}
 					return readErr != syscall.EAGAIN
 				}
 			}
@@ -405,6 +422,7 @@ func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
 		return nil, acceptErr
 	}
 	conn := NewSCTPConn(fd, ln.notificationHandler)
+	conn.singleAssociation = true
 	if conn.initErr != nil {
 		conn.Close()
 		return nil, conn.initErr
@@ -511,7 +529,7 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
-	conn := &SCTPConn{file: file, io: io, notificationHandler: notificationHandler}
+	conn := &SCTPConn{file: file, io: io, notificationHandler: notificationHandler, singleAssociation: true}
 	conn._fd.Store(int32(sock))
 	return conn, nil
 }
@@ -598,4 +616,21 @@ func waitForSCTPConnect(fd int) error {
 	// Writable alone does not prove the connection succeeded.
 	_, err = syscall.Getpeername(fd)
 	return err
+}
+
+// associationReadError is used only after recvmsg EAGAIN on a known exclusive
+// association. An endpoint's assoc_id=0 EINVAL is not a termination signal.
+func associationReadError(fd int) error {
+	for {
+		var status Status
+		size := uint32(unsafe.Sizeof(status))
+		_, _, err := getsockopt(fd, SCTP_STATUS, uintptr(unsafe.Pointer(&status)), &size)
+		if err == syscall.EINTR {
+			continue
+		}
+		if err == syscall.EINVAL {
+			return syscall.ENOTCONN
+		}
+		return err
+	}
 }

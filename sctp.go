@@ -446,6 +446,7 @@ type SCTPConn struct {
 	io                  *socketIO
 	initErr             error
 	eventsMu            sync.Mutex
+	singleAssociation   bool // immutable after construction; includes library peeloffs
 	notificationHandler NotificationHandler
 }
 
@@ -851,6 +852,7 @@ func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
 		return nil, err
 	}
 	conn := NewSCTPConn(peeledFD, c.notificationHandler)
+	conn.singleAssociation = true
 	if conn.initErr != nil {
 		conn.Close()
 		return nil, conn.initErr

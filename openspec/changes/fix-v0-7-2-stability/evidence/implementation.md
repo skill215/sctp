@@ -51,3 +51,20 @@ kernel before defaults are applied; the test compares directly with raw sendmsg,
 then compares nonempty default-parameter sends with syscall.SendmsgN as well.
 The local kernel does not apply the non-defaultable ABORT bit in that path.
 The tests do not assert unsupported controls or swallow EINVAL as a no-op.
+
+## Batch B — terminated association liveness
+
+The pre-fix suite failed all six Read/SCTPRead/wrapped × Write/raw-reset-consumer
+cases, queued-reset and peeled-reset cases (continued waiting). After the fix,
+full race suites pass on Go 1.26.10 and 1.27.2 locally. Explicit controls cover
+idle, active/queued reads, concurrent reset, imported stream, shared endpoint,
+peeled association, and buffered normal shutdown. Existing timeout tests pass.
+
+Review found and corrected a classification error: SOCK_STREAM alone also
+matches AF_UNIX sockets used by ABI tests. Imported sockets now require
+SO_PROTOCOL=132 before enabling SCTP liveness queries. Known Dial/Accept and
+PeelOff origins remain explicit. No SO_ERROR is consumed. Actual recvmsg data
+is handled before querying; unknown status errors are returned without EOF
+conversion. The original deadline spans all notifications and queries.
+
+Cross-kernel post-fix validation remains pending (task 3.6).

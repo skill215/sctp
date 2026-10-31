@@ -17,11 +17,11 @@
 
 ## 3. 批次B 关联终止与接收liveness
 
-- [ ] 3.1 为#1补充Read/SCTPRead/wrapped入口，覆盖reset未消费、Write/原始I/O已消费、读已阻塞、并发读写及重复读取。
-- [ ] 3.2 保留Dial/Accept/PeelOff的单关联来源，验证NewSCTPConn对已连接raw fd的分类及未知端点的保守行为。
-- [ ] 3.3 仅在接收EAGAIN后于已固定fd内执行合法SCTP_STATUS查询，关联消失返回ENOTCONN，其他错误不伪装EOF。
-- [ ] 3.4 验证活跃空闲连接、一对多无关联/其他关联、peeled连接和已缓冲数据对照，不新增忙等或提前关闭。
-- [ ] 3.5 回归通知单一预算、queued I/O预算、Close唤醒、正常SHUTDOWN及Read/Write/Accept/Connect超时。
+- [x] 3.1 为#1补充Read/SCTPRead/wrapped入口，覆盖reset未消费、Write/原始I/O已消费、读已阻塞、并发读写及重复读取。
+- [x] 3.2 保留Dial/Accept/PeelOff的单关联来源，验证NewSCTPConn对已连接raw fd的分类及未知端点的保守行为。
+- [x] 3.3 仅在接收EAGAIN后于已固定fd内执行合法SCTP_STATUS查询，关联消失返回ENOTCONN，其他错误不伪装EOF。
+- [x] 3.4 验证活跃空闲连接、一对多无关联/其他关联、peeled连接和已缓冲数据对照，不新增忙等或提前关闭。
+- [x] 3.5 回归通知单一预算、queued I/O预算、Close唤醒、正常SHUTDOWN及Read/Write/Accept/Connect超时。
 - [ ] 3.6 在至少两个记录版本的原生Linux内核、两套Go下验证B批次，并单独review该回归修复。
 
 ## 4. 批次C 空载荷与控制发送
