@@ -232,3 +232,32 @@ func TestStabilityOneToManyAssociation(t *testing.T) {
 		t.Fatalf("live endpoint=%d,%v", n, err)
 	}
 }
+
+func TestStabilityShutdownRacesStatusQuery(t *testing.T) {
+	for range 50 {
+		c, p := lifecyclePair(t)
+		done := make(chan error, 1)
+		go func() {
+			b, err := io.ReadAll(c)
+			if err == nil && string(b) != "last data" {
+				err = syscall.EIO
+			}
+			done <- err
+		}()
+		if _, err := p.Write([]byte("last data")); err != nil {
+			t.Fatal(err)
+		}
+		p.Close()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatal(err)
+			}
+		case <-time.After(time.Second):
+			c.Close()
+			<-done
+			t.Fatal("normal shutdown stalled")
+		}
+		c.Close()
+	}
+}

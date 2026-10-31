@@ -35,13 +35,13 @@
 
 ## 5. 批次D 地址准备与查询
 
-- [ ] 5.1 为#2加入共享Listen/Dial、len=0/cap>0别名、IPv4/IPv6及失败路径的输入不变/race回归。
-- [ ] 5.2 实现地址深副本和内部通配补齐，保持Control观察到的原地址字符串语义及既有zone处理。
-- [ ] 5.3 为#7/#10加入负数/65536/大整数端口、nil raddr、各高层入口及低层Bind/Connect回归，断言socket和Control前拒绝。
-- [ ] 5.4 在地址准备层实现net.AddrError校验，保留本地端口0、nil laddr和现有公开签名。
-- [ ] 5.5 为#11加入IPv4/IPv6、不同位置空host、多段输入及合法单段通配对照，实现不丢弃前缀的解析。
-- [ ] 5.6 为#14实现4KiB到1MiB的有界查询，重置头/optlen，保留local/peer长度差异、错误errno和完整性校验。
-- [ ] 5.7 验证300 IPv4地址原生查询，以及混合family、IPv6 stride、增长边界、持续ENOMEM、其他错误、非法数量和截断缓冲区。
+- [x] 5.1 为#2加入共享Listen/Dial、len=0/cap>0别名、IPv4/IPv6及失败路径的输入不变/race回归。
+- [x] 5.2 实现地址深副本和内部通配补齐，保持Control观察到的原地址字符串语义及既有zone处理。
+- [x] 5.3 为#7/#10加入负数/65536/大整数端口、nil raddr、各高层入口及低层Bind/Connect回归，断言socket和Control前拒绝。
+- [x] 5.4 在地址准备层实现net.AddrError校验，保留本地端口0、nil laddr和现有公开签名。
+- [x] 5.5 为#11加入IPv4/IPv6、不同位置空host、多段输入及合法单段通配对照，实现不丢弃前缀的解析。
+- [x] 5.6 为#14实现4KiB到1MiB的有界查询，重置头/optlen，保留local/peer长度差异、错误errno和完整性校验。
+- [x] 5.7 验证300 IPv4地址原生查询，以及混合family、IPv6 stride、增长边界、持续ENOMEM、其他错误、非法数量和截断缓冲区。
 - [ ] 5.8 两套Go执行地址相关race/fuzz及现有数字zone/网络名回归，记录查询资源预算的可观察行为。
 
 ## 6. 批次E 平台API与所有权

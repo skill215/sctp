@@ -223,6 +223,20 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 						if readErr == nil {
 							return false
 						}
+						if readErr == syscall.ENOTCONN {
+							// Shutdown or data can arrive between the first
+							// EAGAIN and the status query. Drain that result
+							// before reporting an absent association.
+							for {
+								n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
+								if readErr != syscall.EINTR {
+									break
+								}
+							}
+							if readErr == syscall.EAGAIN {
+								readErr = syscall.ENOTCONN
+							}
+						}
 						return true // preserve every status-query error
 					}
 					return readErr != syscall.EAGAIN
@@ -309,6 +323,10 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 	if err != nil {
 		return nil, err
 	}
+	if err := validateSCTPAddr(laddr, false); err != nil {
+		return nil, err
+	}
+	laddr = cloneSCTPAddr(laddr)
 	af, ipv6only := favoriteAddrFamily(network, laddr, nil, "listen")
 	sock, err := syscall.Socket(
 		af,
@@ -465,6 +483,14 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
+	if err := validateSCTPAddr(laddr, false); err != nil {
+		return nil, err
+	}
+	laddr = cloneSCTPAddr(laddr)
+	if err := validateSCTPAddr(raddr, true); err != nil {
+		return nil, err
+	}
+	raddr = cloneSCTPAddr(raddr)
 	af, ipv6only := favoriteAddrFamily(network, laddr, raddr, "dial")
 	sock, err := syscall.Socket(
 		af,

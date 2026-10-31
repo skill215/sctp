@@ -68,3 +68,21 @@ is handled before querying; unknown status errors are returned without EOF
 conversion. The original deadline spans all notifications and queries.
 
 Cross-kernel post-fix validation remains pending (task 3.6).
+
+## Batch D integration review and B race correction
+
+A Go 1.27 full-suite run caught a B race during ordinary stream-test shutdown:
+recvmsg initially returned EAGAIN, the association ended during the status
+query, and the library returned ENOTCONN before consuming the now-available
+normal EOF. The terminated branch now retries recvmsg once (restarting EINTR)
+to deliver intervening data/EOF first; only a second EAGAIN becomes ENOTCONN.
+A 50-connection concurrent shutdown/drain regression and five stream/stability
+stress repetitions pass, followed by both complete Go race suites.
+
+D's pre-fix regressions show shared-address races/mutation, invalid ports reaching
+Control, nil-remote panics, empty multihoming host acceptance and Addr=nil for
+300 addresses. After the fix, both full race suites pass. Raw 16 KiB query
+controls confirm actual binding. Synthetic query replies test fresh retry
+headers, local/peer optlen, mixed families, nine attempts/1 MiB, non-memory
+errors, counts and truncation. Deep snapshots and CONNECTX3 KeepAlive were
+reviewed. Query growth occurs only on ENOMEM and never parses failed replies.
