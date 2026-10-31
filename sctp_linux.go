@@ -86,6 +86,16 @@ func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
 	}
 	conn := &SCTPConn{file: file, io: newSocketIO(file), initErr: err, notificationHandler: handler}
 	conn._fd.Store(int32(fd))
+	if err == nil {
+		kind, kindErr := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_TYPE)
+		protocol, protocolErr := syscall.GetsockoptInt(fd, syscall.SOL_SOCKET, syscall.SO_PROTOCOL)
+		if kindErr == nil && protocolErr == nil && protocol == syscall.IPPROTO_SCTP {
+			conn.singleAssociation = kind == syscall.SOCK_STREAM
+			if kind == syscall.SOCK_SEQPACKET {
+				conn.singleAssociation = associationReadError(fd) == nil
+			}
+		}
+	}
 	return conn
 }
 
@@ -95,6 +105,9 @@ func (c *SCTPConn) socketRaw() (*socketIO, error) {
 	}
 	if c.initErr != nil {
 		return nil, c.initErr
+	}
+	if c.fd() < 0 {
+		return nil, net.ErrClosed
 	}
 	if c.file == nil {
 		return nil, syscall.EBADF
@@ -138,7 +151,11 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 	var writeErr error
 	err = raw.Write(func(fd uintptr) bool {
 		for {
-			n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
+			if len(b) == 0 {
+				n, writeErr = sendmsgZero(int(fd), cbuf)
+			} else {
+				n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
+			}
 			if writeErr != syscall.EINTR {
 				return writeErr != syscall.EAGAIN
 			}
@@ -150,7 +167,7 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 		}
 		return 0, err
 	}
-	return n, writeErr
+	return max(n, 0), writeErr
 }
 
 func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
@@ -183,6 +200,9 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 	if err != nil {
 		return 0, nil, err
 	}
+	if len(b) == 0 {
+		return 0, nil, nil
+	}
 	deadline, err := raw.deadline(true)
 	if err != nil {
 		if c.fd() < 0 {
@@ -198,6 +218,27 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 			for {
 				n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
 				if readErr != syscall.EINTR {
+					if readErr == syscall.EAGAIN && c.singleAssociation {
+						readErr = associationReadError(int(fd))
+						if readErr == nil {
+							return false
+						}
+						if readErr == syscall.ENOTCONN {
+							// Shutdown or data can arrive between the first
+							// EAGAIN and the status query. Drain that result
+							// before reporting an absent association.
+							for {
+								n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
+								if readErr != syscall.EINTR {
+									break
+								}
+							}
+							if readErr == syscall.EAGAIN {
+								readErr = syscall.ENOTCONN
+							}
+						}
+						return true // preserve every status-query error
+					}
 					return readErr != syscall.EAGAIN
 				}
 			}
@@ -209,7 +250,7 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 			return 0, nil, err
 		}
 		if readErr != nil {
-			return n, nil, readErr
+			return 0, nil, readErr
 		}
 
 		if n == 0 && oobn == 0 {
@@ -282,6 +323,10 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 	if err != nil {
 		return nil, err
 	}
+	if err := validateSCTPAddr(laddr, false); err != nil {
+		return nil, err
+	}
+	laddr = cloneSCTPAddr(laddr)
 	af, ipv6only := favoriteAddrFamily(network, laddr, nil, "listen")
 	sock, err := syscall.Socket(
 		af,
@@ -395,6 +440,7 @@ func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
 		return nil, acceptErr
 	}
 	conn := NewSCTPConn(fd, ln.notificationHandler)
+	conn.singleAssociation = true
 	if conn.initErr != nil {
 		conn.Close()
 		return nil, conn.initErr
@@ -404,7 +450,11 @@ func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
 
 // Accept waits for and returns the next connection connection to the listener.
 func (ln *SCTPListener) Accept() (net.Conn, error) {
-	return ln.AcceptSCTP()
+	conn, err := ln.AcceptSCTP()
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (ln *SCTPListener) Close() error {
@@ -437,6 +487,14 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
+	if err := validateSCTPAddr(laddr, false); err != nil {
+		return nil, err
+	}
+	laddr = cloneSCTPAddr(laddr)
+	if err := validateSCTPAddr(raddr, true); err != nil {
+		return nil, err
+	}
+	raddr = cloneSCTPAddr(raddr)
 	af, ipv6only := favoriteAddrFamily(network, laddr, raddr, "dial")
 	sock, err := syscall.Socket(
 		af,
@@ -501,7 +559,7 @@ func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, 
 	if err != nil {
 		return nil, err
 	}
-	conn := &SCTPConn{file: file, io: io, notificationHandler: notificationHandler}
+	conn := &SCTPConn{file: file, io: io, notificationHandler: notificationHandler, singleAssociation: true}
 	conn._fd.Store(int32(sock))
 	return conn, nil
 }
@@ -588,4 +646,21 @@ func waitForSCTPConnect(fd int) error {
 	// Writable alone does not prove the connection succeeded.
 	_, err = syscall.Getpeername(fd)
 	return err
+}
+
+// associationReadError is used only after recvmsg EAGAIN on a known exclusive
+// association. An endpoint's assoc_id=0 EINVAL is not a termination signal.
+func associationReadError(fd int) error {
+	for {
+		var status Status
+		size := uint32(unsafe.Sizeof(status))
+		_, _, err := getsockopt(fd, SCTP_STATUS, uintptr(unsafe.Pointer(&status)), &size)
+		if err == syscall.EINTR {
+			continue
+		}
+		if err == syscall.EINVAL {
+			return syscall.ENOTCONN
+		}
+		return err
+	}
 }

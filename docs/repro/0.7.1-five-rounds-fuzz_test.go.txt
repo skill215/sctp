@@ -1,0 +1,115 @@
+//go:build linux && !386
+
+package sctp
+
+import (
+	"bytes"
+	"net"
+	"testing"
+)
+
+func FuzzFiveRawSockaddr(f *testing.F) {
+	f.Add((&SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 42}).ToRawSockAddrBuf(), 1)
+	f.Add([]byte{}, 0)
+	f.Add([]byte{1, 0}, -1)
+	f.Fuzz(func(t *testing.T, b []byte, n int) {
+		if len(b) > 8192 {
+			t.Skip()
+		}
+		original := append([]byte(nil), b...)
+		addr, err := resolveFromRawAddr(b, n)
+		if !bytes.Equal(b, original) {
+			t.Fatal("decoder changed input")
+		}
+		if err != nil {
+			return
+		}
+		if addr == nil || len(addr.IPAddrs) != n {
+			t.Fatal("invalid successful decode")
+		}
+		for _, ip := range addr.IPAddrs {
+			if ip.IP.To16() == nil {
+				t.Fatal("invalid decoded IP")
+			}
+		}
+	})
+}
+
+func FuzzFiveAncillary(f *testing.F) {
+	f.Add(sndRcvControlMessage(toBuf(&SndRcvInfo{PPID: htonl(123), Stream: 3})))
+	f.Add([]byte{0, 1, 2})
+	f.Add([]byte{})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		if len(b) > 8192 {
+			t.Skip()
+		}
+		original := append([]byte(nil), b...)
+		_, _ = parseSndRcvInfo(b)
+		if !bytes.Equal(b, original) {
+			t.Fatal("ancillary parser changed input")
+		}
+	})
+}
+
+func FuzzFiveCodec(f *testing.F) {
+	f.Add(toBuf(&SndRcvInfo{Stream: 1, PPID: 42}))
+	f.Add([]byte{0, 1, 2})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		original := append([]byte(nil), b...)
+		info := SndRcvInfo{PPID: 42}
+		before := info
+		err := decodeNative(b, &info)
+		if !bytes.Equal(b, original) {
+			t.Fatal("codec changed input")
+		}
+		if len(b) < 32 {
+			if err == nil || info != before {
+				t.Fatal("invalid truncated decode")
+			}
+			return
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := toBuf(&info)
+		for i := range 32 {
+			if i == 6 || i == 7 {
+				continue
+			}
+			if out[i] != b[i] {
+				t.Fatalf("changed byte %d", i)
+			}
+		}
+	})
+}
+
+func FuzzFiveAddressRoundTrip(f *testing.F) {
+	f.Add([]byte{127, 0, 0, 1, 0, 42})
+	f.Add(make([]byte, 32))
+	f.Fuzz(func(t *testing.T, b []byte) {
+		if len(b) < 6 || len(b) > 128 {
+			return
+		}
+		addr := &SCTPAddr{Port: int(b[0])<<8 | int(b[1])}
+		for start := 2; start+4 <= len(b); {
+			width := 4
+			if b[start]&1 != 0 && start+16 <= len(b) {
+				width = 16
+			}
+			addr.IPAddrs = append(addr.IPAddrs, net.IPAddr{IP: append(net.IP(nil), b[start:start+width]...)})
+			start += width
+		}
+		decoded, err := ResolveSCTPAddr("sctp", addr.String())
+		if err != nil {
+			t.Fatalf("valid numerical address %q: %v", addr.String(), err)
+		}
+		if decoded.Port != addr.Port || len(decoded.IPAddrs) != len(addr.IPAddrs) {
+			t.Fatal("address list or port changed")
+		}
+		for i := range addr.IPAddrs {
+			if !addr.IPAddrs[i].IP.Equal(decoded.IPAddrs[i].IP) {
+				t.Fatal("address changed")
+			}
+		}
+	})
+}

@@ -1,0 +1,8 @@
+name: stability native validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    uses: ./.github/workflows/validate.yaml

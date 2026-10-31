@@ -1,74 +1,87 @@
 name: release
-
 on:
   push:
-    branches:
-      - master
-    paths:
-      - 'releases/*.md'
-    tags:
-      - '0.*'
-
+    branches: [master]
+    paths: ['releases/*.md']
+    tags: ['0.*', 'v0.*']
 permissions:
   contents: read
-
 jobs:
-  arch:
-    if: github.ref_type == 'tag'
-    uses: ./.github/workflows/arch.yaml
-
-  test:
-    if: github.ref_type == 'tag'
+  validate:
+    uses: ./.github/workflows/validate.yaml
+  publish:
+    needs: [validate]
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    strategy:
-      matrix:
-        go: [1.26.x, 1.27.x]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go }}
-          cache: false
-      - run: go test -race -count=10 -timeout=120s ./...
-      - name: Test numeric interface names in an isolated network namespace
-        run: |
-          go test -race -c -o "$RUNNER_TEMP/sctp.test" .
-          sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s
-
-  publish:
-    if: github.ref_type == 'tag'
-    needs: [test, arch]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Publish release from the annotated tag
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 1.26.x
+          cache: false
+      - name: Publish validated annotated tags
         env:
           GH_TOKEN: ${{ github.token }}
+          BEFORE_SHA: ${{ github.event.before }}
+        shell: bash
         run: |
-          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
-          test "$(git cat-file -t "refs/tags/$GITHUB_REF_NAME")" = tag
-          git for-each-ref --format='%(contents)' "refs/tags/$GITHUB_REF_NAME" > "$RUNNER_TEMP/release-notes.md"
-          test -s "$RUNNER_TEMP/release-notes.md"
-          gh release create "$GITHUB_REF_NAME" --verify-tag --notes-file "$RUNNER_TEMP/release-notes.md" --title "$GITHUB_REF_NAME"
-
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tags=("$GITHUB_REF_NAME")
+            git fetch origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          else
+            # New canonical release notes authorize publication from this
+            # validated master commit. Editing existing notes creates no tag.
+            mapfile -t notes < <(git diff --diff-filter=A --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- 'releases/v*.md')
+            tags=()
+            for note in "${notes[@]}"; do
+              tag="$(basename "$note" .md)"
+              [[ "$tag" =~ ^v0\.[0-9]+\.[0-9]+$ ]]
+              test -s "$note"
+              # Refuse to move or replace any pre-existing tag.
+              if git show-ref --verify --quiet "refs/tags/$tag"; then
+                echo "Tag already exists: $tag" >&2
+                exit 1
+              fi
+              git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' tag -a "$tag" "$GITHUB_SHA" -F "$note"
+              git push origin "refs/tags/$tag"
+              tags+=("$tag")
+            done
+          fi
+          for tag in "${tags[@]}"; do
+            test "$(git cat-file -t "refs/tags/$tag")" = tag
+            test "$(git rev-parse "refs/tags/$tag^{commit}")" = "$GITHUB_SHA"
+            git for-each-ref --format='%(contents)' "refs/tags/$tag" > "$RUNNER_TEMP/release-notes.md"
+            test -s "$RUNNER_TEMP/release-notes.md"
+            gh release create "$tag" --verify-tag --notes-file "$RUNNER_TEMP/release-notes.md" --title "$tag"
+            checkdir="$(mktemp -d)"
+            (
+              cd "$checkdir"
+              go mod init example.com/release-verification
+              GOPROXY=direct go get "github.com/skill215/sctp@$tag"
+              actual="$(go list -m -f '{{.Version}}' github.com/skill215/sctp)"
+              test "$actual" = "$tag"
+            )
+            gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" > "$RUNNER_TEMP/tag.json"
+            gh release view "$tag" --json tagName,targetCommitish,url
+          done
   notes:
     if: github.ref_type == 'branch'
+    needs: [publish]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Update published release notes
-        env:
+      - env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -e
           for notes in releases/*.md; do
             tag="$(basename "$notes" .md)"
             test -s "$notes"

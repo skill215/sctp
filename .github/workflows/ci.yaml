@@ -1,27 +1,9 @@
 name: ci
-
 on:
   pull_request:
-    branches:
-      - master
-
+    branches: [master]
+permissions:
+  contents: read
 jobs:
-  arch:
-    uses: ./.github/workflows/arch.yaml
-
-  test:
-    strategy:
-      matrix:
-        go: [1.26.x, 1.27.x]
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-      with:
-          go-version: ${{ matrix.go }}
-    - run: go test -race ./...
-    - name: Test numeric interface names in an isolated network namespace
-      run: |
-        go test -race -c -o "$RUNNER_TEMP/sctp.test" .
-        sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s
+  validate:
+    uses: ./.github/workflows/validate.yaml

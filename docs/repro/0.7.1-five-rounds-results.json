@@ -1,0 +1,1482 @@
+{
+  "date": "2026-10-30",
+  "baseline_commit": "70b338ac419dff6aa745460bb379d68208d615e0",
+  "release": "0.7.1",
+  "go_versions": {
+    "126": "go1.26.10",
+    "127": "go1.27.2"
+  },
+  "baseline_rounds": [
+    {
+      "round": 1,
+      "go": "126",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {},
+      "exit": 0,
+      "seconds": 8.02,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round1-go126.log"
+    },
+    {
+      "round": 2,
+      "go": "126",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "1"
+      },
+      "exit": 0,
+      "seconds": 7.56,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round2-go126.log"
+    },
+    {
+      "round": 3,
+      "go": "126",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "8"
+      },
+      "exit": 0,
+      "seconds": 7.31,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round3-go126.log"
+    },
+    {
+      "round": 4,
+      "go": "126",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "-gcflags=all=-d=checkptr=2",
+        "./..."
+      ],
+      "env": {
+        "GOGC": "1"
+      },
+      "exit": 0,
+      "seconds": 9.32,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round4-go126.log"
+    },
+    {
+      "round": 5,
+      "go": "126",
+      "command": [
+        "go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOGC": "20"
+      },
+      "exit": 0,
+      "seconds": 8.33,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round5-go126.log"
+    },
+    {
+      "round": 1,
+      "go": "127",
+      "command": [
+        "/home/skill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {},
+      "exit": 0,
+      "seconds": 8.04,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round1-go127.log"
+    },
+    {
+      "round": 2,
+      "go": "127",
+      "command": [
+        "/home/skill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "1"
+      },
+      "exit": 0,
+      "seconds": 7.49,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round2-go127.log"
+    },
+    {
+      "round": 3,
+      "go": "127",
+      "command": [
+        "/home/skill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "8"
+      },
+      "exit": 0,
+      "seconds": 7.24,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round3-go127.log"
+    },
+    {
+      "round": 4,
+      "go": "127",
+      "command": [
+        "/home/skill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "-gcflags=all=-d=checkptr=2",
+        "./..."
+      ],
+      "env": {
+        "GOGC": "1"
+      },
+      "exit": 0,
+      "seconds": 31.42,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round4-go127.log"
+    },
+    {
+      "round": 5,
+      "go": "127",
+      "command": [
+        "/home/skill/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.27.2.linux-amd64/bin/go",
+        "test",
+        "-race",
+        "-shuffle=on",
+        "-count=1",
+        "-timeout=120s",
+        "./..."
+      ],
+      "env": {
+        "GOMAXPROCS": "4",
+        "GOGC": "20"
+      },
+      "exit": 0,
+      "seconds": 7.29,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/round5-go127.log"
+    }
+  ],
+  "extension_rounds_per_version": 5,
+  "extensions": [
+    {
+      "go": "126",
+      "passed": true,
+      "commands": "go test -race -run '^TestFive(Message|Partial|Concurrent|Close|Lifecycle|Event|Notification|Socket|AddressFamilies)' -v -shuffle=on -count=5 -timeout=90s .",
+      "tests": {
+        "TestFiveMessageMatrix": 5,
+        "TestFiveCloseQueuedIO": 5,
+        "TestFiveConcurrentIO": 5,
+        "TestFiveSocketOptions": 5,
+        "TestFiveNotificationAndPayload": 5,
+        "TestFiveEventSubscriptions": 5,
+        "TestFivePartialReadReassembly": 5,
+        "TestFiveAddressFamilies": 5,
+        "TestFiveLifecycleFDCount": 5
+      }
+    },
+    {
+      "go": "127",
+      "passed": true,
+      "commands": "go test -race -run '^TestFive(Message|Partial|Concurrent|Close|Lifecycle|Event|Notification|Socket|AddressFamilies)' -v -shuffle=on -count=5 -timeout=90s .",
+      "tests": {
+        "TestFiveEventSubscriptions": 5,
+        "TestFiveMessageMatrix": 5,
+        "TestFiveCloseQueuedIO": 5,
+        "TestFiveNotificationAndPayload": 5,
+        "TestFiveAddressFamilies": 5,
+        "TestFivePartialReadReassembly": 5,
+        "TestFiveLifecycleFDCount": 5,
+        "TestFiveConcurrentIO": 5,
+        "TestFiveSocketOptions": 5
+      }
+    }
+  ],
+  "fuzz": [
+    {
+      "go": "126",
+      "target": "FuzzFiveRawSockaddr",
+      "exit": 0,
+      "seconds": 31.26,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveRawSockaddr-126.log",
+      "executions": 575107
+    },
+    {
+      "go": "126",
+      "target": "FuzzFiveAncillary",
+      "exit": 0,
+      "seconds": 20.5,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveAncillary-126.log",
+      "executions": 630436
+    },
+    {
+      "go": "126",
+      "target": "FuzzFiveCodec",
+      "exit": 0,
+      "seconds": 20.45,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveCodec-126.log",
+      "executions": 634348
+    },
+    {
+      "go": "126",
+      "target": "FuzzFiveAddressRoundTrip",
+      "exit": 0,
+      "seconds": 20.51,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveAddressRoundTrip-126.log",
+      "executions": 535392
+    },
+    {
+      "go": "127",
+      "target": "FuzzFiveRawSockaddr",
+      "exit": 0,
+      "seconds": 31.78,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveRawSockaddr-127.log",
+      "executions": 580776
+    },
+    {
+      "go": "127",
+      "target": "FuzzFiveAncillary",
+      "exit": 0,
+      "seconds": 20.43,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveAncillary-127.log",
+      "executions": 594612
+    },
+    {
+      "go": "127",
+      "target": "FuzzFiveCodec",
+      "exit": 0,
+      "seconds": 20.37,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveCodec-127.log",
+      "executions": 628767
+    },
+    {
+      "go": "127",
+      "target": "FuzzFiveAddressRoundTrip",
+      "exit": 0,
+      "seconds": 20.48,
+      "log": "/tmp/sctp-five-rounds-98dnxrnb/FuzzFiveAddressRoundTrip-127.log",
+      "executions": 526727
+    }
+  ],
+  "platform_checks": [
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "126",
+      "round": 1,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "126",
+      "round": 2,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "126",
+      "round": 3,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "126",
+      "round": 4,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "126",
+      "round": 5,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "127",
+      "round": 1,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "127",
+      "round": 2,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "127",
+      "round": 3,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "127",
+      "round": 4,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-sentinel\n./main.go:8:24: undefined: sctp.ErrUnsupported\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "linux",
+      "arch": "386",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-sentinel",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "darwin",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "public-listener-raw",
+      "os": "windows",
+      "arch": "amd64",
+      "exit": 1,
+      "output": "# example.com/public-listener-raw\n./main.go:6:22: cannot use (*sctp.SCTPListener)(nil) (value of type *sctp.SCTPListener) as syscall.Conn value in variable declaration: *sctp.SCTPListener does not implement syscall.Conn (missing method SyscallConn)\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "amd64",
+      "exit": 0,
+      "output": "Close=<nil>; fd status=bad file descriptor\n"
+    },
+    {
+      "go": "127",
+      "round": 5,
+      "module": "ownership",
+      "os": "linux",
+      "arch": "386",
+      "exit": 1,
+      "output": "Close=SCTP is unsupported on linux/386; fd status=<nil>\nowned SCTP fd remains open after Close\nexit status 1\n"
+    }
+  ],
+  "cross_compile": [
+    {
+      "target": "linux-arm",
+      "passed": true,
+      "binary_bytes": 5408596
+    },
+    {
+      "target": "linux-arm64",
+      "passed": true,
+      "binary_bytes": 5421721
+    },
+    {
+      "target": "linux-mips",
+      "passed": true,
+      "binary_bytes": 5998177
+    },
+    {
+      "target": "linux-mips64",
+      "passed": true,
+      "binary_bytes": 6105955
+    },
+    {
+      "target": "linux-ppc64",
+      "passed": true,
+      "binary_bytes": 5680155
+    },
+    {
+      "target": "linux-s390x",
+      "passed": true,
+      "binary_bytes": 5909709
+    },
+    {
+      "target": "linux-386",
+      "passed": true,
+      "binary_bytes": 4899764
+    },
+    {
+      "target": "linux-riscv64",
+      "passed": true,
+      "binary_bytes": 5276376
+    },
+    {
+      "target": "linux-loong64",
+      "passed": true,
+      "binary_bytes": 5641291
+    },
+    {
+      "target": "darwin-amd64",
+      "passed": true,
+      "binary_bytes": 5300480
+    },
+    {
+      "target": "windows-amd64",
+      "passed": true,
+      "binary_bytes": 5340160
+    },
+    {
+      "target": "freebsd-amd64",
+      "passed": true,
+      "binary_bytes": 5125262
+    }
+  ],
+  "netns": {
+    "runs": 3,
+    "passed": 3
+  },
+  "limitations": [
+    "Cross-compiled non-native targets were not executed under QEMU.",
+    "Fuzz execution totals count executions, not unique inputs.",
+    "Known failures remain unfixed."
+  ],
+  "known_issue_checks": [
+    {
+      "go": "126",
+      "issue": 1,
+      "expected_failures": {
+        "TestReleaseAuditReadAfterPeerAbort": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 2,
+      "expected_failures": {
+        "TestReleaseAuditSharedWildcardAddr": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 4,
+      "expected_failures": {
+        "TestReviewEmptyRead": 5,
+        "TestReviewWrappedHeaderOnlyRead": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 5,
+      "expected_failures": {
+        "TestReviewEmptyWriteWithMetadata": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 6,
+      "expected_failures": {
+        "TestReviewEOFFlag": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 7,
+      "expected_failures": {
+        "TestReviewInvalidPorts": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 8,
+      "expected_failures": {
+        "TestReviewWrappedPreservesEvents": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 9,
+      "expected_failures": {
+        "TestReviewWrappedReadNoMetadata": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 10,
+      "expected_failures": {
+        "TestReviewNilRemote": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 11,
+      "expected_failures": {
+        "TestReviewResolveTrailingEmptyAddress": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 12,
+      "expected_failures": {
+        "TestRound3WrappedResetReadCount": 5,
+        "TestRound3ReadAllAfterReset": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 13,
+      "expected_failures": {
+        "TestRound3AcceptErrorNil": 5
+      }
+    },
+    {
+      "go": "126",
+      "issue": 14,
+      "expected_failures": {
+        "TestRound3ManyLocalAddresses": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 1,
+      "expected_failures": {
+        "TestReleaseAuditReadAfterPeerAbort": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 2,
+      "expected_failures": {
+        "TestReleaseAuditSharedWildcardAddr": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 4,
+      "expected_failures": {
+        "TestReviewEmptyRead": 5,
+        "TestReviewWrappedHeaderOnlyRead": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 5,
+      "expected_failures": {
+        "TestReviewEmptyWriteWithMetadata": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 6,
+      "expected_failures": {
+        "TestReviewEOFFlag": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 7,
+      "expected_failures": {
+        "TestReviewInvalidPorts": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 8,
+      "expected_failures": {
+        "TestReviewWrappedPreservesEvents": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 9,
+      "expected_failures": {
+        "TestReviewWrappedReadNoMetadata": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 10,
+      "expected_failures": {
+        "TestReviewNilRemote": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 11,
+      "expected_failures": {
+        "TestReviewResolveTrailingEmptyAddress": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 12,
+      "expected_failures": {
+        "TestRound3WrappedResetReadCount": 5,
+        "TestRound3ReadAllAfterReset": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 13,
+      "expected_failures": {
+        "TestRound3AcceptErrorNil": 5
+      }
+    },
+    {
+      "go": "127",
+      "issue": 14,
+      "expected_failures": {
+        "TestRound3ManyLocalAddresses": 5
+      }
+    }
+  ],
+  "new_issues": [
+    {
+      "number": 15,
+      "url": "https://github.com/skill215/sctp/issues/15",
+      "priority": "P2",
+      "category": "Cross-platform API consistency"
+    },
+    {
+      "number": 16,
+      "url": "https://github.com/skill215/sctp/issues/16",
+      "priority": "P2",
+      "category": "Unsupported constructor fd ownership"
+    }
+  ],
+  "static_checks": {
+    "go1.26.10": "go vet ./... passed",
+    "go1.27.2": "go vet ./... passed"
+  },
+  "fuzz_total_executions": 4706165
+}

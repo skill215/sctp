@@ -1,0 +1,483 @@
+//go:build linux && !386
+// +build linux,!386
+
+// Historical probes for 0.3 (Go 1.18+) and 0.7.1 (Go 1.26+).
+// Copy to history_linux_test.go inside a clean tag archive; run:
+//   go test -race -run '^TestHistory' -v -count=3 -timeout=90s .
+// Defect assertions fail on affected versions. Issue01 passes on 0.3/0.4,
+// then fails from 0.5. Issue13Observation records shape, without classifying
+// the error-path nil convention as a functional defect. KernelModes is a
+// raw syscall control, not a proposed change to the library's socket mode.
+// Platform issues #15/#16 use the separate platform-history Python fixture.
+
+package sctp
+
+import (
+	"bytes"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"reflect"
+	"sync"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func historyTimeout(t *testing.T, c *SCTPConn) {
+	t.Helper()
+	tv := syscall.NsecToTimeval((100 * time.Millisecond).Nanoseconds())
+	if err := syscall.SetsockoptTimeval(c.fd(), syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, &tv); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func historyListener(t *testing.T) (*SCTPListener, func()) {
+	t.Helper()
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
+	ln, err := ListenSCTP("sctp4", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var once sync.Once
+	closeListener := func() { once.Do(func() { ln.Close() }) }
+	t.Cleanup(closeListener)
+	return ln, closeListener
+}
+
+// Both versions expose NewSCTPConn(fd, handler). Use it to register callbacks
+// without relying on SyscallConn or SocketConfig.NotificationHandler, absent in 0.3.
+func historyPair(t *testing.T, handler NotificationHandler) (*SCTPConn, *SCTPConn, func()) {
+	t.Helper()
+	ln, _ := historyListener(t)
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 132)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr)); err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	client := NewSCTPConn(fd, handler)
+	t.Cleanup(func() { client.Close() })
+	server, err := ln.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var serverOnce sync.Once
+	t.Cleanup(func() { serverOnce.Do(func() { server.Close() }) })
+	abort := func() {
+		serverOnce.Do(func() {
+			fd := server.fd()
+			if err := syscall.SetsockoptLinger(fd, syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{Onoff: 1, Linger: 0}); err != nil {
+				server.Close()
+				t.Fatal(err)
+			}
+			// 0.3 Close calls shutdown before close. Force a real ABORT in both
+			// versions, and suppress the server cleanup to avoid closing a reused fd.
+			if err := syscall.Close(fd); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	return client, server, abort
+}
+
+func historyControlMessage(info *SndRcvInfo) []byte {
+	payload := toBuf(info)
+	b := make([]byte, syscall.CmsgSpace(len(payload)))
+	h := syscall.Cmsghdr{Level: 132, Type: SCTP_CMSG_SNDRCV}
+	h.SetLen(syscall.CmsgLen(len(payload)))
+	copy(b, toBuf(&h))
+	copy(b[syscall.CmsgLen(0):], payload)
+	return b
+}
+
+func TestHistoryIssue01(t *testing.T) {
+	client, _, abort := historyPair(t, nil)
+	abort()
+	consumed := false
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+		_, err := client.Write([]byte("consume reset"))
+		if errors.Is(err, syscall.ECONNRESET) {
+			consumed = true
+			break
+		}
+		if err != nil {
+			t.Fatalf("reset trigger not exercised: %v", err)
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if !consumed {
+		t.Fatal("reset not consumed")
+	}
+	done := make(chan error, 1)
+	go func() { _, err := client.Read(make([]byte, 128)); done <- err }()
+	select {
+	case err := <-done:
+		t.Logf("terminal read returned %v", err)
+	case <-time.After(250 * time.Millisecond):
+		client.Close()
+		select {
+		case err := <-done:
+			t.Logf("read woke only after local close: %v", err)
+		case <-time.After(time.Second):
+			t.Fatal("cleanup did not unblock reader")
+		}
+		t.Fatal("read remained blocked after reset was consumed")
+	}
+}
+
+func TestHistoryIssue02(t *testing.T) {
+	addr := &SCTPAddr{Port: 0}
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			ln, err := ListenSCTP("sctp4", addr)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			ln.Close()
+		}()
+	}
+	close(start)
+	wg.Wait()
+	if len(addr.IPAddrs) != 0 {
+		t.Fatalf("caller address mutated: %v", addr)
+	}
+}
+
+func TestHistoryIssue04(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		t.Run(fmt.Sprint(wrap), func(t *testing.T) {
+			client, server, _ := historyPair(t, nil)
+			historyTimeout(t, client)
+			reader := client.Read
+			var buf []byte
+			if wrap {
+				reader = NewSCTPSndRcvInfoWrappedConn(client).Read
+				buf = make([]byte, int(sndRcvInfoSize))
+			}
+			server.Write([]byte("payload"))
+			n, err := reader(buf)
+			rest := make([]byte, 32)
+			m, nextErr := client.Read(rest)
+			t.Logf("len=%d n=%d err=%v next=%q,%v", len(buf), n, err, rest[:m], nextErr)
+			if n < 0 || n > len(buf) || nextErr != nil || string(rest[:m]) != "payload" {
+				t.Fatal("zero capacity read lost payload or returned invalid count")
+			}
+		})
+	}
+}
+
+func TestHistoryIssue05(t *testing.T) {
+	client, server, _ := historyPair(t, nil)
+	historyTimeout(t, server)
+	n, err := client.SCTPWrite(nil, &SndRcvInfo{PPID: 42})
+	if err != nil {
+		t.Logf("empty send rejected: %v", err)
+		return
+	}
+	b := make([]byte, 16)
+	m, readErr := server.Read(b)
+	t.Logf("write=%d,%v peer=%d,%v,%x", n, err, m, readErr, b[:m])
+	if m > 0 {
+		t.Fatal("empty send injected data")
+	}
+}
+
+func TestHistoryIssue06(t *testing.T) {
+	if SCTP_EOF != syscall.MSG_FIN {
+		t.Errorf("SCTP_EOF=%x, kernel MSG_FIN=%x", SCTP_EOF, syscall.MSG_FIN)
+	}
+	for _, flags := range []uint16{uint16(SCTP_EOF), uint16(syscall.MSG_FIN)} {
+		t.Run(fmt.Sprint(flags), func(t *testing.T) {
+			ln, _ := historyListener(t)
+			fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 132)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer syscall.Close(fd)
+			id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
+			if err != nil {
+				t.Fatal(err)
+			}
+			server, err := ln.AcceptSCTP()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer server.Close()
+			historyTimeout(t, server)
+			control := historyControlMessage(&SndRcvInfo{Flags: flags, AssocID: int32(id)})
+			msg := syscall.Msghdr{Control: &control[0]}
+			msg.SetControllen(len(control))
+			_, _, errno := syscall.Syscall(syscall.SYS_SENDMSG, uintptr(fd), uintptr(unsafe.Pointer(&msg)), 0)
+			t.Logf("flags=%x raw send=%v", flags, errno)
+			if errno != 0 {
+				t.Fatalf("EOF send rejected: %v", errno)
+			}
+			_, err = server.Read(make([]byte, 16))
+			if !errors.Is(err, io.EOF) {
+				t.Fatalf("EOF send result=%v", err)
+			}
+		})
+	}
+}
+
+func TestHistoryIssue07(t *testing.T) {
+	t.Run("listen", func(t *testing.T) {
+		addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 65536}
+		ln, err := ListenSCTP("sctp4", addr)
+		if err == nil {
+			defer ln.Close()
+			t.Fatalf("accepted 65536, bound=%v", ln.Addr())
+		}
+	})
+	t.Run("dial", func(t *testing.T) {
+		ln, _ := historyListener(t)
+		addr := ln.Addr().(*SCTPAddr)
+		bad := &SCTPAddr{IPAddrs: addr.IPAddrs, Port: addr.Port + 65536}
+		client, err := DialSCTP("sctp4", nil, bad)
+		if err == nil {
+			defer client.Close()
+			server, acceptErr := ln.AcceptSCTP()
+			if acceptErr != nil {
+				t.Fatal(acceptErr)
+			}
+			defer server.Close()
+			t.Fatalf("accepted %d, connected=%v", bad.Port, client.RemoteAddr())
+		}
+	})
+}
+
+func TestHistoryIssue08(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		t.Run(fmt.Sprint(wrap), func(t *testing.T) {
+			count := 0
+			sentinel := errors.New("shutdown seen")
+			handler := func(b []byte) error {
+				if len(b) >= 8 && SCTPNotificationType(nativeEndian.Uint16(b[:2])) == SCTP_SHUTDOWN_EVENT {
+					count++
+					return sentinel
+				}
+				return nil
+			}
+			client, server, _ := historyPair(t, handler)
+			historyTimeout(t, client)
+			if err := client.SubscribeEvents(SCTP_EVENT_SHUTDOWN); err != nil {
+				t.Fatal(err)
+			}
+			reader := client.Read
+			if wrap {
+				reader = NewSCTPSndRcvInfoWrappedConn(client).Read
+			}
+			// Shutdown triggers graceful close without freeing the owned fd early.
+			if err := syscall.Shutdown(server.fd(), syscall.SHUT_RDWR); err != nil {
+				t.Fatal(err)
+			}
+			_, err := reader(make([]byte, 256))
+			t.Logf("wrapped=%v callback=%d err=%v", wrap, count, err)
+			if count != 1 || !errors.Is(err, sentinel) {
+				t.Fatal("configured shutdown notification was lost")
+			}
+		})
+	}
+}
+
+func TestHistoryIssue09(t *testing.T) {
+	client, _, _ := historyPair(t, nil)
+	historyTimeout(t, client)
+	wrapper := NewSCTPSndRcvInfoWrappedConn(client)
+	if err := client.SubscribeEvents(SCTP_EVENT_DATA_IO | SCTP_EVENT_SENDER_DRY); err != nil {
+		t.Fatal(err)
+	}
+	b := bytes.Repeat([]byte{0xa5}, 128)
+	defer func() {
+		if p := recover(); p != nil {
+			t.Logf("notification at panic=%#x", nativeEndian.Uint16(b[sndRcvInfoSize:]))
+			if SCTPNotificationType(nativeEndian.Uint16(b[sndRcvInfoSize:])) != SCTP_SENDER_DRY_EVENT {
+				t.Error("unexpected notification trigger")
+			}
+			t.Errorf("nil metadata encoding panic: %v", p)
+		}
+	}()
+	n, err := wrapper.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n < int(sndRcvInfoSize)+8 || SCTPNotificationType(nativeEndian.Uint16(b[sndRcvInfoSize:])) != SCTP_SENDER_DRY_EVENT {
+		t.Fatal("sender dry trigger not exercised")
+	}
+	t.Logf("count=%d metadata=%x", n, b[:sndRcvInfoSize])
+	if bytes.Equal(b[:sndRcvInfoSize], bytes.Repeat([]byte{0xa5}, int(sndRcvInfoSize))) {
+		t.Fatal("counted stale metadata header")
+	}
+}
+
+func TestHistoryIssue10(t *testing.T) {
+	var fd int = -1
+	var raw syscall.RawConn
+	defer func() {
+		if closer, ok := raw.(interface{ Close() error }); ok {
+			closer.Close()
+		} else if fd >= 0 {
+			syscall.Close(fd)
+		}
+		if p := recover(); p != nil {
+			t.Errorf("nil raddr panic: %v", p)
+		}
+	}()
+	cfg := SocketConfig{Control: func(_, _ string, r syscall.RawConn) error { raw = r; return r.Control(func(f uintptr) { fd = int(f) }) }}
+	local := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
+	c, err := cfg.Dial("sctp4", local, nil)
+	if c != nil {
+		c.Close()
+	}
+	if err == nil {
+		t.Fatal("nil remote accepted")
+	}
+}
+
+func TestHistoryIssue11(t *testing.T) {
+	addr, err := ResolveSCTPAddr("sctp4", "127.0.0.1/:0")
+	if err != nil {
+		t.Log(err)
+		return
+	}
+	ln, err := ListenSCTP("sctp4", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	got, err := syscall.Getsockname(ln.fd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("parsed=%v actual=%+v", addr, got)
+	if a, ok := got.(*syscall.SockaddrInet4); ok && a.Addr == [4]byte{} {
+		t.Fatal("explicit address prefix was discarded; wildcard bound")
+	}
+}
+
+func TestHistoryIssue12(t *testing.T) {
+	t.Run("count", func(t *testing.T) {
+		client, _, abort := historyPair(t, nil)
+		historyTimeout(t, client)
+		wrapper := NewSCTPSndRcvInfoWrappedConn(client)
+		abort()
+		n, err := wrapper.Read(make([]byte, 128))
+		t.Logf("count=%d err=%v", n, err)
+		if !errors.Is(err, syscall.ECONNRESET) {
+			t.Fatalf("reset trigger not exercised: %v", err)
+		}
+		if n < 0 {
+			t.Fatal("negative byte count")
+		}
+	})
+	for _, wrap := range []bool{false, true} {
+		t.Run(fmt.Sprintf("ReadAll/%v", wrap), func(t *testing.T) {
+			client, _, abort := historyPair(t, nil)
+			historyTimeout(t, client)
+			var r io.Reader = client
+			if wrap {
+				r = NewSCTPSndRcvInfoWrappedConn(client)
+			}
+			abort()
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("ReadAll panic: %v", p)
+				}
+			}()
+			_, err := io.ReadAll(r)
+			if !errors.Is(err, syscall.ECONNRESET) {
+				t.Fatalf("reset trigger not exercised: %v", err)
+			}
+		})
+	}
+}
+
+func TestHistoryIssue13Observation(t *testing.T) {
+	ln, closeListener := historyListener(t)
+	closeListener()
+	c, err := ln.Accept()
+	if err == nil {
+		t.Fatal("closed listener error absent")
+	}
+	typedNil := c != nil && reflect.ValueOf(c).IsNil()
+	t.Logf("conn nil=%v typedNil=%v type=%T err=%v", c == nil, typedNil, c, err)
+	if c != nil && !typedNil {
+		sc := c.(*SCTPConn)
+		t.Logf("non-nil pointer fd=%d", sc.fd())
+	}
+}
+
+func TestHistoryIssue14(t *testing.T) {
+	for _, count := range []int{2, 300} {
+		t.Run(fmt.Sprint(count), func(t *testing.T) {
+			addr := &SCTPAddr{}
+			for i := 0; i < count; i++ {
+				addr.IPAddrs = append(addr.IPAddrs, net.IPAddr{IP: net.IPv4(127, 0, byte(i/254), byte(i%254+1))})
+			}
+			ln, err := ListenSCTP("sctp4", addr)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer ln.Close()
+			var large struct {
+				assoc     int32
+				count     uint32
+				addresses [16384]byte
+			}
+			size := uint32(unsafe.Sizeof(large))
+			_, _, errno := syscall.Syscall6(syscall.SYS_GETSOCKOPT, uintptr(ln.fd), 132, SCTP_GET_LOCAL_ADDRS, uintptr(unsafe.Pointer(&large)), uintptr(unsafe.Pointer(&size)), 0)
+			if errno != 0 || int(large.count) != count {
+				t.Fatalf("large buffer control=%d,%v", large.count, errno)
+			}
+			got := ln.Addr()
+			t.Logf("bound=%d kernel=%d bytes=%d Addr=%v", count, large.count, size, got)
+			if got == nil {
+				t.Fatal("valid multihomed listener address query failed")
+			}
+		})
+	}
+}
+
+// Diagnostic raw calls only: contrast blocking and nonblocking kernel behavior
+// after the same association reset has already been consumed by Write.
+func TestHistoryKernelModes(t *testing.T) {
+	for _, nonblock := range []bool{false, true} {
+		t.Run(fmt.Sprint(nonblock), func(t *testing.T) {
+			client, _, abort := historyPair(t, nil)
+			historyTimeout(t, client)
+			abort()
+			_, err := client.Write([]byte("consume reset"))
+			if !errors.Is(err, syscall.ECONNRESET) {
+				t.Fatalf("reset trigger: %v", err)
+			}
+			flags, _, errno := syscall.Syscall(syscall.SYS_FCNTL, uintptr(client.fd()), syscall.F_GETFL, 0)
+			if errno != 0 {
+				t.Fatal(errno)
+			}
+			defer syscall.SetNonblock(client.fd(), flags&syscall.O_NONBLOCK != 0)
+			if err := syscall.SetNonblock(client.fd(), nonblock); err != nil {
+				t.Fatal(err)
+			}
+			_, _, _, _, err = syscall.Recvmsg(client.fd(), make([]byte, 32), make([]byte, 254), 0)
+			t.Logf("nonblocking=%v raw recvmsg after consumed reset=%v", nonblock, err)
+			want := syscall.ENOTCONN
+			if nonblock {
+				want = syscall.EAGAIN
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("expected %v, got %v", want, err)
+			}
+		})
+	}
+}

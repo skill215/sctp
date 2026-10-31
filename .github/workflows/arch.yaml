@@ -46,5 +46,5 @@ jobs:
         # cover the shared getsockopt syscall with SOL_SOCKET and codecs.
         run: >-
           timeout 60s qemu-${{ matrix.emulator }} "$RUNNER_TEMP/sctp.test"
-          -test.run '^Test(NativeCodec.*|ParseSndRcvInfo.*|SocketOptionLengthABI|SocketTimeoutABI|WrappedWriteUnalignedHeader|RawSockaddrMixedFamilies|RawSockaddrInvalidBuffers|NumericIPv6ZoneEncoding|InvalidNetwork)$'
+          -test.run '^Test(NativeCodec.*|ParseSndRcvInfo.*|SocketOptionLengthABI|SocketTimeoutABI|SendmsgZeroAncillaryABI|AddressQuery.*|WrappedWriteUnalignedHeader|RawSockaddrMixedFamilies|RawSockaddrInvalidBuffers|NumericIPv6ZoneEncoding|InvalidNetwork)$'
           -test.count=3 -test.v -test.timeout=45s

@@ -32,10 +32,9 @@ See the [releases](https://github.com/skill215/sctp/releases) for changes and
 For implementation tradeoffs and API differences, see the
 [Go SCTP library comparison](docs/comparison.md) (中文).
 
-The [0.7.1 audit](docs/release-audit-0.7.1.md) documents known issues with
-reads after a peer abort and concurrent use of a wildcard address.
-See the [v0.7.2 release goals](docs/release-plan-v0.7.2.md) for fixes and
-acceptance criteria (中文).
+The [0.7.1 audit](docs/release-audit-0.7.1.md) records the defects addressed
+by v0.7.2. See the [release validation](docs/release-plan-v0.7.2.md) for their
+regression coverage and release gates.
 
 ## Quick start
 
@@ -177,13 +176,22 @@ one port at the end:
 | Scoped IPv6 | `[fe80::1%eth0]:9000` or `[fe80::1%2]:9000` |
 | Wildcard listener | `:9000` |
 
+Ports must be in 0..65535; local port 0 selects an ephemeral port. Dial requires
+a non-nil remote address. Multihomed strings reject empty host segments;
+`:9000` remains a valid standalone wildcard. Listen/Dial copy their address
+inputs, so concurrent calls can share a read-only address.
+
 Local addresses must be assigned to the host. To select a local address or port
 when dialing, pass a non-nil `laddr` to `DialSCTP`.
 
 IPv6 zones first match an existing interface name, including a purely numeric
 name, then fall back to a numeric interface index. `SCTPLocalAddr` and
 `SCTPRemoteAddr` return address lists, including mixed IPv4/IPv6 lists;
-`SCTPGetPrimaryPeerAddr` returns the primary peer address.
+`SCTPGetPrimaryPeerAddr` returns the primary peer address. Complete address
+queries grow from 4 KiB to a **1 MiB address-area budget** on `ENOMEM` (at most
+nine attempts). Exceeding that budget returns an error wrapping `syscall.ENOMEM`,
+not a partial list. `Addr`/`LocalAddr`/`RemoteAddr`, whose signatures cannot
+return errors, return nil if the query fails.
 
 ## Streams, metadata, and notifications
 
@@ -214,7 +222,20 @@ inside its read/write buffers. Each buffer starts with the 32-byte native-endian
 encoding of `SndRcvInfo`, followed by the payload. The header is a local adapter
 format; it is not added to the SCTP wire payload. Wrapped writes accept unaligned
 buffers and return zero when a send fails without writing data, allowing the
-whole frame to be retried. The wrapper subscribes to data I/O events when created.
+whole frame to be retried. Construction adds DATA_IO while retaining existing
+event subscriptions. Setup failures surface on subsequent Read/Write; Close
+still releases the underlying connection. A returned frame always initializes
+the complete header; absent metadata produces a zero header. That header alone
+cannot distinguish notifications from stream=0/PPID=0 payloads.
+
+On a live connection, empty Read/SCTPRead returns zero without consuming queued
+data or notifications. Wrapped reads require **more than 32 bytes** of capacity;
+shorter or header-only buffers return `0, syscall.EINVAL` without receiving data.
+All empty writes make a genuine zero-payload kernel call. Ordinary empty SCTP
+messages are rejected with the kernel error, and no byte is injected. Explicit
+EOF/ABORT controls retain kernel applicability rules; `SCTP_EOF` is `0x200`.
+Default send parameters and invalid control combinations are interpreted by the
+kernel. Header-only wrapped controls count the 32-byte header only on success.
 
 ## Socket configuration and timeouts
 
@@ -273,7 +294,11 @@ operations. Closing a connection or listener wakes blocked and queued I/O.
 ## File descriptors and raw I/O
 
 `NewSCTPConn(fd, handler)` **takes ownership** of `fd`. Release it with the
-connection's `Close`; do not close the descriptor independently.
+connection's `Close`; do not close the descriptor independently. On unsupported
+targets, construction cannot initialize I/O and immediately releases the supplied
+socket with the platform's socket-close operation. Subsequent methods return
+`ErrUnsupported`, including any saved native cleanup failure. `ErrUnsupported`
+and both `SyscallConn` methods are available across supported and stub targets.
 `FileListener(file)` duplicates the supplied descriptor, so the caller remains
 responsible for closing the original file. `PeelOff` returns a separately owned
 connection with close-on-exec set.
@@ -298,15 +323,16 @@ go test -race ./...
 go vet ./...
 ```
 
-CI tests Go **1.26** and **1.27** on Linux/amd64. Release publication requires
-ten full race-test runs per Go version and three runs of the numeric-interface
+CI tests Go **1.26** and **1.27** on two native Linux/amd64 kernel environments. Release publication requires
+ten independent race/shuffle processes per Go version and kernel, vet, strict
+checkptr, low-GOGC tests, four fuzz targets, downstream consumer builds, and three runs of the numeric-interface
 name/index conflict test in an isolated network namespace. That test requires
 `unshare`, `iproute2`, and permission to create namespaces; it skips locally when
 they are unavailable, while CI runs it with the required privileges and rejects
 skips.
 
 Architecture checks use Go 1.26 and QEMU for **ARM, ARM64, MIPS, MIPS64, PPC64,
-and s390x**. These cover socket-option ABI, alignment, byte order, and address
+and s390x**. These cover socket-option/zero-iov ancillary ABI, alignment, byte order, and address
 encoding using codecs and non-SCTP sockets. They do not exercise full SCTP
 associations under emulation; integration tests run natively on Linux/amd64.
 

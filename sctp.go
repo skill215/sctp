@@ -21,6 +21,7 @@ import (
 	"math/bits"
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,7 +132,7 @@ const (
 	SCTP_ADDR_OVER
 	SCTP_ABORT
 	SCTP_SACK_IMMEDIATELY
-	SCTP_EOF
+	SCTP_EOF = 0x200 // Linux MSG_FIN; not the next iota bit.
 )
 
 const (
@@ -291,6 +292,7 @@ type SCTPAddr struct {
 	Port    int
 }
 
+// ToRawSockAddrBuf serializes an address; networking entry points validate it.
 func (a *SCTPAddr) ToRawSockAddrBuf() []byte {
 	p := htons(uint16(a.Port))
 	if len(a.IPAddrs) == 0 { // if a.IPAddrs list is empty - fall back to IPv4 zero addr
@@ -386,15 +388,24 @@ func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
 	}
 	ipaddrs := make([]net.IPAddr, 0, len(elems))
 	for _, e := range elems[:len(elems)-1] {
+		if e == "" {
+			return nil, &net.AddrError{Err: "empty multihoming host", Addr: addrs}
+		}
 		tcpa, err := net.ResolveTCPAddr(tcpnet, e+":")
 		if err != nil {
 			return nil, err
+		}
+		if tcpa.IP == nil {
+			return nil, &net.AddrError{Err: "empty multihoming host", Addr: addrs}
 		}
 		ipaddrs = append(ipaddrs, net.IPAddr{IP: tcpa.IP, Zone: tcpa.Zone})
 	}
 	tcpa, err := net.ResolveTCPAddr(tcpnet, elems[len(elems)-1])
 	if err != nil {
 		return nil, err
+	}
+	if len(elems) > 1 && tcpa.IP == nil {
+		return nil, &net.AddrError{Err: "empty multihoming host", Addr: addrs}
 	}
 	if tcpa.IP != nil {
 		ipaddrs = append(ipaddrs, net.IPAddr{IP: tcpa.IP, Zone: tcpa.Zone})
@@ -408,23 +419,31 @@ func ResolveSCTPAddr(network, addrs string) (*SCTPAddr, error) {
 }
 
 func SCTPConnect(fd int, addr *SCTPAddr) (int, error) {
+	if err := validateSCTPAddr(addr, true); err != nil {
+		return 0, err
+	}
 	buf := addr.ToRawSockAddrBuf()
 	param := GetAddrsOld{
 		AddrNum: int32(len(buf)),
-		Addrs:   uintptr(uintptr(unsafe.Pointer(&buf[0]))),
+		Addrs:   uintptr(unsafe.Pointer(&buf[0])),
 	}
 	optlen := uint32(unsafe.Sizeof(param))
 	_, _, err := getsockopt(fd, SCTP_SOCKOPT_CONNECTX3, uintptr(unsafe.Pointer(&param)), &optlen)
+	runtime.KeepAlive(buf)
 	if err == nil {
 		return int(param.AssocID), nil
 	} else if err != syscall.ENOPROTOOPT {
 		return 0, err
 	}
 	r0, _, err := setsockopt(fd, SCTP_SOCKOPT_CONNECTX, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	runtime.KeepAlive(buf)
 	return int(r0), err
 }
 
 func SCTPBind(fd int, addr *SCTPAddr, flags int) error {
+	if err := validateSCTPAddr(addr, true); err != nil {
+		return err
+	}
 	var option uintptr
 	switch flags {
 	case SCTP_BINDX_ADD_ADDR:
@@ -445,6 +464,8 @@ type SCTPConn struct {
 	file                *os.File
 	io                  *socketIO
 	initErr             error
+	eventsMu            sync.Mutex
+	singleAssociation   bool // immutable after construction; includes library peeloffs
 	notificationHandler NotificationHandler
 }
 
@@ -524,6 +545,15 @@ func (c *SCTPConn) SetInitMsg(numOstreams, maxInstreams, maxAttempts, maxInitTim
 }
 
 func (c *SCTPConn) SubscribeEvents(flags int) error {
+	if c == nil {
+		return syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	return c.subscribeEvents(flags)
+}
+
+func (c *SCTPConn) subscribeEvents(flags int) error {
 	var d, a, ad, sf, p, sh, pa, ada, au, se uint8
 	if flags&SCTP_EVENT_DATA_IO > 0 {
 		d = 1
@@ -573,6 +603,28 @@ func (c *SCTPConn) SubscribeEvents(flags int) error {
 }
 
 func (c *SCTPConn) SubscribedEvents() (int, error) {
+	if c == nil {
+		return 0, syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	return c.subscribedEvents()
+}
+
+func (c *SCTPConn) enableDataIO() error {
+	if c == nil {
+		return syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	flags, err := c.subscribedEvents()
+	if err != nil {
+		return err
+	}
+	return c.subscribeEvents(flags | SCTP_EVENT_DATA_IO)
+}
+
+func (c *SCTPConn) subscribedEvents() (int, error) {
 	param := EventSubscribe{}
 	optlen := uint32(unsafe.Sizeof(param))
 	_, _, err := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&param)), &optlen)
@@ -728,33 +780,43 @@ func resolveFromRawAddr(buf []byte, n int) (*SCTPAddr, error) {
 }
 
 func sctpGetAddrs(fd, id, optname int) (*SCTPAddr, error) {
+	return querySCTPAddrs(id, optname, func(buf []byte, size *uint32) error {
+		_, _, err := getsockopt(fd, uintptr(optname), uintptr(unsafe.Pointer(&buf[0])), size)
+		return err
+	})
+}
 
-	type getaddrs struct {
-		assocId int32
-		addrNum uint32
-		addrs   [4096]byte
-	}
-	param := getaddrs{
-		assocId: int32(id),
-	}
-	optlen := uint32(unsafe.Sizeof(param))
-	_, _, err := getsockopt(fd, uintptr(optname), uintptr(unsafe.Pointer(&param)), &optlen)
-	if err != nil {
-		return nil, err
-	}
-	// Linux's local-address option returns only the address bytes in optlen;
-	// the peer-address option also counts the sctp_getaddrs header.
-	if optname == SCTP_GET_PEER_ADDRS {
-		headerLen := uint32(unsafe.Offsetof(param.addrs))
-		if optlen < headerLen {
+const maxAddressBytes = 1 << 20
+
+func querySCTPAddrs(id, optname int, query func([]byte, *uint32) error) (*SCTPAddr, error) {
+	const header = 8
+	for capacity := 4096; capacity <= maxAddressBytes; capacity *= 2 {
+		buf := make([]byte, header+capacity)
+		nativeEndian.PutUint32(buf[:4], uint32(id))
+		size := uint32(len(buf))
+		err := query(buf, &size)
+		if err == syscall.ENOMEM {
+			if capacity == maxAddressBytes {
+				return nil, fmt.Errorf("SCTP address query exceeded %d-byte address budget: %w", capacity, err)
+			}
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		// Local optlen excludes the header; peer optlen includes it.
+		if optname == SCTP_GET_PEER_ADDRS {
+			if size < header {
+				return nil, syscall.EINVAL
+			}
+			size -= header
+		}
+		if size > uint32(capacity) {
 			return nil, syscall.EINVAL
 		}
-		optlen -= headerLen
+		return resolveFromRawAddr(buf[header:header+int(size)], int(nativeEndian.Uint32(buf[4:8])))
 	}
-	if optlen > uint32(len(param.addrs)) {
-		return nil, syscall.EINVAL
-	}
-	return resolveFromRawAddr(param.addrs[:optlen], int(param.addrNum))
+	panic("unreachable address query budget")
 }
 
 func (c *SCTPConn) SCTPGetPrimaryPeerAddr() (*SCTPAddr, error) {
@@ -784,10 +846,13 @@ func (c *SCTPConn) getAddrs(id, optname int) (*SCTPAddr, error) {
 	return addr, err
 }
 
+// SCTPLocalAddr queries complete local addresses within a 1 MiB address budget.
+// Exhausting the budget returns an error wrapping syscall.ENOMEM.
 func (c *SCTPConn) SCTPLocalAddr(id int) (*SCTPAddr, error) {
 	return c.getAddrs(id, SCTP_GET_LOCAL_ADDRS)
 }
 
+// SCTPRemoteAddr uses the same 1 MiB address budget as SCTPLocalAddr.
 func (c *SCTPConn) SCTPRemoteAddr(id int) (*SCTPAddr, error) {
 	return c.getAddrs(id, SCTP_GET_PEER_ADDRS)
 }
@@ -819,6 +884,7 @@ func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
 		return nil, err
 	}
 	conn := NewSCTPConn(peeledFD, c.notificationHandler)
+	conn.singleAssociation = true
 	if conn.initErr != nil {
 		conn.Close()
 		return nil, conn.initErr
@@ -864,15 +930,18 @@ func (ln *SCTPListener) Addr() net.Addr {
 }
 
 type SCTPSndRcvInfoWrappedConn struct {
-	conn *SCTPConn
+	conn    *SCTPConn
+	initErr error
 }
 
 func NewSCTPSndRcvInfoWrappedConn(conn *SCTPConn) *SCTPSndRcvInfoWrappedConn {
-	conn.SubscribeEvents(SCTP_EVENT_DATA_IO)
-	return &SCTPSndRcvInfoWrappedConn{conn}
+	return &SCTPSndRcvInfoWrappedConn{conn: conn, initErr: conn.enableDataIO()}
 }
 
 func (c *SCTPSndRcvInfoWrappedConn) Write(b []byte) (int, error) {
+	if c.initErr != nil {
+		return 0, c.initErr
+	}
 	if len(b) < int(sndRcvInfoSize) {
 		return 0, syscall.EINVAL
 	}
@@ -888,14 +957,24 @@ func (c *SCTPSndRcvInfoWrappedConn) Write(b []byte) (int, error) {
 }
 
 func (c *SCTPSndRcvInfoWrappedConn) Read(b []byte) (int, error) {
-	if len(b) < int(sndRcvInfoSize) {
+	if c.initErr != nil {
+		return 0, c.initErr
+	}
+	if len(b) <= int(sndRcvInfoSize) {
 		return 0, syscall.EINVAL
 	}
 	n, info, err := c.conn.SCTPRead(b[sndRcvInfoSize:])
-	if err != nil {
-		return n, err
+	return wrappedReadResult(b, n, info, err)
+}
+
+func wrappedReadResult(b []byte, n int, info *SndRcvInfo, err error) (int, error) {
+	if n <= 0 && err != nil {
+		return 0, err
 	}
-	copy(b, toBuf(info))
+	clear(b[:sndRcvInfoSize])
+	if info != nil {
+		copy(b, toBuf(info))
+	}
 	return n + int(sndRcvInfoSize), err
 }
 
