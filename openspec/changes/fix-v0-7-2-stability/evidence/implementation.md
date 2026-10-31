@@ -86,3 +86,18 @@ controls confirm actual binding. Synthetic query replies test fresh retry
 headers, local/peer optlen, mixed families, nine attempts/1 MiB, non-memory
 errors, counts and truncation. Deep snapshots and CONNECTX3 KeepAlive were
 reviewed. Query growth occurs only on ENOMEM and never parses failed replies.
+
+## Batch E — portable APIs and unsupported resource lifetime
+
+The pre-fix interface assertion fails on Linux/386 (Listener lacks SyscallConn).
+With that compile assertion isolated, all three fd ownership/cleanup tests fail
+on the baseline. After: real Linux/386 SCTP fd, fd=0 child, reuse, concurrent
+Close and retained native cleanup-error tests pass three times on each Go.
+Both full native race suites pass; five-target independent consumers compile
+on both Go versions; Windows tests compile. Native Windows remains a CI gate.
+#13 is implemented: Accept now returns a nil interface with the original error.
+
+Review: unsupported constructors close before storing fd=-1, using close on
+Unix and closesocket on Windows, without int32 truncation or retry. Close is
+immutable and cannot affect a reused number. errors.Join retains both the
+platform sentinel and native cleanup cause. Methods surface the saved error.

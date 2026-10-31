@@ -21,20 +21,22 @@ import (
 	"errors"
 	"net"
 	"os"
-	"runtime"
 	"syscall"
 )
 
-var ErrUnsupported = errors.New("SCTP is unsupported on " + runtime.GOOS + "/" + runtime.GOARCH)
-
 func newSCTPConn(fd int, handler NotificationHandler) *SCTPConn {
 	conn := &SCTPConn{notificationHandler: handler, initErr: ErrUnsupported}
-	conn._fd.Store(int32(fd))
+	conn._fd.Store(-1)
+	if fd >= 0 {
+		if err := closeUnsupportedSocket(fd); err != nil {
+			conn.initErr = errors.Join(ErrUnsupported, os.NewSyscallError("close socket", err))
+		}
+	}
 	return conn
 }
 
 func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
-	return nil, ErrUnsupported
+	return nil, c.unsupportedError()
 }
 
 func setsockopt(fd int, optname, optval, optlen uintptr) (uintptr, uintptr, error) {
@@ -54,31 +56,31 @@ func peelOffSocket(fd, id int) (int, error) {
 }
 
 func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
-	return 0, ErrUnsupported
+	return 0, c.unsupportedError()
 }
 
 func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
-	return 0, nil, ErrUnsupported
+	return 0, nil, c.unsupportedError()
 }
 
 func (c *SCTPConn) Close() error {
-	return ErrUnsupported
+	return c.unsupportedError()
 }
 
 func (c *SCTPConn) SetWriteBuffer(bytes int) error {
-	return ErrUnsupported
+	return c.unsupportedError()
 }
 
 func (c *SCTPConn) GetWriteBuffer() (int, error) {
-	return 0, ErrUnsupported
+	return 0, c.unsupportedError()
 }
 
 func (c *SCTPConn) SetReadBuffer(bytes int) error {
-	return ErrUnsupported
+	return c.unsupportedError()
 }
 
 func (c *SCTPConn) GetReadBuffer() (int, error) {
-	return 0, ErrUnsupported
+	return 0, c.unsupportedError()
 }
 
 func ListenSCTP(net string, laddr *SCTPAddr) (*SCTPListener, error) {
@@ -118,5 +120,16 @@ func DialSCTPExt(network string, laddr, raddr *SCTPAddr, options InitMsg) (*SCTP
 }
 
 func dialSCTPExtConfig(network string, laddr, raddr *SCTPAddr, options InitMsg, control func(network string, address string, c syscall.RawConn) error, handler NotificationHandler) (*SCTPConn, error) {
+	return nil, ErrUnsupported
+}
+
+func (c *SCTPConn) unsupportedError() error {
+	if c != nil && c.initErr != nil {
+		return c.initErr
+	}
+	return ErrUnsupported
+}
+
+func (ln *SCTPListener) SyscallConn() (syscall.RawConn, error) {
 	return nil, ErrUnsupported
 }

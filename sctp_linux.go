@@ -450,7 +450,11 @@ func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
 
 // Accept waits for and returns the next connection connection to the listener.
 func (ln *SCTPListener) Accept() (net.Conn, error) {
-	return ln.AcceptSCTP()
+	conn, err := ln.AcceptSCTP()
+	if err != nil {
+		return nil, err
+	}
+	return conn, nil
 }
 
 func (ln *SCTPListener) Close() error {

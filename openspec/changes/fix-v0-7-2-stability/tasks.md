@@ -46,13 +46,13 @@
 
 ## 6. 批次E 平台API与所有权
 
-- [ ] 6.1 为#15建立外部消费者编译矩阵，引用ErrUnsupported并断言Conn/Listener实现syscall.Conn。
-- [ ] 6.2 将ErrUnsupported移至共同文件，补齐unsupported Listener.SyscallConn，保持sentinel和正常Linux错误行为。
-- [ ] 6.3 为#16加入真实Linux/386 SCTP fd、fd=0子进程、数字复用及并发/重复Close回归。
-- [ ] 6.4 实现unsupported构造失败立即释放、fd=-1与initErr，使用Unix/Windows正确socket关闭helper，避免句柄截断和close重试。
+- [x] 6.1 为#15建立外部消费者编译矩阵，引用ErrUnsupported并断言Conn/Listener实现syscall.Conn。
+- [x] 6.2 将ErrUnsupported移至共同文件，补齐unsupported Listener.SyscallConn，保持sentinel和正常Linux错误行为。
+- [x] 6.3 为#16加入真实Linux/386 SCTP fd、fd=0子进程、数字复用及并发/重复Close回归。
+- [x] 6.4 实现unsupported构造失败立即释放、fd=-1与initErr，使用Unix/Windows正确socket关闭helper，避免句柄截断和close重试。
 - [ ] 6.5 在Windows原生验证真实Winsock handle释放；验证清理错误可保留且errors.Is(ErrUnsupported)成立。
-- [ ] 6.6 处理#13：优先实现Accept错误返回nil接口并保留原error；若延期，明确记录P3非阻塞而不关闭为已修复。
-- [ ] 6.7 复核#15与#16独立验收、初始化失败资源路径和公开API兼容，无新增协议支持承诺。
+- [x] 6.6 处理#13：优先实现Accept错误返回nil接口并保留原error；若延期，明确记录P3非阻塞而不关闭为已修复。
+- [x] 6.7 复核#15与#16独立验收、初始化失败资源路径和公开API兼容，无新增协议支持承诺。
 
 ## 7. 批次F 集成复查与CI门禁
 

@@ -249,3 +249,12 @@ func TestStabilityWrappedPartialData(t *testing.T) {
 		}
 	}
 }
+
+func TestStabilityAcceptErrorNil(t *testing.T) {
+	ln := lifecycleListener(t)
+	ln.Close()
+	c, err := ln.Accept()
+	if c != nil || err == nil {
+		t.Fatalf("Accept=%v,%v", c, err)
+	}
+}
