@@ -445,6 +445,7 @@ type SCTPConn struct {
 	file                *os.File
 	io                  *socketIO
 	initErr             error
+	eventsMu            sync.Mutex
 	notificationHandler NotificationHandler
 }
 
@@ -524,6 +525,15 @@ func (c *SCTPConn) SetInitMsg(numOstreams, maxInstreams, maxAttempts, maxInitTim
 }
 
 func (c *SCTPConn) SubscribeEvents(flags int) error {
+	if c == nil {
+		return syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	return c.subscribeEvents(flags)
+}
+
+func (c *SCTPConn) subscribeEvents(flags int) error {
 	var d, a, ad, sf, p, sh, pa, ada, au, se uint8
 	if flags&SCTP_EVENT_DATA_IO > 0 {
 		d = 1
@@ -573,6 +583,28 @@ func (c *SCTPConn) SubscribeEvents(flags int) error {
 }
 
 func (c *SCTPConn) SubscribedEvents() (int, error) {
+	if c == nil {
+		return 0, syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	return c.subscribedEvents()
+}
+
+func (c *SCTPConn) enableDataIO() error {
+	if c == nil {
+		return syscall.EBADF
+	}
+	c.eventsMu.Lock()
+	defer c.eventsMu.Unlock()
+	flags, err := c.subscribedEvents()
+	if err != nil {
+		return err
+	}
+	return c.subscribeEvents(flags | SCTP_EVENT_DATA_IO)
+}
+
+func (c *SCTPConn) subscribedEvents() (int, error) {
 	param := EventSubscribe{}
 	optlen := uint32(unsafe.Sizeof(param))
 	_, _, err := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&param)), &optlen)
@@ -864,15 +896,18 @@ func (ln *SCTPListener) Addr() net.Addr {
 }
 
 type SCTPSndRcvInfoWrappedConn struct {
-	conn *SCTPConn
+	conn    *SCTPConn
+	initErr error
 }
 
 func NewSCTPSndRcvInfoWrappedConn(conn *SCTPConn) *SCTPSndRcvInfoWrappedConn {
-	conn.SubscribeEvents(SCTP_EVENT_DATA_IO)
-	return &SCTPSndRcvInfoWrappedConn{conn}
+	return &SCTPSndRcvInfoWrappedConn{conn: conn, initErr: conn.enableDataIO()}
 }
 
 func (c *SCTPSndRcvInfoWrappedConn) Write(b []byte) (int, error) {
+	if c.initErr != nil {
+		return 0, c.initErr
+	}
 	if len(b) < int(sndRcvInfoSize) {
 		return 0, syscall.EINVAL
 	}
@@ -888,14 +923,24 @@ func (c *SCTPSndRcvInfoWrappedConn) Write(b []byte) (int, error) {
 }
 
 func (c *SCTPSndRcvInfoWrappedConn) Read(b []byte) (int, error) {
-	if len(b) < int(sndRcvInfoSize) {
+	if c.initErr != nil {
+		return 0, c.initErr
+	}
+	if len(b) <= int(sndRcvInfoSize) {
 		return 0, syscall.EINVAL
 	}
 	n, info, err := c.conn.SCTPRead(b[sndRcvInfoSize:])
-	if err != nil {
-		return n, err
+	return wrappedReadResult(b, n, info, err)
+}
+
+func wrappedReadResult(b []byte, n int, info *SndRcvInfo, err error) (int, error) {
+	if n <= 0 && err != nil {
+		return 0, err
 	}
-	copy(b, toBuf(info))
+	clear(b[:sndRcvInfoSize])
+	if info != nil {
+		copy(b, toBuf(info))
+	}
 	return n + int(sndRcvInfoSize), err
 }
 

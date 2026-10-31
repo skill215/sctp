@@ -1,0 +1,23 @@
+{
+  "date": "2026-10-31",
+  "purpose": "Design feasibility only; no library fix applied",
+  "go": "go version go1.26.10 linux/amd64",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "baseline_commit": "70b338ac419dff6aa745460bb379d68208d615e0",
+  "getpeername_liveness_hypothesis": {
+    "accepted": false,
+    "repetitions": 3,
+    "observation": "Connected-idle and consumed-reset sockets both return cached peer information."
+  },
+  "status_probe": {
+    "repetitions": 3,
+    "connected_idle": "SOCK_STREAM, SCTP_STATUS succeeds with ESTABLISHED, recvmsg EAGAIN",
+    "consumed_reset": "SOCK_STREAM, well-formed SCTP_STATUS EINVAL, recvmsg EAGAIN",
+    "one_to_many": "SOCK_SEQPACKET, assoc_id=0 EINVAL must not terminate endpoint"
+  },
+  "peeled_scope": {
+    "repetitions": 3,
+    "observation": "SO_TYPE remains SOCK_SEQPACKET while assoc_id=0 status succeeds; ordinary endpoint assoc_id=0 status fails."
+  },
+  "remaining_implementation_gate": "Repeat status/ABI and scope checks on an additional native Linux kernel; verify all actual I/O contracts after implementation."
+}

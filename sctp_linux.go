@@ -96,6 +96,9 @@ func (c *SCTPConn) socketRaw() (*socketIO, error) {
 	if c.initErr != nil {
 		return nil, c.initErr
 	}
+	if c.fd() < 0 {
+		return nil, net.ErrClosed
+	}
 	if c.file == nil {
 		return nil, syscall.EBADF
 	}
@@ -183,6 +186,9 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 	if err != nil {
 		return 0, nil, err
 	}
+	if len(b) == 0 {
+		return 0, nil, nil
+	}
 	deadline, err := raw.deadline(true)
 	if err != nil {
 		if c.fd() < 0 {
@@ -209,7 +215,7 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 			return 0, nil, err
 		}
 		if readErr != nil {
-			return n, nil, readErr
+			return 0, nil, readErr
 		}
 
 		if n == 0 && oobn == 0 {
