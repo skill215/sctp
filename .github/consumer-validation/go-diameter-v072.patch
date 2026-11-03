@@ -1,0 +1,1755 @@
+diff --git a/.github/workflows/test.yaml b/.github/workflows/test.yaml
+index 9998ba8..4a6bac6 100644
+--- a/.github/workflows/test.yaml
++++ b/.github/workflows/test.yaml
+@@ -1,14 +1,27 @@
+----
+ name: test
+ on: [push, pull_request]
+-permissions: read-all
++permissions:
++  contents: read
+ jobs:
+   test:
+-    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-22.04, ubuntu-24.04]
++        go: [1.26.x, 1.27.x]
++    runs-on: ${{ matrix.os }}
++    timeout-minutes: 15
+     steps:
+-      - uses: actions/checkout@v3
+-      - uses: actions/setup-go@v4
++      - uses: actions/checkout@v4
++      - uses: actions/setup-go@v5
+         with:
+-          go-version-file: 'go.mod'
+-      - run: |
+-          go test -v -race -cover -timeout 300s ./diam/...
++          go-version: ${{ matrix.go }}
++      - run: sudo modprobe sctp
++      - run: go version
++      - run: uname -r
++      - run: go vet ./diam/...
++      - run: go test -v -race -shuffle=on -count=3 -cover -timeout=300s ./diam/...
++      - name: Require 1000 native SCTP recovery cycles
++        env:
++          DIAM_SCTP_RECOVERY_CYCLES: '1000'
++        run: go test -v -race -run '^TestSCTPRecoveryCycles$' -count=1 -timeout=120s ./diam/sm
+diff --git a/README.md b/README.md
+index 696f8e5..f0fd79e 100644
+--- a/README.md
++++ b/README.md
+@@ -29,14 +29,15 @@ See the API documentation at https://pkg.go.dev/github.com/fiorix/go-diameter/v4
+ - Stack based on [net/http](https://pkg.go.dev/net/http) for simplicity
+ - Ships with sample client, server, snoop agent and benchmark tool
+ - [State machines](http://tools.ietf.org/html/rfc6733#section-5.6) for CER/CEA and DWR/DWA for clients and servers
+-- TCP and SCTP support. SCTP support relies on kernel SCTP implementation and external github.com/ishidawataru/sctp
+-  package and is currently tested and enabled for Go 1.8+ and x86 Linux
++- TCP and SCTP support. SCTP uses `github.com/skill215/sctp v0.7.2` and
++  requires Linux with kernel SCTP support; Linux/386 is unsupported.
++- Go 1.26 or newer is required by the SCTP dependency.
+   
+ ## Getting started
+ 
+ The easiest way to get started is by trying out the client and server example programs.
+ 
+-With Go 1.11 and newer (preferred), you can start the client and server already:
++With Go 1.26 or newer, you can start the client and server already:
+ 
+ ```
+ export GO111MODULE=on
+@@ -96,3 +97,49 @@ You also have the option to run the test using a Linux VM through Docker (this
+ is not mandatory). To do so, run `make test_docker`. Runing test on Linux  can 
+ be useful in case you add `sctp` tests. Note you will need to install
+ docker and docker-compose.
++
++## SCTP upgrade and timeout behavior
++
++Upgrade this adapter and its SCTP dependency together. `DiameterPPID` is the
++host-order value `46`; the SCTP library performs the kernel byte-order conversion.
++Keeping the old `46 << 24` value while upgrading only SCTP sends the wrong PPID.
++Both `Write` and `WriteStream` use this host-order value.
++
++SCTP dialing with a positive timeout limits association setup after address
++resolution. It applies to both stream-aware and single-stream/TLS dial paths.
++It does not bound DNS resolution or implement context cancellation. A zero
++value retains the kernel's normal retry policy; a negative value fails
++immediately. Timeout errors implement `net.Error` and wrap
++`os.ErrDeadlineExceeded`; connection refusal remains distinguishable. The
++connect timeout is cleared before returning a successful connection so later
++writes do not inherit it.
++
++SCTP `SetReadDeadline` and `SetWriteDeadline` remain unsupported. If a server
++configures `ReadTimeout` or `WriteTimeout` and its transport rejects the deadline,
++reads/writes now return that error instead of silently proceeding without the
++requested timeout. This also applies to `WriteStream`. Set these fields to zero
++when using SCTP until standard deadline support is implemented, and account for
++the transport's limitations in service shutdown and watchdog policy. Relative
++socket timeouts are not equivalent to Go connection deadlines.
++
++Linux integration tests include an independent raw ancillary-data PPID check and
++socket-local packet drops for dialing blackholes. A missing SCTP backend fails
++these required checks rather than skipping them. Run:
++
++```sh
++go test -race -shuffle=on -count=3 -timeout=300s ./diam/...
++```
++
++`CloseNotify` also remembers a disconnection that completes before the first
++subscription. Late or concurrent subscribers receive the same closed channel,
++so reconnect loops do not wait for a second event. Linux tests cover watchdog
++stream 15, DWR/DWA response streams, concurrent 128 KiB messages, queued answers
++before shutdown, and local/graceful/abortive closure followed by a new handshake.
++Run the finite resource screen separately:
++
++```sh
++DIAM_SCTP_RECOVERY_CYCLES=1000 go test -race -run '^TestSCTPRecoveryCycles$' -count=1 -v -timeout=120s ./diam/sm
++```
++
++This finite screen does not replace a timed soak or service-level cancellation
++validation.
+diff --git a/diam/avp_test.go b/diam/avp_test.go
+index d21903c..49a5466 100644
+--- a/diam/avp_test.go
++++ b/diam/avp_test.go
+@@ -108,13 +108,19 @@ func TestDecodeAVPWithVendorID(t *testing.T) {
+     </avp>
+   </application>
+ </diameter>`
+-	dict.Default.Load(bytes.NewReader([]byte(userNameVendorXML)))
++	parser, err := dict.NewParser("dict/testdata/base.xml")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := parser.Load(bytes.NewReader([]byte(userNameVendorXML))); err != nil {
++		t.Fatal(err)
++	}
+ 	a := diam.NewAVP(avp.UserName, avp.Mbit|avp.Vbit, 999, datatype.UTF8String("foobar"))
+ 	b, err := a.Serialize()
+ 	if err != nil {
+ 		t.Fatal("Failed to serialize AVP:", err)
+ 	}
+-	a, err = diam.DecodeAVP(b, 1, dict.Default)
++	a, err = diam.DecodeAVP(b, 1, parser)
+ 	if err != nil {
+ 		t.Fatal("Failed to decode AVP:", err)
+ 	}
+diff --git a/diam/basetype/base_test.go b/diam/basetype/base_test.go
+index 9306d85..69e0d71 100644
+--- a/diam/basetype/base_test.go
++++ b/diam/basetype/base_test.go
+@@ -1,6 +1,7 @@
+ package basetype_test
+ 
+ import (
++	"encoding/hex"
+ 	"testing"
+ 
+ 	"github.com/ctrlzy/go-diameter/v4/diam"
+@@ -11,36 +12,26 @@ import (
+ )
+ 
+ func TestVendorSpecificApplicationIdToDiam(t *testing.T) {
+-	authId := datatype.Unsigned32(123)
+-	vsai := basetype.VendorSpecificApplicationId{
+-		VendorId:          datatype.Unsigned32(10415),
+-		AuthApplicationId: &authId,
++	authID := datatype.Unsigned32(123)
++	acctID := datatype.Unsigned32(456)
++	for _, tc := range []struct {
++		name       string
++		auth, acct *datatype.Unsigned32
++		wire       string
++	}{
++		{"auth", &authID, nil, "0000010a4000000c000028af000001024000000c0000007b"},
++		{"acct", nil, &acctID, "0000010a4000000c000028af000001034000000c000001c8"},
++		{"no_optional_field", nil, nil, "0000010a4000000c000028af"},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			vsai := basetype.VendorSpecificApplicationId{VendorId: 10415, AuthApplicationId: tc.auth, AcctApplicationId: tc.acct}
++			want, err := hex.DecodeString(tc.wire)
++			if err != nil {
++				t.Fatal(err)
++			}
++			assert.Equal(t, want, vsai.Serialize().Serialize())
++		})
+ 	}
+-	m1 := vsai.Serialize()
+-	m2 := diam.GroupedAVP{
+-		AVP: []*diam.AVP{
+-			diam.NewAVP(avp.VendorID, avp.Mbit, 0, datatype.Unsigned32(0)),
+-			diam.NewAVP(avp.AuthApplicationID, avp.Mbit, 0, datatype.Unsigned32(123)),
+-			diam.NewAVP(avp.AcctApplicationID, avp.Mbit, 0, datatype.Unsigned32(456)),
+-		},
+-	}
+-	assert.Equal(t, m2.Serialize(), m1.Serialize())
+-}
+-
+-func TestVendorSpecificApplicationIdWithoutOptionalFieldToDiam(t *testing.T) {
+-	authId := datatype.Unsigned32(123)
+-	vsai := basetype.VendorSpecificApplicationId{
+-		VendorId:          datatype.Unsigned32(10415),
+-		AuthApplicationId: &authId,
+-	}
+-	m1 := vsai.Serialize()
+-	m2 := diam.GroupedAVP{
+-		AVP: []*diam.AVP{
+-			diam.NewAVP(avp.AuthApplicationID, avp.Mbit, 0, datatype.Unsigned32(123)),
+-			diam.NewAVP(avp.AcctApplicationID, avp.Mbit, 0, datatype.Unsigned32(456)),
+-		},
+-	}
+-	assert.Equal(t, m2.Serialize(), m1.Serialize())
+ }
+ 
+ func TestOCSupportedFeaturesToDiam(t *testing.T) {
+diff --git a/diam/dict/util_test.go b/diam/dict/util_test.go
+index 34e7e89..3475f0c 100644
+--- a/diam/dict/util_test.go
++++ b/diam/dict/util_test.go
+@@ -14,7 +14,7 @@ import (
+ func TestApps(t *testing.T) {
+ 	apps := dict.Default.Apps()
+ 	if len(apps) != 11 {
+-		t.Fatalf("Unexpected # of apps. Want 9, have %d", len(apps))
++		t.Fatalf("Unexpected # of apps. Want 11, have %d", len(apps))
+ 	}
+ 	// Base protocol.
+ 	if apps[0].ID != 0 {
+@@ -73,8 +73,8 @@ func TestApp(t *testing.T) {
+ 	}
+ }
+ 
+-func findAVPCodeTest(t *testing.T, app uint32, codeStr string, vendor, expectedCode uint32) {
+-	if avp, err := dict.Default.FindAVPWithVendor(app, codeStr, vendor); err != nil {
++func findAVPCodeTest(t *testing.T, parser *dict.Parser, app uint32, codeStr string, vendor, expectedCode uint32) {
++	if avp, err := parser.FindAVPWithVendor(app, codeStr, vendor); err != nil {
+ 		t.Fatalf("FindAVP error: %v for app %d & %s AVP", err, app, codeStr)
+ 	} else if avp.Code != expectedCode {
+ 		t.Fatalf(
+@@ -93,28 +93,34 @@ func TestFindAVPWithVendor(t *testing.T) {
+     </avp>
+   </application>
+ </diameter>`
+-	dict.Default.Load(bytes.NewReader([]byte(nokiaXML)))
+-	if _, err := dict.Default.FindAVPWithVendor(4, 999, dict.UndefinedVendorID); err == nil {
++	parser, err := dict.NewParser(append(append([]string(nil), testDicts...), "./testdata/gx_credit_control.xml")...)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := parser.Load(bytes.NewReader([]byte(nokiaXML))); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := parser.FindAVPWithVendor(4, 999, dict.UndefinedVendorID); err == nil {
+ 		t.Error("Should get not found")
+ 	}
+-	findAVPCodeTest(t, 4, "Session-Id", dict.UndefinedVendorID, 263)
+-	findAVPCodeTest(t, 43, "Session-Start-Indicator", 94, 5105)
+-	findAVPCodeTest(t, 43, "Session-Start-Indicator", dict.UndefinedVendorID, 5105)
++	findAVPCodeTest(t, parser, 4, "Session-Id", dict.UndefinedVendorID, 263)
++	findAVPCodeTest(t, parser, 43, "Session-Start-Indicator", 94, 5105)
++	findAVPCodeTest(t, parser, 43, "Session-Start-Indicator", dict.UndefinedVendorID, 5105)
+ 
+-	if _, err := dict.Default.FindAVPWithVendor(4, "Session-Start-Indicator", 0); err == nil {
++	if _, err := parser.FindAVPWithVendor(4, "Session-Start-Indicator", 0); err == nil {
+ 		t.Error("Should get not found")
+ 	}
+-	findAVPCodeTest(t, 16777251, "Supported-Features", dict.UndefinedVendorID, 628)
++	findAVPCodeTest(t, parser, 16777251, "Supported-Features", dict.UndefinedVendorID, 628)
+ 
+ 	// Test 'parent' AVP find - S6a app ID, tgpp_ro_rf dictionary
+-	findAVPCodeTest(t, 16777251, "GMLC-Address", dict.UndefinedVendorID, 2405)
++	findAVPCodeTest(t, parser, 16777251, "GMLC-Address", dict.UndefinedVendorID, 2405)
+ 
+-	if _, err := dict.Default.FindAVPWithVendor(43, "User-Password", dict.UndefinedVendorID); err == nil {
++	if _, err := parser.FindAVPWithVendor(43, "User-Password", dict.UndefinedVendorID); err == nil {
+ 		t.Error("User-Password Should not be found for app 43")
+ 	}
+-	findAVPCodeTest(t, 1, "User-Password", dict.UndefinedVendorID, 2)
+-	findAVPCodeTest(t, 4, "User-Password", dict.UndefinedVendorID, 2)
+-	findAVPCodeTest(t, 16777251, "User-Password", dict.UndefinedVendorID, 2)
++	findAVPCodeTest(t, parser, 1, "User-Password", dict.UndefinedVendorID, 2)
++	findAVPCodeTest(t, parser, 4, "User-Password", dict.UndefinedVendorID, 2)
++	findAVPCodeTest(t, parser, 16777251, "User-Password", dict.UndefinedVendorID, 2)
+ }
+ 
+ func TestFindAVP(t *testing.T) {
+diff --git a/diam/message_test.go b/diam/message_test.go
+index 4204e8e..9687b95 100644
+--- a/diam/message_test.go
++++ b/diam/message_test.go
+@@ -294,8 +294,14 @@ func TestMessageWriteTo(t *testing.T) {
+     </avp>
+   </application>
+ </diameter>`
+-	dict.Default.Load(bytes.NewReader([]byte(mydictXML)))
+-	m := diam.NewRequest(diam.CreditControl, 4, nil)
++	parser, err := dict.NewParser("dict/testdata/base.xml", "dict/testdata/credit_control.xml")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := parser.Load(bytes.NewReader([]byte(mydictXML))); err != nil {
++		t.Fatal(err)
++	}
++	m := diam.NewRequest(diam.CreditControl, 4, parser)
+ 	m.NewAVP("Session-Id", avp.Mbit, 0, datatype.UTF8String("890f81bee22a0dfddc8b9037eb367781cea1f328"))
+ 	m.NewAVP("Service-Information", avp.Mbit, 10415, &diam.GroupedAVP{
+ 		AVP: []*diam.AVP{
+diff --git a/diam/network.go b/diam/network.go
+index d4d6e02..b76d3d2 100644
+--- a/diam/network.go
++++ b/diam/network.go
+@@ -101,7 +101,7 @@ func getDialer(network string, timeout time.Duration, laddr net.Addr) Dialer {
+ 	switch network {
+ 	case "sctp", "sctp4", "sctp6":
+ 		la, _ := laddr.(*sctp.SCTPAddr)
+-		return sctpSingleStreamDialer{LocalAddr: la}
++		return sctpSingleStreamDialer{LocalAddr: la, Timeout: timeout}
+ 	default:
+ 		return &net.Dialer{Timeout: timeout, LocalAddr: laddr}
+ 	}
+@@ -112,7 +112,7 @@ func getMultistreamDialer(network string, timeout time.Duration, laddr net.Addr)
+ 	switch network {
+ 	case "sctp", "sctp4", "sctp6":
+ 		la, _ := laddr.(*sctp.SCTPAddr)
+-		return sctpDialer{LocalAddr: la}
++		return sctpDialer{LocalAddr: la, Timeout: timeout}
+ 	default:
+ 		dialer := &net.Dialer{Timeout: timeout, LocalAddr: laddr}
+ 		if laddr != nil && len(laddr.String()) > 0 &&
+diff --git a/diam/network_sctp.go b/diam/network_sctp.go
+index 26e3b24..1fd87fe 100644
+--- a/diam/network_sctp.go
++++ b/diam/network_sctp.go
+@@ -9,9 +9,11 @@ import (
+ 	"container/heap"
+ 	"io"
+ 	"net"
++	"os"
+ 	"strconv"
+ 	"sync"
+ 	"sync/atomic"
++	"time"
+ 	"unsafe"
+ 
+ 	"github.com/skill215/sctp"
+@@ -27,12 +29,13 @@ const (
+ 
+ 	// DiameterPPID - SCTP Payload Protocol Identifier for Diameter
+ 	// see: https://tools.ietf.org/html/rfc4960#section-14.4 and https://tools.ietf.org/html/rfc6733#page-24
+-	// Value of PPID must be in network byte order (https://tools.ietf.org/html/rfc6458 Section 5.3.2)
+-	DiameterPPID uint32 = 46 << 24
++	// The SCTP Go API accepts host byte order and converts it for the kernel.
++	DiameterPPID uint32 = 46
+ )
+ 
+ type sctpDialer struct {
+ 	LocalAddr *sctp.SCTPAddr
++	Timeout   time.Duration
+ }
+ 
+ // sctpSingleStreamDialer - SCTP Dialer for stream unaware applications.
+@@ -367,35 +370,32 @@ func (msc *SCTPConn) Write(b []byte) (int, error) {
+ 
+ // Dial connects to the address on the named SCTP network.
+ func (d sctpDialer) Dial(network, address string) (net.Conn, error) {
+-	sctpAddr, err := sctp.ResolveSCTPAddr(network, address)
++	conn, err := dialSCTP(network, address, d.LocalAddr, d.Timeout)
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-
+-	conn, err := sctp.DialSCTPExt(
+-		network,
+-		d.LocalAddr,
+-		sctpAddr,
+-		sctp.InitMsg{
+-			NumOstreams:  MaxOutboundSCTPStreams,
+-			MaxInstreams: MaxInboundSCTPStreams})
+-	return NewSCTPConn(conn), err
++	return NewSCTPConn(conn), nil
+ }
+ 
+-// Dial - SCTP dial for stream unaware apps.
++// Dial connects stream-unaware applications to an SCTP peer.
+ func (d sctpSingleStreamDialer) Dial(network, address string) (net.Conn, error) {
+-	sctpAddr, err := sctp.ResolveSCTPAddr(network, address)
++	conn, err := dialSCTP(network, address, d.LocalAddr, d.Timeout)
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	return conn, nil
++}
+ 
+-	return sctp.DialSCTPExt(
+-		network,
+-		d.LocalAddr,
+-		sctpAddr,
+-		sctp.InitMsg{
+-			NumOstreams:  MaxOutboundSCTPStreams,
+-			MaxInstreams: MaxInboundSCTPStreams})
++func dialSCTP(network, address string, local *sctp.SCTPAddr, timeout time.Duration) (*sctp.SCTPConn, error) {
++	if timeout < 0 {
++		return nil, &net.OpError{Op: "dial", Net: network, Err: os.ErrDeadlineExceeded}
++	}
++	remote, err := sctp.ResolveSCTPAddr(network, address)
++	if err != nil {
++		return nil, err
++	}
++	cfg := sctp.SocketConfig{InitMsg: sctp.InitMsg{NumOstreams: MaxOutboundSCTPStreams, MaxInstreams: MaxInboundSCTPStreams}}
++	return dialSCTPTimeout(network, local, remote, cfg, timeout)
+ }
+ 
+ // Accept implements the Accept method in the listener interface for sctpListener (see: MultistreamListen).
+diff --git a/diam/sctp_diam_test.go b/diam/sctp_diam_test.go
+index 67b9322..4efbd68 100644
+--- a/diam/sctp_diam_test.go
++++ b/diam/sctp_diam_test.go
+@@ -33,6 +33,7 @@ func TestCapabilitiesExchangeSCTP(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 
++	defer cli.Close()
+ 	sendCER(cli)
+ 
+ 	select {
+@@ -58,9 +59,8 @@ func TestCapabilitiesExchangeSCTP_TLS(t *testing.T) {
+ 	smux.Handle("CER", handleCER(errc, true))
+ 
+ 	srv := diamtest.NewUnstartedServerNetwork("sctp", smux, nil)
+-	tm := 100 * time.Millisecond
+-	srv.Config.ReadTimeout = tm
+-	srv.Config.WriteTimeout = tm
++	// SCTP does not implement connection deadlines. Nonzero timeout
++	// configurations are tested separately and must fail explicitly.
+ 	srv.TLS = &tls.Config{
+ 		Certificates: []tls.Certificate{cert},
+ 		MinVersion:   tls.VersionTLS13,
+@@ -78,6 +78,7 @@ func TestCapabilitiesExchangeSCTP_TLS(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 
++	defer cli.Close()
+ 	sendCER(cli)
+ 
+ 	select {
+diff --git a/diam/serve_test.go b/diam/serve_test.go
+index 0907c6a..527b609 100644
+--- a/diam/serve_test.go
++++ b/diam/serve_test.go
+@@ -36,6 +36,7 @@ func TestCapabilitiesExchange(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 
++	defer cli.Close()
+ 	sendCER(cli)
+ 
+ 	select {
+diff --git a/diam/server.go b/diam/server.go
+index 873d92e..e6a2fbe 100644
+--- a/diam/server.go
++++ b/diam/server.go
+@@ -96,6 +96,10 @@ func (c *conn) closeNotify() <-chan struct{} {
+ 	defer c.mu.Unlock()
+ 	if c.closeNotifyc == nil {
+ 		c.closeNotifyc = make(chan struct{})
++		if c.clientGone {
++			close(c.closeNotifyc)
++			return c.closeNotifyc
++		}
+ 
+ 		if msc, isMulti := c.rwc.(MultistreamConn); isMulti {
+ 			// MultistreamConn provides it's own error handler
+@@ -130,9 +134,11 @@ func (c *conn) closeNotify() <-chan struct{} {
+ func (c *conn) notifyClientGone() {
+ 	c.mu.Lock()
+ 	defer c.mu.Unlock()
+-	if c.closeNotifyc != nil && !c.clientGone {
+-		close(c.closeNotifyc) // unblock readers
++	if !c.clientGone {
+ 		c.clientGone = true
++		if c.closeNotifyc != nil {
++			close(c.closeNotifyc)
++		}
+ 	}
+ }
+ 
+@@ -159,7 +165,9 @@ func (srv *Server) newConn(rwc net.Conn) (c *conn, err error) {
+ // Read next message from connection.
+ func (c *conn) readMessage() (m *Message, err error) {
+ 	if c.server.ReadTimeout > 0 {
+-		c.rwc.SetReadDeadline(time.Now().Add(c.server.ReadTimeout))
++		if err := c.rwc.SetReadDeadline(time.Now().Add(c.server.ReadTimeout)); err != nil {
++			return nil, fmt.Errorf("set read deadline: %w", err)
++		}
+ 	}
+ 	if msc, isMulti := c.rwc.(MultistreamConn); isMulti {
+ 		// If it's a multi-stream association - reset the stream to "undefined" prior to reading next message
+@@ -237,10 +245,12 @@ func (w *response) Write(b []byte) (int, error) {
+ 	w.mu.Lock()
+ 	defer w.mu.Unlock()
+ 	if w.conn.server.WriteTimeout > 0 {
+-		w.conn.rwc.SetWriteDeadline(time.Now().Add(w.conn.server.WriteTimeout))
++		if err := w.conn.rwc.SetWriteDeadline(time.Now().Add(w.conn.server.WriteTimeout)); err != nil {
++			return 0, fmt.Errorf("set write deadline: %w", err)
++		}
+ 	}
+-	msc, isMulti := w.conn.rwc.(MultistreamConn) // Note - SetWriteDeadline is not currently supported for SCTP
+-	if isMulti {                                 // don't use buffered writer for muti-streamming writes it'll mix up streams
++	msc, isMulti := w.conn.rwc.(MultistreamConn)
++	if isMulti { // don't use buffered writer for muti-streamming writes it'll mix up streams
+ 		return msc.Write(b)
+ 	}
+ 	n, err := w.conn.buf.Writer.Write(b)
+@@ -255,8 +265,14 @@ func (w *response) Write(b []byte) (int, error) {
+ 
+ // WriteStream of MultistreamWriter interface
+ func (w *response) WriteStream(b []byte, stream uint) (int, error) {
+-	// TODO - SetWriteDeadline is not currently supported
+ 	if msc, isMulti := w.conn.rwc.(MultistreamConn); isMulti {
++		w.mu.Lock()
++		defer w.mu.Unlock()
++		if w.conn.server.WriteTimeout > 0 {
++			if err := w.conn.rwc.SetWriteDeadline(time.Now().Add(w.conn.server.WriteTimeout)); err != nil {
++				return 0, fmt.Errorf("set write deadline: %w", err)
++			}
++		}
+ 		// don't use buffered writer for muti-streamming writes it'll mix up streams
+ 		return msc.WriteStream(b, stream)
+ 	}
+diff --git a/diam/sm/s6a_client_server_test.go b/diam/sm/s6a_client_server_test.go
+index bd3fff2..a676581 100644
+--- a/diam/sm/s6a_client_server_test.go
++++ b/diam/sm/s6a_client_server_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"math/rand"
+ 	"net"
+ 	"strconv"
++	"sync"
+ 	"sync/atomic"
+ 	"testing"
+ 	"time"
+@@ -17,6 +18,7 @@ import (
+ 	"github.com/ctrlzy/go-diameter/v4/diam"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/avp"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/datatype"
++	"github.com/ctrlzy/go-diameter/v4/diam/diamtest"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/dict"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/sm"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/sm/smpeer"
+@@ -55,7 +57,29 @@ func testS6aClientServer(network string, t *testing.T) {
+ 		FirmwareRevision: 1,
+ 	}
+ 
+-	results := make(chan error, CONCURENT_CLIENTS*2)
++	results := make(chan error, CONCURENT_CLIENTS*4)
++	stop := make(chan struct{})
++	var reporters, senders sync.WaitGroup
++	reportErrors := func(ec <-chan *diam.ErrorReport) {
++		reporters.Add(1)
++		go func() { defer reporters.Done(); testPrintErrors(ec, results, stop) }()
++	}
++	var client diam.Conn
++	serverConn := make(chan diam.Conn, 1)
++	var once sync.Once
++	t.Cleanup(func() {
++		if client != nil {
++			client.Close()
++		}
++		select {
++		case c := <-serverConn:
++			c.Close()
++		default:
++		}
++		close(stop)
++		senders.Wait()
++		reporters.Wait()
++	})
+ 
+ 	// Create the state machine (mux) and set its message handlers.
+ 	mux := sm.New(settings)
+@@ -75,19 +99,14 @@ func testS6aClientServer(network string, t *testing.T) {
+ 	// Catch All
+ 	mux.HandleIdx(diam.ALL_CMD_INDEX, testHandleALL(results))
+ 
+-	// Print error reports.
+-	go testPrintErrors(mux.ErrorReports(), results)
++	reportErrors(mux.ErrorReports())
+ 
+-	// Start Server
+-	go func() {
+-		results <- nil
+-		err := diam.ListenAndServeNetwork(network, "127.0.0.1:3868", mux, nil)
+-		if err != nil {
+-			results <- err
+-		}
+-	}()
+-	err := <-results
+-	time.Sleep(time.Millisecond * 10)
++	// Each repetition owns an ephemeral listener and closes both association ends.
++	srv := diamtest.NewServerNetwork(network, diam.HandlerFunc(func(c diam.Conn, m *diam.Message) {
++		once.Do(func() { serverConn <- c })
++		mux.ServeDIAM(c, m)
++	}), nil)
++	t.Cleanup(srv.Close)
+ 
+ 	// Initialize Client
+ 	cfg := &sm.Settings{
+@@ -138,43 +157,73 @@ func testS6aClientServer(network string, t *testing.T) {
+ 	cmux.HandleFunc("ALL", testHandleALL(results)) // Catch all.
+ 
+ 	// Print error reports.
+-	go testPrintErrors(cmux.ErrorReports(), results)
++	reportErrors(cmux.ErrorReports())
+ 
+-	c, err := cli.DialNetwork(network, "127.0.0.1:3868")
++	c, err := cli.DialNetwork(network, srv.Addr)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
++	client = c
+ 	timeOut := time.NewTimer(time.Second * TEST_TIMEOUT_SECONDS)
+-	go func() {
+-		<-timeOut.C
+-		results <- fmt.Errorf("TestClientServer %s Timed Out", network)
+-	}()
++	defer timeOut.Stop()
+ 	for i := 0; i < CONCURENT_CLIENTS; i++ {
++		senders.Add(1)
+ 		go func() {
++			defer senders.Done()
+ 			time.Sleep(time.Nanosecond * time.Duration(rand.Intn(int(time.Millisecond))))
+-			err := testSendAIR(c, cfg)
+-			if err != nil {
+-				results <- err
++			if err := testSendAIR(c, cfg); err != nil {
++				select {
++				case results <- err:
++				case <-stop:
++				}
+ 			} else {
+ 				atomic.AddUint32(&sentAIRs, 1)
+ 			}
+ 		}()
+ 	}
+-	for i := 0; i < CONCURENT_CLIENTS; i++ {
+-		err = <-results
+-		if err != nil {
+-			t.Error(err)
+-			for e := 0; e < len(results); e++ {
+-				err = <-results
+-				if err != nil {
+-					t.Error(err)
+-				}
++	// Every transaction finishes with both a ULA and a CLA, not just one answer.
++	for i := 0; i < CONCURENT_CLIENTS*2; i++ {
++		select {
++		case err := <-results:
++			if err != nil {
++				t.Fatal(err)
+ 			}
+-			break
++		case <-timeOut.C:
++			t.Fatalf("S6a %s timed out after %d answers", network, i)
+ 		}
+ 	}
+-	time.Sleep(time.Second)
++	senders.Wait()
+ 	logStats(t)
++	counts := map[string]*uint32{
++		"sent AIR": &sentAIRs, "received AIR": &receivedAIRs,
++		"sent AIA": &sentAIAs, "received AIA": &receivedAIAs,
++		"sent ULR": &sentULRs, "received ULR": &receivedULRs,
++		"sent ULA": &sentULAs, "received ULA": &receivedULAs,
++		"sent CLR": &sentCLRs, "received CLR": &receivedCLRs,
++		"sent CLA": &sentCLAs, "received CLA": &receivedCLAs,
++	}
++	// Peer receipt can precede the sending handler's post-write counter update.
++	for {
++		complete := true
++		for _, value := range counts {
++			if atomic.LoadUint32(value) != CONCURENT_CLIENTS {
++				complete = false
++			}
++		}
++		if complete {
++			break
++		}
++		select {
++		case <-timeOut.C:
++			for name, value := range counts {
++				if got := atomic.LoadUint32(value); got != CONCURENT_CLIENTS {
++					t.Errorf("%s=%d, want %d", name, got, CONCURENT_CLIENTS)
++				}
++			}
++			return
++		case <-time.After(time.Millisecond):
++		}
++	}
+ }
+ 
+ func testHandleALL(results chan error) diam.HandlerFunc {
+@@ -620,6 +669,10 @@ func resetTestStats() {
+ 	atomic.StoreUint32(&receivedULRs, 0)
+ 	atomic.StoreUint32(&sentULAs, 0)
+ 	atomic.StoreUint32(&receivedULAs, 0)
++	atomic.StoreUint32(&sentCLRs, 0)
++	atomic.StoreUint32(&receivedCLRs, 0)
++	atomic.StoreUint32(&sentCLAs, 0)
++	atomic.StoreUint32(&receivedCLAs, 0)
+ }
+ 
+ func logStats(t *testing.T) {
+@@ -635,8 +688,20 @@ func logStats(t *testing.T) {
+ 	)
+ }
+ 
+-func testPrintErrors(ec <-chan *diam.ErrorReport, results chan error) {
+-	for err := range ec {
+-		results <- fmt.Errorf("Error: %v for Message: %s", err.Error, err.Message)
++func testPrintErrors(ec <-chan *diam.ErrorReport, results chan error, stop <-chan struct{}) {
++	for {
++		select {
++		case <-stop:
++			return
++		case err, ok := <-ec:
++			if !ok {
++				return
++			}
++			select {
++			case results <- fmt.Errorf("Error: %v for Message: %s", err.Error, err.Message):
++			case <-stop:
++				return
++			}
++		}
+ 	}
+ }
+diff --git a/go.mod b/go.mod
+index b081b2a..f0c74b4 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,6 +1,6 @@
+ module github.com/ctrlzy/go-diameter/v4
+ 
+-go 1.20
++go 1.26.0
+ 
+ require (
+ 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
+@@ -11,7 +11,7 @@ require (
+ 	google.golang.org/grpc v1.24.0
+ )
+ 
+-require github.com/skill215/sctp v0.0.0-20240306111250-f5dbad44113e
++require github.com/skill215/sctp v0.7.2
+ 
+ require (
+ 	github.com/davecgh/go-spew v1.1.1 // indirect
+diff --git a/go.sum b/go.sum
+index 102de30..f25f3e0 100644
+--- a/go.sum
++++ b/go.sum
+@@ -14,6 +14,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
+ github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+ github.com/skill215/sctp v0.0.0-20240306111250-f5dbad44113e h1:h/zSIqcxKjat+GeNgH3S8FwUf0P7D0xsk6qKcHgKNMM=
+ github.com/skill215/sctp v0.0.0-20240306111250-f5dbad44113e/go.mod h1:MEM/8w5ogOTj+ecDanUJdKvZzRevsymVvwah5zfqGD8=
++github.com/skill215/sctp v0.7.2 h1:eUTD5YydA6w0rmID0WQFGqc/bLHcdHjlwOIoSA6P0Pc=
++github.com/skill215/sctp v0.7.2/go.mod h1:g/XAScdNEAqQa2cjZdtxXVkxIJZEy77f7/fmCkTD2gg=
+ github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
+ github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
+ github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
+diff --git a/diam/close_notify_test.go b/diam/close_notify_test.go
+new file mode 100644
+index 0000000..296149d
+--- /dev/null
++++ b/diam/close_notify_test.go
+@@ -0,0 +1,48 @@
++package diam_test
++
++import (
++	"net"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/ctrlzy/go-diameter/v4/diam"
++)
++
++func TestCloseNotifyLateConcurrentSubscribers(t *testing.T) {
++	local, remote := net.Pipe()
++	defer remote.Close()
++	mux := diam.NewServeMux()
++	c, err := diam.NewConn(local, "pipe", mux, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer c.Close()
++	c.Close()
++	select {
++	case <-mux.ErrorReports():
++	case <-time.After(time.Second):
++		t.Fatal("read loop did not process close")
++	}
++	channels := make(chan (<-chan struct{}), 32)
++	var wg sync.WaitGroup
++	for range 32 {
++		wg.Add(1)
++		go func() { defer wg.Done(); channels <- c.(diam.CloseNotifier).CloseNotify() }()
++	}
++	wg.Wait()
++	close(channels)
++	var first <-chan struct{}
++	for ch := range channels {
++		if first == nil {
++			first = ch
++		} else if first != ch {
++			t.Fatal("subscribers received different channels")
++		}
++		select {
++		case <-ch:
++		default:
++			t.Fatal("late subscriber missed completed disconnection")
++		}
++	}
++}
+diff --git a/diam/deadline_error_test.go b/diam/deadline_error_test.go
+new file mode 100644
+index 0000000..e471477
+--- /dev/null
++++ b/diam/deadline_error_test.go
+@@ -0,0 +1,111 @@
++package diam
++
++import (
++	"errors"
++	"net"
++	"testing"
++	"time"
++)
++
++type deadlineProbeConn struct {
++	readCalls, writeCalls int
++	err                   error
++}
++
++func (c *deadlineProbeConn) Read([]byte) (int, error) {
++	c.readCalls++
++	return 0, errors.New("unexpected read")
++}
++func (c *deadlineProbeConn) Write(b []byte) (int, error)      { c.writeCalls++; return len(b), nil }
++func (c *deadlineProbeConn) Close() error                     { return nil }
++func (c *deadlineProbeConn) LocalAddr() net.Addr              { return &net.TCPAddr{} }
++func (c *deadlineProbeConn) RemoteAddr() net.Addr             { return &net.TCPAddr{} }
++func (c *deadlineProbeConn) SetDeadline(time.Time) error      { return c.err }
++func (c *deadlineProbeConn) SetReadDeadline(time.Time) error  { return c.err }
++func (c *deadlineProbeConn) SetWriteDeadline(time.Time) error { return c.err }
++
++type deadlineProbeMulti struct {
++	MultistreamConn
++	probe *deadlineProbeConn
++}
++
++func (c *deadlineProbeMulti) ReadAtLeast(b []byte, _ int, stream uint) (int, uint, error) {
++	n, err := c.probe.Read(b)
++	return n, stream, err
++}
++
++func (c *deadlineProbeMulti) Read(b []byte) (int, error)                { return c.probe.Read(b) }
++func (c *deadlineProbeMulti) Write(b []byte) (int, error)               { return c.probe.Write(b) }
++func (c *deadlineProbeMulti) WriteStream(b []byte, _ uint) (int, error) { return c.probe.Write(b) }
++func (c *deadlineProbeMulti) ResetCurrentStream()                       {}
++func (c *deadlineProbeMulti) SetReadDeadline(d time.Time) error         { return c.probe.SetReadDeadline(d) }
++func (c *deadlineProbeMulti) SetWriteDeadline(d time.Time) error        { return c.probe.SetWriteDeadline(d) }
++
++func TestDeadlineSetupFailureStopsIO(t *testing.T) {
++	for _, multi := range []bool{false, true} {
++		for _, op := range []string{"Read", "Write", "WriteStream"} {
++			name := map[bool]string{false: "single", true: "multi"}[multi] + "/" + op
++			t.Run(name, func(t *testing.T) {
++				want := errors.New("transport cannot configure deadline")
++				probe := &deadlineProbeConn{err: want}
++				var rw net.Conn = probe
++				if multi {
++					rw = &deadlineProbeMulti{probe: probe}
++				}
++				srv := &Server{ReadTimeout: time.Second, WriteTimeout: time.Second}
++				c, err := srv.newConn(rw)
++				if err != nil {
++					t.Fatal(err)
++				}
++				var n int
++				switch op {
++				case "Read":
++					_, err = c.readMessage()
++				case "Write":
++					n, err = c.writer.Write([]byte("payload"))
++				case "WriteStream":
++					n, err = c.writer.WriteStream([]byte("payload"), 1)
++				}
++				if !errors.Is(err, want) {
++					t.Errorf("error=%v, want original deadline error", err)
++				}
++				if n != 0 || probe.readCalls != 0 || probe.writeCalls != 0 {
++					t.Errorf("I/O after failed deadline: n=%d reads=%d writes=%d", n, probe.readCalls, probe.writeCalls)
++				}
++			})
++		}
++	}
++}
++
++func TestZeroTimeoutDoesNotConfigureDeadline(t *testing.T) {
++	for _, multi := range []bool{false, true} {
++		for _, op := range []string{"Read", "Write", "WriteStream"} {
++			t.Run(map[bool]string{false: "single", true: "multi"}[multi]+"/"+op, func(t *testing.T) {
++				probe := &deadlineProbeConn{err: errors.New("deadline must not be configured")}
++				var rw net.Conn = probe
++				if multi {
++					rw = &deadlineProbeMulti{probe: probe}
++				}
++				c, err := (&Server{}).newConn(rw)
++				if err != nil {
++					t.Fatal(err)
++				}
++				var n int
++				switch op {
++				case "Read":
++					_, err = c.readMessage()
++					if probe.readCalls != 1 {
++						t.Fatalf("reads=%d, err=%v", probe.readCalls, err)
++					}
++				case "Write":
++					n, err = c.writer.Write([]byte("payload"))
++				case "WriteStream":
++					n, err = c.writer.WriteStream([]byte("payload"), 1)
++				}
++				if op != "Read" && (err != nil || n != 7 || probe.writeCalls != 1) {
++					t.Fatalf("write n=%d err=%v calls=%d", n, err, probe.writeCalls)
++				}
++			})
++		}
++	}
++}
+diff --git a/diam/sctp_dial_timeout_linux.go b/diam/sctp_dial_timeout_linux.go
+new file mode 100644
+index 0000000..63d3019
+--- /dev/null
++++ b/diam/sctp_dial_timeout_linux.go
+@@ -0,0 +1,51 @@
++//go:build linux && !386
++
++package diam
++
++import (
++	"errors"
++	"fmt"
++	"net"
++	"os"
++	"syscall"
++	"time"
++
++	"github.com/skill215/sctp"
++)
++
++func setSCTPConnectTimeout(raw syscall.RawConn, timeout time.Duration) error {
++	value := syscall.NsecToTimeval(timeout.Nanoseconds())
++	var optionErr error
++	if err := raw.Control(func(fd uintptr) {
++		optionErr = syscall.SetsockoptTimeval(int(fd), syscall.SOL_SOCKET, syscall.SO_SNDTIMEO, &value)
++	}); err != nil {
++		return err
++	}
++	return optionErr
++}
++
++// Limit association setup after address resolution. This is not a DNS or
++// context deadline. The relative timeout must be cleared before handing the
++// socket to callers so it does not impose a timeout on subsequent writes.
++func dialSCTPTimeout(network string, local, remote *sctp.SCTPAddr, cfg sctp.SocketConfig, timeout time.Duration) (*sctp.SCTPConn, error) {
++	if timeout == 0 {
++		return cfg.Dial(network, local, remote)
++	}
++	cfg.Control = func(_, _ string, raw syscall.RawConn) error { return setSCTPConnectTimeout(raw, timeout) }
++	conn, err := cfg.Dial(network, local, remote)
++	if err != nil {
++		if errors.Is(err, syscall.EINPROGRESS) {
++			return nil, &net.OpError{Op: "dial", Net: network, Addr: remote, Err: os.ErrDeadlineExceeded}
++		}
++		return nil, err
++	}
++	raw, err := conn.SyscallConn()
++	if err == nil {
++		err = setSCTPConnectTimeout(raw, 0)
++	}
++	if err != nil {
++		conn.Close()
++		return nil, fmt.Errorf("clear SCTP connect timeout: %w", err)
++	}
++	return conn, nil
++}
+diff --git a/diam/sctp_dial_timeout_unsupported.go b/diam/sctp_dial_timeout_unsupported.go
+new file mode 100644
+index 0000000..1ead439
+--- /dev/null
++++ b/diam/sctp_dial_timeout_unsupported.go
+@@ -0,0 +1,13 @@
++//go:build !linux || 386
++
++package diam
++
++import (
++	"time"
++
++	"github.com/skill215/sctp"
++)
++
++func dialSCTPTimeout(network string, local, remote *sctp.SCTPAddr, cfg sctp.SocketConfig, _ time.Duration) (*sctp.SCTPConn, error) {
++	return cfg.Dial(network, local, remote)
++}
+diff --git a/diam/sctp_upgrade_linux_test.go b/diam/sctp_upgrade_linux_test.go
+new file mode 100644
+index 0000000..3abdc33
+--- /dev/null
++++ b/diam/sctp_upgrade_linux_test.go
+@@ -0,0 +1,296 @@
++//go:build linux && !386 && !android
++
++package diam
++
++import (
++	"bytes"
++	"context"
++	"encoding/binary"
++	"errors"
++	"net"
++	"os"
++	"os/exec"
++	"syscall"
++	"testing"
++	"time"
++	"unsafe"
++
++	"github.com/skill215/sctp"
++)
++
++func upgradeListener(t *testing.T, drop bool) *sctp.SCTPListener {
++	t.Helper()
++	cfg := sctp.SocketConfig{InitMsg: sctp.InitMsg{NumOstreams: 16, MaxInstreams: 16}}
++	if drop {
++		cfg.Control = func(_, _ string, raw syscall.RawConn) error {
++			var e error
++			if err := raw.Control(func(fd uintptr) {
++				e = syscall.AttachLsf(int(fd), []syscall.SockFilter{{Code: syscall.BPF_RET | syscall.BPF_K, K: 0}})
++			}); err != nil {
++				return err
++			}
++			return e
++		}
++	}
++	ln, err := cfg.Listen("sctp4", &sctp.SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}})
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { ln.Close() })
++	return ln
++}
++
++// Decode kernel ancillary data independently of SCTPRead and the adapter.
++func TestSCTPUpgradeWirePPID(t *testing.T) {
++	for _, tc := range []struct {
++		name   string
++		stream uint
++		write  func(MultistreamConn, []byte) (int, error)
++	}{
++		{"WriteDefault", 0, func(c MultistreamConn, b []byte) (int, error) { return c.Write(b) }},
++		{"WriteSelected", 3, func(c MultistreamConn, b []byte) (int, error) { c.SetWriterStream(3); return c.Write(b) }},
++		{"WriteStream", 1, func(c MultistreamConn, b []byte) (int, error) { return c.WriteStream(b, 1) }},
++	} {
++		t.Run(tc.name, func(t *testing.T) {
++			ln := upgradeListener(t, false)
++			rw, err := getMultistreamDialer("sctp4", time.Second, nil).Dial("sctp4", ln.Addr().String())
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { rw.Close() })
++			peer, err := ln.AcceptSCTP()
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { peer.Close() })
++			if err := peer.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO); err != nil {
++				t.Fatal(err)
++			}
++			payload := []byte("Diameter independent PPID check")
++			n, err := tc.write(rw.(MultistreamConn), payload)
++			if err != nil || n != len(payload) {
++				t.Fatalf("write=%d,%v", n, err)
++			}
++			raw, err := peer.SyscallConn()
++			if err != nil {
++				t.Fatal(err)
++			}
++			var data [256]byte
++			var oob [256]byte
++			var on int
++			var recvErr error
++			until := time.Now().Add(time.Second)
++			for {
++				err = raw.Control(func(fd uintptr) {
++					n, on, _, _, recvErr = syscall.Recvmsg(int(fd), data[:], oob[:], syscall.MSG_DONTWAIT)
++				})
++				if err != nil {
++					t.Fatal(err)
++				}
++				if !errors.Is(recvErr, syscall.EAGAIN) {
++					break
++				}
++				if time.Now().After(until) {
++					t.Fatal("receive timed out")
++				}
++				time.Sleep(time.Millisecond)
++			}
++			if recvErr != nil {
++				t.Fatal(recvErr)
++			}
++			if !bytes.Equal(data[:n], payload) {
++				t.Fatalf("payload=%q", data[:n])
++			}
++			msgs, err := syscall.ParseSocketControlMessage(oob[:on])
++			if err != nil {
++				t.Fatal(err)
++			}
++			for _, m := range msgs {
++				if m.Header.Level == syscall.IPPROTO_SCTP && m.Header.Type == sctp.SCTP_CMSG_SNDRCV {
++					if len(m.Data) < 32 {
++						t.Fatal("short SCTP metadata")
++					}
++					if ppid := binary.BigEndian.Uint32(m.Data[8:12]); ppid != 46 {
++						t.Fatalf("wire PPID=%d (%x), want 46", ppid, m.Data[8:12])
++					}
++					if stream := binary.NativeEndian.Uint16(m.Data[:2]); uint(stream) != tc.stream {
++						t.Fatalf("stream=%d, want %d", stream, tc.stream)
++					}
++					return
++				}
++			}
++			t.Fatal("missing SCTP metadata")
++		})
++	}
++}
++
++// A subprocess bounds the regression even if the adapter drops its timeout.
++// The filter affects only this test socket; no firewall or namespace changes.
++func TestSCTPDialTimeoutBlackhole(t *testing.T) {
++	if mode := os.Getenv("DIAM_SCTP_TIMEOUT_CHILD"); mode != "" {
++		ln := upgradeListener(t, true)
++		var dialer Dialer = getMultistreamDialer("sctp4", 50*time.Millisecond, nil)
++		if mode == "single" {
++			dialer = getDialer("sctp4", 50*time.Millisecond, nil)
++		}
++		start := time.Now()
++		conn, err := dialer.Dial("sctp4", ln.Addr().String())
++		if conn != nil {
++			conn.Close()
++		}
++		if !errors.Is(err, os.ErrDeadlineExceeded) {
++			t.Fatalf("dial error=%v, want deadline exceeded", err)
++		}
++		var ne net.Error
++		if !errors.As(err, &ne) || !ne.Timeout() {
++			t.Fatalf("not a timeout: %v", err)
++		}
++		if elapsed := time.Since(start); elapsed < 25*time.Millisecond || elapsed > time.Second {
++			t.Fatalf("elapsed=%v", elapsed)
++		}
++		return
++	}
++	for _, mode := range []string{"single", "multi"} {
++		t.Run(mode, func(t *testing.T) {
++			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
++			defer cancel()
++			cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestSCTPDialTimeoutBlackhole$", "-test.v")
++			cmd.Env = append(os.Environ(), "DIAM_SCTP_TIMEOUT_CHILD="+mode)
++			output, err := cmd.CombinedOutput()
++			if err != nil {
++				t.Fatalf("timeout child: %v, context=%v\n%s", err, ctx.Err(), output)
++			}
++		})
++	}
++}
++
++func TestSCTPDialTimeoutDoesNotLeakIntoWrites(t *testing.T) {
++	for _, multi := range []bool{false, true} {
++		t.Run(map[bool]string{false: "single", true: "multi"}[multi], func(t *testing.T) {
++			ln := upgradeListener(t, false)
++			var d Dialer = getDialer("sctp4", 50*time.Millisecond, nil)
++			if multi {
++				d = getMultistreamDialer("sctp4", 50*time.Millisecond, nil)
++			}
++			c, err := d.Dial("sctp4", ln.Addr().String())
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { c.Close() })
++			peer, err := ln.AcceptSCTP()
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { peer.Close() })
++			var sc *sctp.SCTPConn
++			if multi {
++				sc = c.(*SCTPConn).SCTPConn
++			} else {
++				sc = c.(*sctp.SCTPConn)
++			}
++			raw, err := sc.SyscallConn()
++			if err != nil {
++				t.Fatal(err)
++			}
++			var value syscall.Timeval
++			size := uint32(unsafe.Sizeof(value))
++			var errno syscall.Errno
++			if err := raw.Control(func(fd uintptr) {
++				_, _, errno = syscall.Syscall6(syscall.SYS_GETSOCKOPT, fd, syscall.SOL_SOCKET, syscall.SO_SNDTIMEO, uintptr(unsafe.Pointer(&value)), uintptr(unsafe.Pointer(&size)), 0)
++			}); err != nil {
++				t.Fatal(err)
++			}
++			if errno != 0 {
++				t.Fatal(errno)
++			}
++			if value.Sec != 0 || value.Usec != 0 {
++				t.Fatalf("connect timeout leaked into writes: %+v", value)
++			}
++		})
++	}
++}
++
++func TestSCTPDialTimeoutPreservesRefusal(t *testing.T) {
++	ln := upgradeListener(t, false)
++	addr := ln.Addr().String()
++	ln.Close()
++	for _, d := range []Dialer{getDialer("sctp4", time.Second, nil), getMultistreamDialer("sctp4", time.Second, nil)} {
++		c, err := d.Dial("sctp4", addr)
++		if c != nil {
++			c.Close()
++		}
++		if !errors.Is(err, syscall.ECONNREFUSED) {
++			t.Fatalf("refusal=%v", err)
++		}
++	}
++}
++
++func TestSCTPDialNegativeTimeout(t *testing.T) {
++	ln := upgradeListener(t, false)
++	for _, d := range []Dialer{getDialer("sctp4", -time.Nanosecond, nil), getMultistreamDialer("sctp4", -time.Nanosecond, nil)} {
++		c, err := d.Dial("sctp4", ln.Addr().String())
++		if c != nil {
++			c.Close()
++		}
++		if !errors.Is(err, os.ErrDeadlineExceeded) {
++			t.Fatalf("negative timeout=%v", err)
++		}
++	}
++}
++
++func TestSCTPRejectsUnsupportedServerDeadline(t *testing.T) {
++	for _, op := range []string{"Read", "Write", "WriteStream"} {
++		t.Run(op, func(t *testing.T) {
++			ln := upgradeListener(t, false)
++			c, err := getMultistreamDialer("sctp4", time.Second, nil).Dial("sctp4", ln.Addr().String())
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { c.Close() })
++			peer, err := ln.AcceptSCTP()
++			if err != nil {
++				t.Fatal(err)
++			}
++			t.Cleanup(func() { peer.Close() })
++			dc, err := (&Server{ReadTimeout: time.Millisecond, WriteTimeout: time.Millisecond}).newConn(c)
++			if err != nil {
++				t.Fatal(err)
++			}
++			done := make(chan error, 1)
++			go func() {
++				var err error
++				switch op {
++				case "Read":
++					_, err = dc.readMessage()
++				case "Write":
++					_, err = dc.writer.Write([]byte("payload"))
++				case "WriteStream":
++					_, err = dc.writer.WriteStream([]byte("payload"), 1)
++				}
++				done <- err
++			}()
++			select {
++			case err := <-done:
++				if !errors.Is(err, syscall.EOPNOTSUPP) {
++					t.Fatalf("deadline error=%v", err)
++				}
++			case <-time.After(time.Second):
++				c.Close()
++				<-done
++				t.Fatal("unsupported deadline was ignored")
++			}
++			raw, err := peer.SyscallConn()
++			if err != nil {
++				t.Fatal(err)
++			}
++			var recvErr error
++			var buf [32]byte
++			if err := raw.Control(func(fd uintptr) { _, _, _, _, recvErr = syscall.Recvmsg(int(fd), buf[:], nil, syscall.MSG_DONTWAIT) }); err != nil {
++				t.Fatal(err)
++			}
++			if !errors.Is(recvErr, syscall.EAGAIN) {
++				t.Fatalf("unexpected data or close after rejected operation: %v", recvErr)
++			}
++		})
++	}
++}
+diff --git a/diam/sm/sctp_integration_linux_test.go b/diam/sm/sctp_integration_linux_test.go
+new file mode 100644
+index 0000000..97bbdfc
+--- /dev/null
++++ b/diam/sm/sctp_integration_linux_test.go
+@@ -0,0 +1,438 @@
++//go:build linux && !386 && !android
++
++package sm_test
++
++import (
++	"bytes"
++	"fmt"
++	"net"
++	"os"
++	"runtime"
++	"strconv"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/ctrlzy/go-diameter/v4/diam"
++	"github.com/ctrlzy/go-diameter/v4/diam/avp"
++	"github.com/ctrlzy/go-diameter/v4/diam/datatype"
++	"github.com/ctrlzy/go-diameter/v4/diam/dict"
++	"github.com/ctrlzy/go-diameter/v4/diam/sm"
++	"syscall"
++)
++
++// Preserve MultistreamConn on accepted sockets while owning every test fd.
++type integrationListener struct {
++	net.Listener
++	mu       sync.Mutex
++	peers    map[net.Conn]struct{}
++	accepted chan net.Conn
++	stopped  chan struct{}
++	once     sync.Once
++}
++
++func (l *integrationListener) Accept() (net.Conn, error) {
++	c, err := l.Listener.Accept()
++	if err != nil {
++		return nil, err
++	}
++	l.mu.Lock()
++	select {
++	case <-l.stopped:
++		l.mu.Unlock()
++		c.Close()
++		return nil, net.ErrClosed
++	default:
++	}
++	l.peers[c] = struct{}{}
++	l.mu.Unlock()
++	select {
++	case l.accepted <- c:
++		return c, nil
++	case <-l.stopped:
++		c.Close()
++		return nil, net.ErrClosed
++	}
++}
++func (l *integrationListener) release(c net.Conn) {
++	c.Close()
++	l.mu.Lock()
++	delete(l.peers, c)
++	l.mu.Unlock()
++}
++func (l *integrationListener) Close() error {
++	var err error
++	l.once.Do(func() {
++		l.mu.Lock()
++		close(l.stopped)
++		err = l.Listener.Close()
++		for c := range l.peers {
++			c.Close()
++		}
++		l.peers = make(map[net.Conn]struct{})
++		l.mu.Unlock()
++	})
++	return err
++}
++func integrationServer(t *testing.T, h diam.Handler) *integrationListener {
++	t.Helper()
++	ln, err := diam.MultistreamListen("sctp4", "127.0.0.1:0")
++	if err != nil {
++		t.Fatal(err)
++	}
++	l := &integrationListener{Listener: ln, peers: make(map[net.Conn]struct{}), accepted: make(chan net.Conn, 1), stopped: make(chan struct{})}
++	done := make(chan error, 1)
++	go func() { done <- (&diam.Server{Handler: h}).Serve(l) }()
++	t.Cleanup(func() {
++		l.Close()
++		select {
++		case <-done:
++		case <-time.After(time.Second):
++			t.Error("server accept loop did not stop")
++		}
++	})
++	return l
++}
++func integrationClient(watchdog bool) *sm.Client {
++	return &sm.Client{Handler: sm.New(&sm.Settings{OriginHost: "client", OriginRealm: "integration.test", VendorID: 13, ProductName: "sctp-integration"}), EnableWatchdog: watchdog, WatchdogInterval: 30 * time.Millisecond, WatchdogStream: 15, RetransmitInterval: 200 * time.Millisecond, AcctApplicationID: []*diam.AVP{diam.NewAVP(avp.AcctApplicationID, avp.Mbit, 0, datatype.Unsigned32(3))}}
++}
++func integrationMachine() *sm.StateMachine {
++	return sm.New(&sm.Settings{OriginHost: "server", OriginRealm: "integration.test", VendorID: 13, ProductName: "sctp-integration"})
++}
++func integrationDial(t *testing.T, cli *sm.Client, l *integrationListener) (diam.Conn, *diam.SCTPConn) {
++	t.Helper()
++	c, err := cli.DialExt("sctp4", l.Addr().String(), time.Second, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(c.Close)
++	select {
++	case peer := <-l.accepted:
++		return c, peer.(*diam.SCTPConn)
++	case <-time.After(time.Second):
++		t.Fatal("no accepted socket")
++		return nil, nil
++	}
++}
++func integrationClosed(t *testing.T, c diam.Conn) {
++	t.Helper()
++	select {
++	case <-c.(diam.CloseNotifier).CloseNotify():
++	case <-time.After(time.Second):
++		t.Fatal("CloseNotify did not report disconnection")
++	}
++}
++
++func TestSCTPWatchdogStream15(t *testing.T) {
++	machine := integrationMachine()
++	requests := make(chan *diam.Message, 16)
++	server := integrationServer(t, diam.HandlerFunc(func(c diam.Conn, m *diam.Message) {
++		machine.ServeDIAM(c, m)
++		if m.Header.CommandCode == diam.DeviceWatchdog {
++			select {
++			case requests <- m:
++			default:
++			}
++		}
++	}))
++	cli := integrationClient(true)
++	c, peer := integrationDial(t, cli, server)
++	defer server.release(peer)
++	// With zero retransmits, five distinct requests on one live association
++	// require four successful DWA deliveries to the automatic watchdog.
++	seen := make(map[uint32]bool)
++	until := time.After(2 * time.Second)
++	for len(seen) < 5 {
++		select {
++		case m := <-requests:
++			if m.MessageStream() != 15 {
++				t.Fatalf("watchdog stream=%d", m.MessageStream())
++			}
++			seen[m.Header.HopByHopID] = true
++		case <-c.(diam.CloseNotifier).CloseNotify():
++			t.Fatal("watchdog disconnected despite DWA responses")
++		case e := <-machine.ErrorReports():
++			t.Fatal(e)
++		case <-until:
++			t.Fatalf("only %d watchdog exchanges", len(seen))
++		}
++	}
++}
++
++func TestSCTPWatchdogAnswersPreserveStream(t *testing.T) {
++	machine := integrationMachine()
++	server := integrationServer(t, machine)
++	cli := integrationClient(false)
++	answers := make(chan *diam.Message, 4)
++	cli.Handler.HandleFunc("DWA", func(_ diam.Conn, m *diam.Message) { answers <- m })
++	c, peer := integrationDial(t, cli, server)
++	defer server.release(peer)
++	for _, stream := range []uint{0, 1, 15} {
++		request := diam.NewRequest(diam.DeviceWatchdog, 0, dict.Default)
++		request.NewAVP(avp.OriginHost, avp.Mbit, 0, datatype.DiameterIdentity("client"))
++		request.NewAVP(avp.OriginRealm, avp.Mbit, 0, datatype.DiameterIdentity("integration.test"))
++		if _, err := request.WriteToStream(c, stream); err != nil {
++			t.Fatal(err)
++		}
++		select {
++		case m := <-answers:
++			if m.MessageStream() != stream || m.Header.HopByHopID != request.Header.HopByHopID || m.Header.EndToEndID != request.Header.EndToEndID || !testResultCode(m, diam.Success) {
++				t.Fatalf("incorrect DWA stream=%d ids=%d/%d", m.MessageStream(), m.Header.HopByHopID, m.Header.EndToEndID)
++			}
++		case e := <-machine.ErrorReports():
++			t.Fatal(e)
++		case <-time.After(time.Second):
++			t.Fatal("no DWA")
++		}
++	}
++}
++
++func TestSCTPLargeMessagesAcrossStreams(t *testing.T) {
++	machine := integrationMachine()
++	errs := make(chan error, 8)
++	machine.HandleFunc("RAR", func(c diam.Conn, m *diam.Message) {
++		value, err := m.FindAVP(avp.UserName, 0)
++		if err != nil {
++			errs <- err
++			return
++		}
++		answer := m.Answer(diam.Success)
++		answer.AddAVP(value)
++		if _, err := answer.WriteTo(c); err != nil {
++			errs <- err
++		}
++	})
++	server := integrationServer(t, machine)
++	cli := integrationClient(false)
++	answers := make(chan *diam.Message, 3)
++	cli.Handler.HandleFunc("RAA", func(_ diam.Conn, m *diam.Message) { answers <- m })
++	c, peer := integrationDial(t, cli, server)
++	defer server.release(peer)
++	expected := make(map[uint32]struct {
++		stream  uint
++		payload []byte
++	})
++	sent := make(chan error, 3)
++	for _, stream := range []uint{0, 1, 15} {
++		payload := bytes.Repeat([]byte{byte('a' + stream)}, 128<<10)
++		request := diam.NewRequest(diam.ReAuth, 0, dict.Default)
++		request.NewAVP(avp.UserName, avp.Mbit, 0, datatype.UTF8String(payload))
++		expected[request.Header.HopByHopID] = struct {
++			stream  uint
++			payload []byte
++		}{stream, payload}
++		go func() { _, err := request.WriteToStream(c, stream); sent <- err }()
++	}
++	for range 3 {
++		select {
++		case err := <-sent:
++			if err != nil {
++				t.Fatal(err)
++			}
++		case <-time.After(3 * time.Second):
++			t.Fatal("large write stalled")
++		}
++	}
++	for range 3 {
++		select {
++		case m := <-answers:
++			want, ok := expected[m.Header.HopByHopID]
++			if !ok {
++				t.Fatal("unknown or duplicate answer")
++			}
++			delete(expected, m.Header.HopByHopID)
++			value, err := m.FindAVP(avp.UserName, 0)
++			if err != nil {
++				t.Fatal(err)
++			}
++			if m.MessageStream() != want.stream || !testResultCode(m, diam.Success) || !bytes.Equal(value.Data.Serialize(), want.payload) {
++				t.Fatalf("payload/stream mismatch on stream %d", want.stream)
++			}
++		case err := <-errs:
++			t.Fatal(err)
++		case err := <-machine.ErrorReports():
++			t.Fatal(err)
++		case err := <-cli.Handler.ErrorReports():
++			t.Fatal(err)
++		case <-time.After(3 * time.Second):
++			t.Fatal("large message answer stalled")
++		}
++	}
++}
++
++func TestSCTPGracefulCloseDeliversQueuedAnswer(t *testing.T) {
++	machine := integrationMachine()
++	errs := make(chan error, 1)
++	machine.HandleFunc("RAR", func(c diam.Conn, m *diam.Message) {
++		if _, err := m.Answer(diam.Success).WriteTo(c); err != nil {
++			errs <- err
++			return
++		}
++		err := integrationShutdown(c.Connection().(*diam.SCTPConn), false)
++		if err != nil {
++			errs <- err
++		}
++	})
++	server := integrationServer(t, machine)
++	cli := integrationClient(false)
++	answers := make(chan *diam.Message, 1)
++	cli.Handler.HandleFunc("RAA", func(_ diam.Conn, m *diam.Message) { answers <- m })
++	c, peer := integrationDial(t, cli, server)
++	defer server.release(peer)
++	request := diam.NewRequest(diam.ReAuth, 0, dict.Default)
++	request.NewAVP(avp.UserName, avp.Mbit, 0, datatype.UTF8String("last request"))
++	if _, err := request.WriteTo(c); err != nil {
++		t.Fatal(err)
++	}
++	select {
++	case m := <-answers:
++		if !testResultCode(m, diam.Success) || m.Header.HopByHopID != request.Header.HopByHopID {
++			t.Fatal("incorrect last answer")
++		}
++	case err := <-errs:
++		t.Fatal(err)
++	case <-time.After(time.Second):
++		t.Fatal("queued answer lost during graceful shutdown")
++	}
++	integrationClosed(t, c)
++}
++
++func TestSCTPRecoveryCycles(t *testing.T) {
++	cycles := 12
++	if s := os.Getenv("DIAM_SCTP_RECOVERY_CYCLES"); s != "" {
++		n, err := strconv.Atoi(s)
++		if err != nil || n < 3 || n > 100000 {
++			t.Fatalf("invalid recovery cycle count %q", s)
++		}
++		cycles = n
++	}
++	machine := integrationMachine()
++	server := integrationServer(t, machine)
++	cli := integrationClient(false)
++	// Establish runtime/poller caches before measuring resource retention.
++	c, peer := integrationDial(t, cli, server)
++	c.Close()
++	integrationClosed(t, c)
++	server.release(peer)
++	resource := func() (int, int, uint64) {
++		runtime.GC()
++		fds, err := os.ReadDir("/proc/self/fd")
++		if err != nil {
++			t.Fatal(err)
++		}
++		var m runtime.MemStats
++		runtime.ReadMemStats(&m)
++		return len(fds), runtime.NumGoroutine(), m.HeapAlloc
++	}
++	baseFD, baseG, baseHeap := resource()
++	for i := 0; i < cycles; i++ {
++		// Do not register one cleanup closure per cycle: the harness owns all peers.
++		c, err := cli.DialExt("sctp4", server.Addr().String(), time.Second, nil)
++		if err != nil {
++			for _, reports := range []<-chan *diam.ErrorReport{cli.Handler.ErrorReports(), machine.ErrorReports()} {
++				for {
++					select {
++					case report := <-reports:
++						t.Logf("cycle failure report: %v", report.Error)
++					default:
++						goto drained
++					}
++				}
++			drained:
++			}
++			if counters, readErr := os.ReadFile("/proc/net/sctp/snmp"); readErr == nil {
++				t.Logf("SCTP counters:\n%s", counters)
++			}
++			t.Fatalf("cycle %d: %v", i, err)
++		}
++		var peer *diam.SCTPConn
++		select {
++		case p := <-server.accepted:
++			peer = p.(*diam.SCTPConn)
++		case <-time.After(time.Second):
++			c.Close()
++			t.Fatal("no recovery peer")
++		}
++		var closeErr error
++		switch i % 3 {
++		case 0:
++			c.Close()
++		case 1:
++			closeErr = integrationShutdown(peer, false)
++		case 2:
++			closeErr = integrationShutdown(peer, true)
++		}
++		if closeErr != nil {
++			c.Close()
++			t.Fatalf("cycle %d close: %v", i, closeErr)
++		}
++		integrationClosed(t, c)
++		c.Close()
++		server.release(peer)
++		if (i+1)%100 == 0 {
++			fd, g, heap := resource()
++			t.Logf("cycles=%d fds=%d goroutines=%d heap=%d", i+1, fd, g, heap)
++		}
++	}
++	until := time.Now().Add(2 * time.Second)
++	for {
++		fd, g, heap := resource()
++		if fd <= baseFD+1 && g <= baseG+3 {
++			// A finite cycle run is a leak screen, not the two-hour soak gate.
++			t.Logf("cycles=%d baseline=%d/%d/%d final=%d/%d/%d", cycles, baseFD, baseG, baseHeap, fd, g, heap)
++			if heap > baseHeap+4<<20 {
++				t.Fatalf("retained heap grew by %d bytes", heap-baseHeap)
++			}
++			return
++		}
++		if time.Now().After(until) {
++			t.Fatal(fmt.Errorf("resources did not settle: fd %d -> %d, goroutines %d -> %d", baseFD, fd, baseG, g))
++		}
++		time.Sleep(10 * time.Millisecond)
++	}
++}
++
++var _ net.Listener = (*integrationListener)(nil)
++
++// The business transport uses one-to-one SOCK_STREAM sockets. EOF sendmsg
++// controls are inapplicable there: use shutdown for graceful closure and
++// SO_LINGER(1,0)+close for an abortive peer, without changing kernel semantics.
++func integrationShutdown(c *diam.SCTPConn, abort bool) error {
++	raw, err := c.SyscallConn()
++	if err != nil {
++		return err
++	}
++	var opErr error
++	if err := raw.Control(func(fd uintptr) {
++		if abort {
++			opErr = syscall.SetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER, &syscall.Linger{Onoff: 1})
++		} else {
++			opErr = syscall.Shutdown(int(fd), syscall.SHUT_WR)
++		}
++	}); err != nil {
++		return err
++	}
++	if opErr != nil {
++		return opErr
++	}
++	if abort {
++		return c.Close()
++	}
++	return nil
++}
++
++func TestSCTPCloseNotifyAfterDisconnection(t *testing.T) {
++	machine := integrationMachine()
++	server := integrationServer(t, machine)
++	cli := integrationClient(false)
++	c, peer := integrationDial(t, cli, server)
++	defer server.release(peer)
++	// Wait for the read loop to process closure before the first subscription.
++	c.Close()
++	select {
++	case <-cli.Handler.ErrorReports():
++	case <-time.After(time.Second):
++		t.Fatal("read loop did not observe local close")
++	}
++	integrationClosed(t, c)
++}

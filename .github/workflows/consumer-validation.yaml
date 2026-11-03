@@ -1,0 +1,66 @@
+name: consumer native validation
+on:
+  push:
+    branches: [codex/sctp-consumer-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  consumer:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        go: [1.26.x, 1.27.x]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: validation
+      - uses: actions/checkout@v4
+        with:
+          repository: ctrlzy/go-diameter
+          ref: f26e3528006fcf0d33cb663994a0ec0ccbf7ef55
+          path: consumer
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - run: sudo modprobe sctp
+      - name: Apply exact public consumer candidate
+        working-directory: consumer
+        run: git apply --check ../validation/.github/consumer-validation/go-diameter-v072.patch && git apply ../validation/.github/consumer-validation/go-diameter-v072.patch
+      - name: Record toolchain, kernel and selected modules
+        working-directory: consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          go version | tee evidence/toolchain.txt
+          uname -a | tee evidence/kernel.txt
+          go list -m -json all > evidence/modules.json
+          git diff --stat > evidence/changes.txt
+      - name: Vet candidate
+        working-directory: consumer
+        run: go vet ./diam/...
+      - name: Require three race/shuffle rounds
+        working-directory: consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -shuffle=on -count=3 -v -timeout=300s ./diam/... 2>&1 | tee evidence/tests.log
+      - name: Require 1000 actual native recovery cycles
+        working-directory: consumer
+        env:
+          DIAM_SCTP_RECOVERY_CYCLES: '1000'
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -race -run '^TestSCTPRecoveryCycles$' -count=1 -v -timeout=120s ./diam/sm 2>&1 | tee evidence/recovery.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consumer-${{ matrix.os }}-${{ matrix.go }}
+          path: consumer/evidence/
+          if-no-files-found: error
