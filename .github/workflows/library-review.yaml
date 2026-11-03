@@ -1,0 +1,33 @@
+name: SCTP library review
+on:
+  push:
+    branches: [codex/sctp-library-review-2026-11-03]
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        go: [1.26.x, 1.27.x]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+      - run: sudo modprobe sctp
+      - run: bash .github/scripts/validate.sh
+      - name: Require three numeric interface namespace regressions
+        run: |
+          go test -race -c -o "$RUNNER_TEMP/sctp.test" .
+          sudo env SCTP_TEST_REQUIRE_NETNS=1 "$RUNNER_TEMP/sctp.test" -test.run '^TestIPv6ZoneNameIndexConflict$' -test.count=3 -test.v -test.timeout=60s
+      - name: Compile independent API fixtures
+        run: python3 .github/scripts/consumer.py
+      - name: Compile and run README examples
+        run: python3 .github/scripts/readme.py
+  arch:
+    uses: ./.github/workflows/arch.yaml
