@@ -39,7 +39,7 @@ index 9998ba8..4a6bac6 100644
 +          DIAM_SCTP_RECOVERY_CYCLES: '1000'
 +        run: go test -v -race -run '^TestSCTPRecoveryCycles$' -count=1 -timeout=120s ./diam/sm
 diff --git a/README.md b/README.md
-index 696f8e5..f0fd79e 100644
+index 696f8e5..2e6662c 100644
 --- a/README.md
 +++ b/README.md
 @@ -29,14 +29,15 @@ See the API documentation at https://pkg.go.dev/github.com/fiorix/go-diameter/v4
@@ -61,7 +61,7 @@ index 696f8e5..f0fd79e 100644
  
  ```
  export GO111MODULE=on
-@@ -96,3 +97,49 @@ You also have the option to run the test using a Linux VM through Docker (this
+@@ -96,3 +97,54 @@ You also have the option to run the test using a Linux VM through Docker (this
  is not mandatory). To do so, run `make test_docker`. Runing test on Linux  can 
  be useful in case you add `sctp` tests. Note you will need to install
  docker and docker-compose.
@@ -111,6 +111,11 @@ index 696f8e5..f0fd79e 100644
 +
 +This finite screen does not replace a timed soak or service-level cancellation
 +validation.
++
++Automatic watchdog replies are correlated with the active connection and the
++request's Hop-by-Hop and End-to-End identifiers. A matching DWA received before
++the send returns is retained. Duplicate, stale, mismatched and other-connection
++replies cannot acknowledge a later watchdog request.
 diff --git a/diam/avp_test.go b/diam/avp_test.go
 index d21903c..49a5466 100644
 --- a/diam/avp_test.go
@@ -519,6 +524,136 @@ index 873d92e..e6a2fbe 100644
  		// don't use buffered writer for muti-streamming writes it'll mix up streams
  		return msc.WriteStream(b, stream)
  	}
+diff --git a/diam/sm/client.go b/diam/sm/client.go
+index d8308cb..6bda2c5 100644
+--- a/diam/sm/client.go
++++ b/diam/sm/client.go
+@@ -213,9 +213,9 @@ func (cli *Client) handshake(c diam.Conn) (diam.Conn, error) {
+ 	errc := make(chan error)
+ 	cli.Handler.mux.Handle("CEA", handleCEA(cli.Handler, errc))
+ 
+-	var dwac chan struct{}
++	var dwac *watchdogState
+ 	if cli.EnableWatchdog {
+-		dwac = make(chan struct{})
++		dwac = newWatchdogState(c)
+ 		cli.Handler.mux.Handle("DWA", handshakeOK(handleDWA(cli.Handler, dwac)))
+ 	}
+ 	for i := 0; i < (int(cli.MaxRetransmits) + 1); i++ {
+@@ -282,7 +282,7 @@ func (cli *Client) makeCER(hostIPAddresses []datatype.Address) *diam.Message {
+ 	return m
+ }
+ 
+-func (cli *Client) watchdog(c diam.Conn, dwac chan struct{}) {
++func (cli *Client) watchdog(c diam.Conn, dwac *watchdogState) {
+ 	disconnect := c.(diam.CloseNotifier).CloseNotify()
+ 	var osid = uint32(cli.Handler.cfg.OriginStateID)
+ 	for {
+@@ -295,17 +295,21 @@ func (cli *Client) watchdog(c diam.Conn, dwac chan struct{}) {
+ 	}
+ }
+ 
+-func (cli *Client) dwr(c diam.Conn, osid uint32, dwac chan struct{}) {
++func (cli *Client) dwr(c diam.Conn, osid uint32, dwac *watchdogState) {
+ 	m := cli.makeDWR(osid)
++	dwac.begin(m)
++	defer dwac.end()
+ 	for i := 0; i < (int(cli.MaxRetransmits) + 1); i++ {
+ 		_, err := m.WriteToStream(c, cli.WatchdogStream)
+ 		if err != nil {
+ 			return
+ 		}
++		timer := time.NewTimer(cli.RetransmitInterval)
+ 		select {
+-		case <-dwac:
++		case <-dwac.ack:
++			timer.Stop()
+ 			return
+-		case <-time.After(cli.RetransmitInterval):
++		case <-timer.C:
+ 		}
+ 	}
+ 	// Watchdog failed, disconnect.
+diff --git a/diam/sm/dwa.go b/diam/sm/dwa.go
+index c27f23d..e9fb3a1 100644
+--- a/diam/sm/dwa.go
++++ b/diam/sm/dwa.go
+@@ -5,14 +5,62 @@
+ package sm
+ 
+ import (
++	"sync"
++
+ 	"github.com/ctrlzy/go-diameter/v4/diam"
+ 	"github.com/ctrlzy/go-diameter/v4/diam/sm/smparser"
+ )
+ 
+-var dwaACK = struct{}{}
++// Keep one matching reply even if receive processing wins the race with Write.
++// The mutex serializes matching with begin/end, so a late response cannot be
++// queued into the next request's window. Each state belongs to one connection.
++type watchdogState struct {
++	mu            sync.Mutex
++	conn          diam.Conn
++	ack           chan struct{}
++	pending       bool
++	hop, endToEnd uint32
++}
++
++func newWatchdogState(c diam.Conn) *watchdogState {
++	return &watchdogState{conn: c, ack: make(chan struct{}, 1)}
++}
++
++func (w *watchdogState) begin(m *diam.Message) {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	select {
++	case <-w.ack:
++	default:
++	}
++	w.hop, w.endToEnd = m.Header.HopByHopID, m.Header.EndToEndID
++	w.pending = true
++}
++
++func (w *watchdogState) end() {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	w.pending = false
++	select {
++	case <-w.ack:
++	default:
++	}
++}
++
++func (w *watchdogState) accept(c diam.Conn, m *diam.Message) {
++	w.mu.Lock()
++	defer w.mu.Unlock()
++	if !w.pending || c != w.conn || m.Header.HopByHopID != w.hop || m.Header.EndToEndID != w.endToEnd {
++		return
++	}
++	select {
++	case w.ack <- struct{}{}:
++	default:
++	}
++}
+ 
+ // handleDWA handles Device-Watchdog-Answer messages.
+-func handleDWA(sm *StateMachine, dwac chan struct{}) diam.HandlerFunc {
++func handleDWA(sm *StateMachine, dwac *watchdogState) diam.HandlerFunc {
+ 	return func(c diam.Conn, m *diam.Message) {
+ 		dwa := new(smparser.DWA)
+ 		if err := dwa.Parse(m); err != nil {
+@@ -26,9 +74,6 @@ func handleDWA(sm *StateMachine, dwac chan struct{}) diam.HandlerFunc {
+ 		if dwa.ResultCode != diam.Success {
+ 			return
+ 		}
+-		select {
+-		case dwac <- dwaACK:
+-		default:
+-		}
++		dwac.accept(c, m)
+ 	}
+ }
 diff --git a/diam/sm/s6a_client_server_test.go b/diam/sm/s6a_client_server_test.go
 index bd3fff2..a676581 100644
 --- a/diam/sm/s6a_client_server_test.go
@@ -1752,4 +1887,182 @@ index 0000000..97bbdfc
 +		t.Fatal("read loop did not observe local close")
 +	}
 +	integrationClosed(t, c)
++}
+diff --git a/diam/sm/watchdog_early_reply_test.go b/diam/sm/watchdog_early_reply_test.go
+new file mode 100644
+index 0000000..519d38f
+--- /dev/null
++++ b/diam/sm/watchdog_early_reply_test.go
+@@ -0,0 +1,172 @@
++package sm
++
++import (
++	"bytes"
++	"context"
++	"errors"
++	"net"
++	"sync"
++	"testing"
++	"time"
++
++	"github.com/ctrlzy/go-diameter/v4/diam"
++	"github.com/ctrlzy/go-diameter/v4/diam/avp"
++	"github.com/ctrlzy/go-diameter/v4/diam/datatype"
++	"github.com/ctrlzy/go-diameter/v4/diam/dict"
++)
++
++// A response may be processed by a read goroutine before the transport write
++// returns. Execute that ordering synchronously so the regression is deterministic.
++type earlyReplyConn struct {
++	diam.Conn
++	client   *Client
++	mode     string
++	previous *diam.Message
++	done     chan struct{}
++	requests chan uint32
++	once     sync.Once
++	mu       sync.Mutex
++	ctx      context.Context
++}
++
++func (c *earlyReplyConn) Close()                       { c.once.Do(func() { close(c.done) }) }
++func (c *earlyReplyConn) CloseNotify() <-chan struct{} { return c.done }
++func (c *earlyReplyConn) Context() context.Context {
++	c.mu.Lock()
++	defer c.mu.Unlock()
++	if c.ctx == nil {
++		return context.Background()
++	}
++	return c.ctx
++}
++func (c *earlyReplyConn) SetContext(ctx context.Context) { c.mu.Lock(); c.ctx = ctx; c.mu.Unlock() }
++func (c *earlyReplyConn) LocalAddr() net.Addr {
++	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 3868}
++}
++func (c *earlyReplyConn) RemoteAddr() net.Addr {
++	return &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 3869}
++}
++func (c *earlyReplyConn) CurrentWriterStream() uint   { return 0 }
++func (c *earlyReplyConn) ResetWriterStream()          {}
++func (c *earlyReplyConn) SetWriterStream(uint) uint   { return 0 }
++func (c *earlyReplyConn) Write(b []byte) (int, error) { return c.WriteStream(b, 0) }
++func (c *earlyReplyConn) WriteStream(b []byte, _ uint) (int, error) {
++	select {
++	case <-c.done:
++		return 0, net.ErrClosed
++	default:
++	}
++	request, err := diam.ReadMessage(bytes.NewReader(b), dict.Default)
++	if err != nil {
++		return 0, err
++	}
++	answer := request.Answer(diam.Success)
++	answer.NewAVP(avp.OriginHost, avp.Mbit, 0, datatype.DiameterIdentity("peer"))
++	answer.NewAVP(avp.OriginRealm, avp.Mbit, 0, datatype.DiameterIdentity("early.test"))
++	switch request.Header.CommandCode {
++	case diam.CapabilitiesExchange:
++		answer.NewAVP(avp.AcctApplicationID, avp.Mbit, 0, datatype.Unsigned32(3))
++		c.client.Handler.mux.ServeDIAM(c, answer)
++	case diam.DeviceWatchdog:
++		switch c.mode {
++		case "mismatched_end_only":
++			answer.Header.EndToEndID ^= 1
++			c.client.Handler.mux.ServeDIAM(c, answer)
++		case "late_previous":
++			if c.previous == nil {
++				c.client.Handler.mux.ServeDIAM(c, answer)
++			} else {
++				c.client.Handler.mux.ServeDIAM(c, c.previous)
++			}
++			c.previous = answer
++		case "duplicate_valid":
++			c.client.Handler.mux.ServeDIAM(c, answer)
++			c.client.Handler.mux.ServeDIAM(c, answer)
++		case "mismatched_only":
++			answer.Header.HopByHopID ^= 1
++			c.client.Handler.mux.ServeDIAM(c, answer)
++		case "other_connection":
++			other := &earlyReplyConn{ctx: c.Context()}
++			c.client.Handler.mux.ServeDIAM(other, answer)
++		case "noise_then_valid":
++			bad := request.Answer(diam.Success)
++			bad.Header.HopByHopID ^= 1
++			c.client.Handler.mux.ServeDIAM(c, bad)
++			c.client.Handler.mux.ServeDIAM(c, answer)
++		default:
++			c.client.Handler.mux.ServeDIAM(c, answer)
++		}
++		select {
++		case c.requests <- request.Header.HopByHopID:
++		default:
++		}
++	default:
++		return 0, errors.New("unexpected command")
++	}
++	return len(b), nil
++}
++func startEarlyReplyClient(t *testing.T, mode string) *earlyReplyConn {
++	t.Helper()
++	cli := &Client{Handler: New(&Settings{OriginHost: "client", OriginRealm: "early.test", VendorID: 13, ProductName: "test"}), Dict: dict.Default, EnableWatchdog: true, WatchdogInterval: 5 * time.Millisecond, RetransmitInterval: 20 * time.Millisecond, AcctApplicationID: []*diam.AVP{diam.NewAVP(avp.AcctApplicationID, avp.Mbit, 0, datatype.Unsigned32(3))}}
++	c := &earlyReplyConn{client: cli, mode: mode, done: make(chan struct{}), requests: make(chan uint32, 16)}
++	t.Cleanup(c.Close)
++	if err := cli.validate(); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := cli.handshake(c); err != nil {
++		t.Fatal(err)
++	}
++	return c
++}
++func TestWatchdogKeepsReplyBeforeWriteReturns(t *testing.T) {
++	for _, mode := range []string{"valid", "noise_then_valid", "duplicate_valid"} {
++		t.Run(mode, func(t *testing.T) {
++			c := startEarlyReplyClient(t, mode)
++			ids := map[uint32]bool{}
++			guard := time.After(time.Second)
++			for len(ids) < 3 {
++				select {
++				case id := <-c.requests:
++					ids[id] = true
++				case <-c.done:
++					t.Fatal("valid DWA was lost before the sender began waiting")
++				case <-guard:
++					t.Fatal("watchdog did not advance after early DWA")
++				}
++			}
++		})
++	}
++}
++func TestWatchdogRejectsUnmatchedEarlyReplies(t *testing.T) {
++	for _, mode := range []string{"mismatched_only", "mismatched_end_only", "other_connection"} {
++		t.Run(mode, func(t *testing.T) {
++			c := startEarlyReplyClient(t, mode)
++			select {
++			case <-c.done:
++			case <-time.After(time.Second):
++				t.Fatal("unmatched DWA kept the association alive")
++			}
++		})
++	}
++}
++
++func TestWatchdogRejectsPreviousWindowReply(t *testing.T) {
++	c := startEarlyReplyClient(t, "late_previous")
++	select {
++	case <-c.done:
++	case <-time.After(time.Second):
++		t.Fatal("previous request's DWA acknowledged a new watchdog")
++	}
++	ids := make(map[uint32]bool)
++	for {
++		select {
++		case id := <-c.requests:
++			ids[id] = true
++		default:
++			if len(ids) != 2 {
++				t.Fatalf("completed %d requests, want one success followed by one timeout", len(ids))
++			}
++			return
++		}
++	}
 +}
