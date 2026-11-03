@@ -1,0 +1,162 @@
+//go:build linux && !386 && !android
+
+package sm_test
+
+import (
+	"encoding/binary"
+	"os"
+	"runtime"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/ctrlzy/go-diameter/v4/diam"
+	"github.com/ctrlzy/go-diameter/v4/diam/sm"
+)
+
+type handshakeTraceEvent struct {
+	at    time.Time
+	phase string
+	id    uint32
+	n     int
+	err   error
+}
+type handshakeTrace struct {
+	mu       sync.Mutex
+	events   [32]handshakeTraceEvent
+	next     int
+	maxWrite time.Duration
+}
+
+func (r *handshakeTrace) add(phase string, id uint32, n int, err error) {
+	r.mu.Lock()
+	r.events[r.next%len(r.events)] = handshakeTraceEvent{time.Now(), phase, id, n, err}
+	r.next++
+	r.mu.Unlock()
+}
+func (r *handshakeTrace) dump(t *testing.T) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i := r.next - len(r.events); i < r.next; i++ {
+		if i >= 0 {
+			e := r.events[i%len(r.events)]
+			t.Logf("%s phase=%s id=%d n=%d err=%v", e.at.Format(time.RFC3339Nano), e.phase, e.id, e.n, e.err)
+		}
+	}
+}
+
+type handshakeTraceConn struct {
+	diam.Conn
+	trace *handshakeTrace
+}
+
+func (c handshakeTraceConn) send(b []byte, stream *uint) (int, error) {
+	var id uint32
+	if len(b) >= 20 {
+		id = binary.BigEndian.Uint32(b[12:16])
+	}
+	c.trace.add("CEA-write-start", id, len(b), nil)
+	start := time.Now()
+	var n int
+	var err error
+	if stream == nil {
+		n, err = c.Conn.Write(b)
+	} else {
+		n, err = c.Conn.WriteStream(b, *stream)
+	}
+	elapsed := time.Since(start)
+	c.trace.mu.Lock()
+	if elapsed > c.trace.maxWrite {
+		c.trace.maxWrite = elapsed
+	}
+	c.trace.mu.Unlock()
+	c.trace.add("CEA-write-end", id, n, err)
+	return n, err
+}
+func (c handshakeTraceConn) Write(b []byte) (int, error) { return c.send(b, nil) }
+func (c handshakeTraceConn) WriteStream(b []byte, stream uint) (int, error) {
+	return c.send(b, &stream)
+}
+func (c handshakeTraceConn) CurrentWriterStream() uint {
+	return c.Conn.(diam.MultistreamWriter).CurrentWriterStream()
+}
+func (c handshakeTraceConn) SetWriterStream(s uint) uint {
+	return c.Conn.(diam.MultistreamWriter).SetWriterStream(s)
+}
+func (c handshakeTraceConn) ResetWriterStream() { c.Conn.(diam.MultistreamWriter).ResetWriterStream() }
+func (c handshakeTraceConn) CloseNotify() <-chan struct{} {
+	return c.Conn.(diam.CloseNotifier).CloseNotify()
+}
+
+type handshakeTraceHandler struct {
+	machine *sm.StateMachine
+	trace   *handshakeTrace
+}
+
+func (h handshakeTraceHandler) ServeDIAM(c diam.Conn, m *diam.Message) {
+	h.trace.add("CER-received", m.Header.HopByHopID, m.Len(), nil)
+	h.machine.ServeDIAM(handshakeTraceConn{c, h.trace}, m)
+}
+func (h handshakeTraceHandler) Error(e *diam.ErrorReport) { h.machine.Error(e) }
+func (h handshakeTraceHandler) ErrorReports() <-chan *diam.ErrorReport {
+	return h.machine.ErrorReports()
+}
+func TestHandshakeStressDiagnostic(t *testing.T) {
+	trace := new(handshakeTrace)
+	machine := integrationMachine()
+	server := integrationServer(t, handshakeTraceHandler{machine, trace})
+	cli := integrationClient(false)
+	before, _ := os.ReadFile("/proc/net/sctp/snmp")
+	t.Logf("go=%s kernel-independent GOMAXPROCS=%d budget=%v", runtime.Version(), runtime.GOMAXPROCS(0), cli.RetransmitInterval)
+	var maxDial time.Duration
+	for i := 0; i < 10000; i++ {
+		trace.add("dial-start", uint32(i), 0, nil)
+		start := time.Now()
+		c, err := cli.DialExt("sctp4", server.Addr().String(), time.Second, nil)
+		elapsed := time.Since(start)
+		if elapsed > maxDial {
+			maxDial = elapsed
+		}
+		if err != nil {
+			trace.add("dial-failed", uint32(i), 0, err)
+			trace.dump(t)
+			for _, reports := range []<-chan *diam.ErrorReport{cli.Handler.ErrorReports(), machine.ErrorReports()} {
+				select {
+				case report := <-reports:
+					t.Logf("read/handler report=%v", report.Error)
+				default:
+				}
+			}
+			after, _ := os.ReadFile("/proc/net/sctp/snmp")
+			t.Logf("counters before:\n%s\ncounters after:\n%s", strings.TrimSpace(string(before)), strings.TrimSpace(string(after)))
+			t.Fatalf("cycle=%d elapsed=%v: %v", i, elapsed, err)
+		}
+		trace.add("dial-complete", uint32(i), 0, nil)
+		select {
+		case peer := <-server.accepted:
+			switch i % 3 {
+			case 0:
+				c.Close()
+			case 1:
+				if err := integrationShutdown(peer.(*diam.SCTPConn), false); err != nil {
+					t.Fatal(err)
+				}
+			case 2:
+				if err := integrationShutdown(peer.(*diam.SCTPConn), true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			integrationClosed(t, c)
+			c.Close()
+			server.release(peer)
+		case <-time.After(time.Second):
+			c.Close()
+			t.Fatal("no accepted socket")
+		}
+	}
+	trace.mu.Lock()
+	maxWrite := trace.maxWrite
+	trace.mu.Unlock()
+	t.Logf("cycles=10000 max_dial=%v max_server_write=%v", maxDial, maxWrite)
+}

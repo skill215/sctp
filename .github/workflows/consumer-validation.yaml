@@ -44,20 +44,32 @@ jobs:
       - name: Vet candidate
         working-directory: consumer
         run: go vet ./diam/...
-      - name: Require three race/shuffle rounds
+      - name: Require ten independent race/shuffle processes
         working-directory: consumer
         shell: bash
         run: |
           set -euo pipefail
-          go test -race -shuffle=on -count=3 -v -timeout=300s ./diam/... 2>&1 | tee evidence/tests.log
-      - name: Require 1000 actual native recovery cycles
+          for round in $(seq 1 10); do
+            seed=$((7273200 + round))
+            echo "round=$round seed=$seed"
+            go test -race -shuffle="$seed" -count=1 -v -timeout=300s ./diam/... 2>&1 | tee "evidence/tests-$round.log"
+          done
+      - name: Require 10000 actual native recovery cycles
         working-directory: consumer
         env:
-          DIAM_SCTP_RECOVERY_CYCLES: '1000'
+          DIAM_SCTP_RECOVERY_CYCLES: '10000'
         shell: bash
         run: |
           set -euo pipefail
           go test -race -run '^TestSCTPRecoveryCycles$' -count=1 -v -timeout=120s ./diam/sm 2>&1 | tee evidence/recovery.log
+      - name: Capture handshake timing after a failure
+        if: failure()
+        working-directory: consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp ../validation/.github/consumer-validation/handshake_trace_linux_test.go.txt diam/sm/handshake_trace_linux_test.go
+          go test -race -run '^TestHandshakeStressDiagnostic$' -count=1 -v -timeout=120s ./diam/sm 2>&1 | tee evidence/handshake-diagnostic.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
