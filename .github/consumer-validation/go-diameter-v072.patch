@@ -524,6 +524,116 @@ index 873d92e..e6a2fbe 100644
  		// don't use buffered writer for muti-streamming writes it'll mix up streams
  		return msc.WriteStream(b, stream)
  	}
+diff --git a/diam/sm/cer_test.go b/diam/sm/cer_test.go
+index 0a54286..02aa9fe 100644
+--- a/diam/sm/cer_test.go
++++ b/diam/sm/cer_test.go
+@@ -25,21 +25,22 @@ func TestHandleCER_HandshakeMetadataTCP(t *testing.T) {
+ 
+ func testHandleCER_HandshakeMetadata(t *testing.T, network string) {
+ 	sm := sm.New(serverSettings)
+-	srv := diamtest.NewServerNetwork(network, sm, dict.Default)
++	hsc := make(chan diam.Conn, 1)
++	handler := diam.HandlerFunc(func(c diam.Conn, m *diam.Message) {
++		sm.ServeDIAM(c, m)
++		if m.Header.CommandCode == diam.CapabilitiesExchange {
++			hsc <- c
++		}
++	})
++	srv := diamtest.NewServerNetwork(network, handler, dict.Default)
+ 	defer srv.Close()
+ 
+-	hsc := make(chan diam.Conn, 1)
+ 	cli, err := diam.DialNetwork(network, srv.Addr, nil, dict.Default)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+ 
+-	ready := make(chan struct{})
+-	go func() {
+-		c := <-sm.HandshakeNotify()
+-		hsc <- c
+-		close(ready)
+-	}()
++	defer cli.Close()
+ 
+ 	m := diam.NewRequest(diam.CapabilitiesExchange, 1001, dict.Default)
+ 	m.NewAVP(avp.OriginHost, avp.Mbit, 0, clientSettings.OriginHost)
+@@ -54,9 +55,7 @@ func testHandleCER_HandshakeMetadata(t *testing.T, network string) {
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+-	<-ready
+-
+-	c := <-hsc
++	c := awaitMetadataConnection(t, hsc, sm.ErrorReports())
+ 	ctx := c.Context()
+ 	meta, ok := smpeer.FromContext(ctx)
+ 	if !ok {
+@@ -74,24 +73,22 @@ func testHandleCER_HandshakeMetadata(t *testing.T, network string) {
+ 
+ func TestHandleCER_HandshakeMetadata_CustomIP(t *testing.T) {
+ 	sm := sm.New(serverSettings2)
+-	srv := diamtest.NewServer(sm, dict.Default)
++	hsc := make(chan diam.Conn, 1)
++	handler := diam.HandlerFunc(func(c diam.Conn, m *diam.Message) {
++		sm.ServeDIAM(c, m)
++		if m.Header.CommandCode == diam.CapabilitiesExchange {
++			hsc <- c
++		}
++	})
++	srv := diamtest.NewServer(handler, dict.Default)
+ 	defer srv.Close()
+ 
+-	hsc := make(chan diam.Conn, 1)
+ 	cli, err := diam.Dial(srv.Addr, nil, dict.Default)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+ 	defer cli.Close()
+ 
+-	ready := make(chan struct{})
+-	go func() {
+-		close(ready)
+-		c := <-sm.HandshakeNotify()
+-		hsc <- c
+-	}()
+-	<-ready
+-
+ 	m := diam.NewRequest(diam.CapabilitiesExchange, 1001, dict.Default)
+ 	m.NewAVP(avp.OriginHost, avp.Mbit, 0, clientSettings.OriginHost)
+ 	m.NewAVP(avp.OriginRealm, avp.Mbit, 0, clientSettings.OriginRealm)
+@@ -106,7 +103,7 @@ func TestHandleCER_HandshakeMetadata_CustomIP(t *testing.T) {
+ 		t.Fatal(err)
+ 	}
+ 
+-	c := <-hsc
++	c := awaitMetadataConnection(t, hsc, sm.ErrorReports())
+ 	ctx := c.Context()
+ 	meta, ok := smpeer.FromContext(ctx)
+ 	if !ok {
+@@ -122,6 +119,21 @@ func TestHandleCER_HandshakeMetadata_CustomIP(t *testing.T) {
+ 	}
+ }
+ 
++// Metadata belongs to the completed CER handler. HandshakeNotify is best effort
++// and cannot be used as a barrier for these metadata assertions.
++func awaitMetadataConnection(t *testing.T, completed <-chan diam.Conn, reports <-chan *diam.ErrorReport) diam.Conn {
++	t.Helper()
++	select {
++	case c := <-completed:
++		return c
++	case err := <-reports:
++		t.Fatalf("CER handler failed: %v", err)
++	case <-time.After(time.Second):
++		t.Fatal("CER handler did not complete")
++	}
++	return nil
++}
++
+ func TestHandleCER_Acct(t *testing.T) {
+ 	sm := sm.New(serverSettings)
+ 	srv := diamtest.NewServer(sm, dict.Default)
 diff --git a/diam/sm/client.go b/diam/sm/client.go
 index d8308cb..6bda2c5 100644
 --- a/diam/sm/client.go
