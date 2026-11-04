@@ -15,7 +15,7 @@
 
 | 库 | 实现及定位 | 主要优势 | 主要限制 |
 | --- | --- | --- | --- |
-| `skill215/sctp` | Linux 内核封装，延续上游主要 API | fd 生命周期、poller、超时与 ABI 回归覆盖；零外部 Go 模块依赖 | Linux/386 不支持；缺少标准 deadline、Context 拨号与接收 flags |
+| `skill215/sctp` | Linux 内核封装，延续上游主要 API | fd 生命周期、poller、超时与 ABI 回归覆盖；零外部 Go 模块依赖 | 仅支持 Linux，且不支持 Linux/386；缺少标准 deadline、Context 拨号与接收 flags |
 | `ishidawataru/sctp` | 本库的上游，Linux 内核封装 | API 简单；支持较旧的 Go 版本 | 底层实现较旧；RawConn 的 Read 和 Write 回调仍会 panic |
 | `free5gc/sctp` | 同源的 Linux 内核封装，增加电信场景配置 | RTO、关联参数和 MaxSeg 配置；部分类型化通知 | Deadline 仍不支持；`SCTPRead` 签名与本库不同 |
 | `georgeyanev/go-sctp` | 更接近 Go 标准库 API 的 Linux 内核封装 | Context、deadline、接收 flags、事件解析、动态绑定及更多 socket 配置 | 仍依赖 Linux；迁移需要调整 API |
@@ -70,7 +70,15 @@ go-sctp 的 `ReadMsg/ReadMsgExt` 返回接收 flags，文档说明如何通过 E
 
 ### Go 版本与平台约束
 
-本库最低要求 Go 1.26，运行依赖 Linux，且不支持 Linux/386。与最低要求较低的库相比，这会增加旧项目的升级成本。Go 版本现代化有利于内部实现和维护，但本身不增加 SCTP 协议能力。
+平台支持范围于 2026-10-31 明确：**本库仅支持启用内核 SCTP 的 Linux，且不支持 Linux/386。** Windows、macOS、BSD、Solaris 和 illumos 均不在支持范围内；不承诺这些平台能够编译、运行或通过测试。
+
+现有 unsupported stub、`ErrUnsupported`、跨平台 API 声明及非 Linux 兼容性检查，不构成平台支持承诺。非 Linux 测试编译问题按支持范围外的兼容性问题记录，不据此认定 Linux SCTP 功能存在回归。Linux/386 的描述符清理测试同样不表示支持该架构的 SCTP I/O。
+
+已知范围外问题：v0.7.2 的 Solaris/illumos 测试编译会因 fd 回归测试引用 `syscall.Dup2` 而失败，库本身仍能编译。2026-10-31 确认当前业务仅使用 Linux，故此项仅记录、暂不修复，也不作为发布阻塞项。复现及对照见 [review 结果](repro/v0.7.2-review-results.json)。
+
+原生 SCTP 集成验证目前在 Linux/amd64 执行；其他 Linux 架构的 QEMU 检查覆盖 ABI、字节序和编码，不能等同于完整的协议验证。具体检查范围见 [README](../README.md#testing)。
+
+本库最低要求 Go 1.26。与最低要求较低的库相比，这会增加旧项目的升级成本。Go 版本现代化有利于内部实现和维护，但本身不增加 SCTP 协议能力。
 
 | 库 | 比较快照的 go.mod 声明 |
 | --- | --- |
@@ -86,9 +94,11 @@ go-sctp 的 `ReadMsg/ReadMsgExt` 返回接收 flags，文档说明如何通过 E
 
 Pion 的 CI 包括 Windows、macOS、wasm 和定期 fuzz。它覆盖的是用户态协议栈，不能与内核封装的测试范围直接等同。[Pion 平台检查](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/test.yaml)、[Pion fuzz](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/fuzz.yaml)
 
-本库目前缺少 benchmark 和 fuzz 测试。这次比较没有同场性能数据，因此不对各库的吞吐、延迟、内存或 CPU 消耗排序。性能验证应固定硬件、内核、socket 参数和负载，再比较消息大小、并发关联数、stream 数、丢包条件、分配次数和尾延迟。用户态与内核实现还应说明底层传输和进程内存、内核资源的统计范围。
+截至 2026-10-31，v0.7.2 已有 sockaddr、ancillary、codec 和地址往返四类 fuzz 目标；benchmark 与业务集成压力测试仍待补齐。这次比较没有同场性能数据，因此不对各库的吞吐、延迟、内存或 CPU 消耗排序。性能验证应固定硬件、内核、socket 参数和负载，再比较消息大小、并发关联数、stream 数、丢包条件、分配次数和尾延迟。用户态与内核实现还应说明底层传输和进程内存、内核资源的统计范围。
 
 ## 发布版本规范
+
+2026-10-31 更新：规范注释标签 `v0.7.2` 已发布，独立模块的 `go get @v0.7.2` 与 `@latest` 均已验证解析为 `v0.7.2`。以下保留比较日的历史观察；版本标签问题已解决，不再是当前缺口。
 
 截至比较日，本库使用 `0.7.1` 等不带 `v` 的标签，发布工作流也仅匹配 `0.*`。GitHub Release 已存在，但这些标签不符合 Go 模块的规范语义版本形式。Go 工具可以按标签查询并解析为伪版本；正式版本发现与升级体验需要改进。[当前发布工作流](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/.github/workflows/release.yaml#L3-L10)、[Go 模块版本规则](https://go.dev/ref/mod#versions)
 

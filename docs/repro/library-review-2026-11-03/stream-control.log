@@ -1,0 +1,11 @@
+=== RUN   TestReviewStreamBoundaryControl
+    zz_review_stream_test.go:19: PPIDs 0..5 round-trip across two streams; stream 2 rejected; stream 0 still works
+--- PASS: TestReviewStreamBoundaryControl (1.02s)
+=== RUN   TestReviewStreamBoundaryControl
+    zz_review_stream_test.go:19: PPIDs 0..5 round-trip across two streams; stream 2 rejected; stream 0 still works
+--- PASS: TestReviewStreamBoundaryControl (1.02s)
+=== RUN   TestReviewStreamBoundaryControl
+    zz_review_stream_test.go:19: PPIDs 0..5 round-trip across two streams; stream 2 rejected; stream 0 still works
+--- PASS: TestReviewStreamBoundaryControl (1.02s)
+PASS
+ok  	github.com/skill215/sctp	4.083s

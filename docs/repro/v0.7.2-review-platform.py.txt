@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Confirm the v0.7.2 Solaris/illumos test-compilation regression.
+
+Python 3.12+, a checkout containing 0.7.1/v0.7.2 tags, and Go >=1.26 required.
+Example:
+  python3 docs/repro/v0.7.2-review-platform.py.txt --repo . --go go --count 3
+Exit 0 means the expected baseline pass, v0.7.2 failure and isolated cause were
+confirmed; it does NOT mean the regression has been fixed. No checkout is edited.
+"""
+import argparse
+import io
+import json
+import os
+from pathlib import Path
+import subprocess
+import tarfile
+import tempfile
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--repo', default='.')
+parser.add_argument('--go', action='append', help='Go executable; may be repeated')
+parser.add_argument('--count', type=int, default=3)
+parser.add_argument('--output', help='Optional full JSON output file')
+args = parser.parse_args()
+if args.count < 1:
+    parser.error('--count must be positive')
+repo = Path(args.repo).resolve()
+records = []
+with tempfile.TemporaryDirectory(prefix='sctp-v072-platform-review-') as directory:
+    root = Path(directory)
+    for name, tag in [('before', '0.7.1'), ('after', 'v0.7.2'), ('isolation', 'v0.7.2')]:
+        destination = root / name
+        destination.mkdir()
+        archive = subprocess.check_output(['git', '-C', str(repo), 'archive', tag])
+        with tarfile.open(fileobj=io.BytesIO(archive)) as source:
+            source.extractall(destination, filter='data')
+    # Diagnostic-only exclusion; library implementation remains byte-identical.
+    test = root / 'isolation' / 'sctp_unsupported_unix_test.go'
+    test.rename(test.with_suffix('.go.disabled'))
+    for go in args.go or ['go']:
+        version = subprocess.check_output([go, 'version'], text=True).strip()
+        for target in ['solaris', 'illumos']:
+            env = dict(os.environ, GOOS=target, GOARCH='amd64', CGO_ENABLED='0')
+            for variant in ['before', 'after', 'isolation']:
+                for operation in ['build', 'test-compile']:
+                    for iteration in range(1, args.count + 1):
+                        command = [go, 'build', '-buildvcs=false', '.']
+                        if operation == 'test-compile':
+                            command = [go, 'test', '-buildvcs=false', '-c', '-o', str(root / 'sctp.test'), '.']
+                        result = subprocess.run(command, cwd=root / variant, env=env,
+                                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                                text=True, timeout=180)
+                        record = dict(go=version, target=target, variant=variant,
+                                      operation=operation, iteration=iteration,
+                                      exit=result.returncode, output=result.stdout)
+                        records.append(record)
+                        expect_failure = variant == 'after' and operation == 'test-compile'
+                        if expect_failure:
+                            assert result.returncode != 0 and 'undefined: syscall.Dup2' in result.stdout, record
+                        else:
+                            assert result.returncode == 0, record
+            print(json.dumps(dict(go=version, target=target, confirmed_regression=True)), flush=True)
+if args.output:
+    Path(args.output).write_text(json.dumps(records, indent=2) + '\n')

@@ -1,0 +1,23 @@
+{
+  "baseline": "2f7bfbc37ba6333405116b60910eb6257ebfa81a",
+  "confirmed_findings": [
+    {
+      "priority": "P2",
+      "file": "example/sctp.go",
+      "line": 140,
+      "title": "Example client exceeds negotiated stream count",
+      "reproductions": 2,
+      "successful_writes_before_error": 2,
+      "error": "EINVAL",
+      "exit_code": 1
+    }
+  ],
+  "new_core_defects_confirmed": 0,
+  "local_main_checks": 34,
+  "local_full_race_processes": 20,
+  "remote_full_race_processes": 40,
+  "architecture_jobs": 6,
+  "core_source_changed": false,
+  "example_source_changed": false,
+  "release_published": false
+}

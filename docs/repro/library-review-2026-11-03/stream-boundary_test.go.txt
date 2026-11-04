@@ -1,0 +1,20 @@
+package sctp
+import("errors";"syscall";"testing";"time")
+func TestReviewStreamBoundaryControl(t *testing.T){
+ a,_:=ResolveSCTPAddr("sctp4","127.0.0.1:0")
+ ln,err:=ListenSCTPExt("sctp4",a,InitMsg{NumOstreams:2,MaxInstreams:2});if err!=nil{t.Fatal(err)};defer ln.Close()
+ c,err:=DialSCTP("sctp4",nil,ln.Addr().(*SCTPAddr));if err!=nil{t.Fatal(err)};defer c.Close()
+ peer,err:=ln.AcceptSCTP();if err!=nil{t.Fatal(err)};defer peer.Close()
+ raw,_:=peer.SyscallConn();if err:=setSocketTimeout(raw,syscall.SO_RCVTIMEO,time.Second);err!=nil{t.Fatal(err)}
+ if err:=peer.SubscribeEvents(SCTP_EVENT_DATA_IO);err!=nil{t.Fatal(err)}
+ status,err:=c.GetStatus();if err!=nil||status.Ostreams!=2{t.Fatalf("status=%+v err=%v",status,err)}
+ for ppid:=uint32(0);ppid<6;ppid++{
+  stream:=uint16(ppid%uint32(status.Ostreams))
+  if n,err:=c.SCTPWrite([]byte{byte(ppid)},&SndRcvInfo{Stream:stream,PPID:ppid});n!=1||err!=nil{t.Fatalf("write ppid=%d stream=%d: %d,%v",ppid,stream,n,err)}
+  var b [8]byte;n,info,err:=peer.SCTPRead(b[:]);if n!=1||b[0]!=byte(ppid)||err!=nil||info==nil||info.Stream!=stream||info.PPID!=ppid{t.Fatalf("read=%d,%+v,%v",n,info,err)}
+ }
+ if n,err:=c.SCTPWrite([]byte("invalid stream"),&SndRcvInfo{Stream:status.Ostreams});n!=0||!errors.Is(err,syscall.EINVAL){t.Fatalf("invalid stream result %d,%v",n,err)}
+ if n,err:=c.SCTPWrite([]byte("valid"),&SndRcvInfo{Stream:0});n!=5||err!=nil{t.Fatalf("association damaged after rejection: %d,%v",n,err)}
+ var b [8]byte;n,_,err:=peer.SCTPRead(b[:]);if n!=5||string(b[:n])!="valid"||err!=nil{t.Fatalf("subsequent read=%d,%v",n,err)}
+ t.Log("PPIDs 0..5 round-trip across two streams; stream 2 rejected; stream 0 still works")
+}

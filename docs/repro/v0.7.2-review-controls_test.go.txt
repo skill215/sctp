@@ -1,0 +1,153 @@
+//go:build linux && !386
+
+// Additional native controls for the v0.7.2 review. Copy to review_controls_linux_test.go
+// in an archived checkout, then: go test -race -run "^TestReview" -count=3 -v .
+package sctp
+
+import (
+	"errors"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func reviewEvents(t *testing.T, c *SCTPConn, set *[14]byte) [14]byte {
+	t.Helper()
+	if set != nil {
+		if _, _, err := c.setsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&set[0])), 14); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var result [14]byte
+	size := uint32(len(result))
+	if _, _, err := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&result[0])), &size); err != nil {
+		t.Fatal(err)
+	}
+	if size < 14 {
+		t.Fatalf("kernel does not expose extended events: %d", size)
+	}
+	return result
+}
+
+func TestReviewExtendedSubscriptions(t *testing.T) {
+	c, _ := lifecyclePair(t)
+	var mask [14]byte
+	mask[5] = 1
+	for i := 10; i < 14; i++ {
+		mask[i] = 1
+	}
+	before := reviewEvents(t, c, &mask)
+	w := NewSCTPSndRcvInfoWrappedConn(c)
+	if w == nil {
+		t.Fatal("missing wrapper")
+	}
+	after := reviewEvents(t, c, nil)
+	t.Logf("before=%v after=%v", before, after)
+	for i := 10; i < 14; i++ {
+		if before[i] != 1 || after[i] != 1 {
+			t.Errorf("subscription byte %d changed from %d to %d", i, before[i], after[i])
+		}
+	}
+}
+
+func TestReviewTwoAssociationControlIsolation(t *testing.T) {
+	first, second := lifecycleListener(t), lifecycleListener(t)
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 132)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id1, err := SCTPConnect(fd, first.Addr().(*SCTPAddr))
+	if err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	p1, err := first.AcceptSCTP()
+	if err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	defer p1.Close()
+	id2, err := SCTPConnect(fd, second.Addr().(*SCTPAddr))
+	if err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	p2, err := second.AcceptSCTP()
+	if err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	defer p2.Close()
+	c := NewSCTPConn(fd, nil)
+	defer c.Close()
+	if err := c.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+		t.Fatal(err)
+	}
+	for _, conn := range []*SCTPConn{c, p1, p2} {
+		raw, _ := conn.SyscallConn()
+		if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 200*time.Millisecond); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n, err := c.SCTPWrite(nil, &SndRcvInfo{AssocID: int32(id1), Flags: SCTP_ABORT}); n != 0 || err != nil {
+		t.Fatalf("abort=%d,%v", n, err)
+	}
+	if n, err := p1.Read(make([]byte, 64)); n != 0 || !errors.Is(err, syscall.ECONNRESET) {
+		t.Fatalf("first peer=%d,%v", n, err)
+	}
+	if _, err := p2.SCTPWrite([]byte("second association"), &SndRcvInfo{Stream: 1, PPID: 42}); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, 128)
+	n, info, err := c.SCTPRead(b)
+	if err != nil || string(b[:max(0, n)]) != "second association" || info == nil || int(info.AssocID) != id2 || info.Stream != 1 || info.PPID != 42 {
+		t.Fatalf("second read=%d,%+v,%v", n, info, err)
+	}
+	t.Logf("association %d aborted; association %d delivered complete payload/metadata", id1, id2)
+}
+
+func TestReviewImportedPeeledIdle(t *testing.T) {
+	ln := lifecycleListener(t)
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 132)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
+	if err != nil {
+		syscall.Close(fd)
+		t.Fatal(err)
+	}
+	endpoint := NewSCTPConn(fd, nil)
+	defer endpoint.Close()
+	peer, err := ln.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
+	peeled, err := endpoint.PeelOff(id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peeled.Close()
+	var duplicate int
+	if err := peeled.withFD(func(fd int) error { var err error; duplicate, err = syscall.Dup(fd); return err }); err != nil {
+		t.Fatal(err)
+	}
+	imported := NewSCTPConn(duplicate, nil)
+	defer imported.Close()
+	raw, _ := imported.SyscallConn()
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 30*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := imported.Read(make([]byte, 64)); n != 0 || !errors.Is(err, syscall.EAGAIN) {
+		t.Fatalf("idle imported peeled=%d,%v", n, err)
+	}
+	if _, err := peer.Write([]byte("peeled still live")); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, 64)
+	if n, err := imported.Read(b); err != nil || string(b[:max(0, n)]) != "peeled still live" {
+		t.Fatalf("peeled data=%d,%v", n, err)
+	}
+}

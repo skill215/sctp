@@ -1,0 +1,4 @@
+Listen on 127.0.0.1:46163
+negotiated inbound=2 outbound=2
+stream=0 ppid=0
+stream=1 ppid=1

@@ -1,0 +1,29 @@
+=== RUN   TestClientHonorsNegotiatedStreams
+=== RUN   TestClientHonorsNegotiatedStreams/1
+    sctp_linux_test.go:87: message 1: n=0 info=<nil> error=EOF
+    sctp_linux_test.go:63: CLI exit: exit status 1
+        2026/11/04 10:43:25 Resolved address '127.0.0.1' to 127.0.0.1
+        2026/11/04 10:43:25 raw addr: [2 0 142 26 127 0 0 1 0 0 0 0 0 0 0 0]
+        2026/11/04 10:43:25 Dail LocalAddr: 127.0.0.1/192.0.2.1/192.0.2.1:57474; RemoteAddr: 127.0.0.1:36378
+        2026/11/04 10:43:25 SndBufSize: 212992, RcvBufSize: 212992
+        2026/11/04 10:43:25 write: len 256
+        2026/11/04 10:43:25 read: len 256, info: &{Stream:0 SSN:0 Flags:0 _:0 PPID:0 Context:0 TTL:0 TSN:3351230866 CumTSN:0 AssocID:3}
+        2026/11/04 10:43:26 failed to write: invalid argument
+=== RUN   TestClientHonorsNegotiatedStreams/2
+    sctp_linux_test.go:87: message 2: n=0 info=<nil> error=EOF
+    sctp_linux_test.go:63: CLI exit: exit status 1
+        2026/11/04 10:43:26 Resolved address '127.0.0.1' to 127.0.0.1
+        2026/11/04 10:43:26 raw addr: [2 0 197 55 127 0 0 1 0 0 0 0 0 0 0 0]
+        2026/11/04 10:43:26 Dail LocalAddr: 127.0.0.1/192.0.2.1/192.0.2.1:47934; RemoteAddr: 127.0.0.1:50487
+        2026/11/04 10:43:26 SndBufSize: 212992, RcvBufSize: 212992
+        2026/11/04 10:43:26 write: len 256
+        2026/11/04 10:43:26 read: len 256, info: &{Stream:0 SSN:0 Flags:0 _:0 PPID:0 Context:0 TTL:0 TSN:227803286 CumTSN:0 AssocID:5}
+        2026/11/04 10:43:27 write: len 256
+        2026/11/04 10:43:27 read: len 256, info: &{Stream:1 SSN:0 Flags:0 _:0 PPID:1 Context:0 TTL:0 TSN:227803287 CumTSN:0 AssocID:5}
+        2026/11/04 10:43:28 failed to write: invalid argument
+--- FAIL: TestClientHonorsNegotiatedStreams (3.15s)
+    --- FAIL: TestClientHonorsNegotiatedStreams/1 (1.12s)
+    --- FAIL: TestClientHonorsNegotiatedStreams/2 (2.03s)
+FAIL
+FAIL	github.com/skill215/sctp/example	3.178s
+FAIL

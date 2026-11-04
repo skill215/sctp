@@ -1,0 +1,21 @@
+from pathlib import Path
+import subprocess,os,json,time,platform
+root=Path('${REPO_ROOT}');out=Path('${REVIEW_DIR}');checks=[]
+env=dict(os.environ,GOCACHE='${REVIEW_DIR}',GOMODCACHE='${REVIEW_DIR}',GOTOOLCHAIN='local',GOPROXY='off')
+def run(label,go,args,extra=None):
+ e=dict(env,**(extra or {}));t=time.monotonic()
+ with (out/'logs'/f'{label}.log').open('w') as f:
+  p=subprocess.run([go,*args],cwd=root,env=e,stdout=f,stderr=subprocess.STDOUT,timeout=160)
+ row={'name':label,'command':[go,*args],'exit_code':p.returncode,'elapsed_seconds':time.monotonic()-t,'log':label+'.log','environment':extra or {}}
+ checks.append(row);(out/'checks.json').write_text(json.dumps(checks,indent=2)+'\n');print(json.dumps(row),flush=True)
+ if p.returncode:print((out/'logs'/f'{label}.log').read_text()[-4000:],flush=True)
+ return p.returncode
+for version,go in [('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_TOOLCHAIN}')]:
+ for i in range(1,11):
+  if run(f'race-{version}-{i}',go,['test','-race','-shuffle='+str(7273500+i),'-count=1','-json','-timeout=120s','./...']):break
+ run('vet-'+version,go,['vet','./...'])
+ run('checkptr-'+version,go,['test','-gcflags=all=-d=checkptr=2','-count=1','-json','-timeout=120s','./...'])
+ run('lowgc-'+version,go,['test','-race','-count=1','-json','-timeout=120s','./...'],{'GOGC':'1'})
+ for target in ['RawSockaddr','Ancillary','Codec','AddressRoundTrip']:
+  run(f'fuzz-{target}-{version}',go,['test','-run','^$','-fuzz=^Fuzz'+target+'$','-fuzztime=10s','-parallel=2','-timeout=60s','.'])
+raise SystemExit(any(r['exit_code'] for r in checks))

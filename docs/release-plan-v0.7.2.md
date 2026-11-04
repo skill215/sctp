@@ -13,6 +13,12 @@
 
 公开进度及原始复现统一见 [GitHub #3](https://github.com/skill215/sctp/issues/3)。用户已授权实施与发布；只有全部必需验证通过后才创建 v0.7.2 标签并发布。
 
+## 当前平台支持范围（2026-10-31）
+
+本库仅支持启用内核 SCTP 的 Linux；Linux/386 仍不支持 SCTP I/O。Windows、macOS、BSD、Solaris/illumos 等非 Linux 平台不在支持范围内，不承诺其编译、测试或运行兼容性。
+
+下文保留 v0.7.2 实际执行的跨平台编译、stub 和资源清理验证记录。这些检查不扩展平台支持范围；非 Linux 上可复现的测试编译问题属于支持范围外的兼容性问题，不作为 Linux SCTP 运行回归或当前发布阻塞项。架构与验证边界见 [平台说明](comparison.md#go-版本与平台约束)。
+
 ## 缺陷与修复边界
 
 | Issue | 范围 | 设计选择 |
