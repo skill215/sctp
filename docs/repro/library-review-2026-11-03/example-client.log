@@ -1,0 +1,9 @@
+2026/11/03 15:30:19 Resolved address '127.0.0.1' to 127.0.0.1
+2026/11/03 15:30:19 raw addr: [2 0 180 83 127 0 0 1 0 0 0 0 0 0 0 0]
+2026/11/03 15:30:19 Dail LocalAddr: 127.0.0.1/192.0.2.1/192.0.2.1:33022; RemoteAddr: 127.0.0.1:46163
+2026/11/03 15:30:19 SndBufSize: 212992, RcvBufSize: 212992
+2026/11/03 15:30:19 write: len 256
+2026/11/03 15:30:19 read: len 256, info: &{Stream:0 SSN:0 Flags:0 _:0 PPID:0 Context:0 TTL:0 TSN:2603073786 CumTSN:0 AssocID:139443}
+2026/11/03 15:30:20 write: len 256
+2026/11/03 15:30:20 read: len 256, info: &{Stream:1 SSN:0 Flags:0 _:0 PPID:1 Context:0 TTL:0 TSN:2603073787 CumTSN:0 AssocID:139443}
+2026/11/03 15:30:21 failed to write: invalid argument

@@ -1,0 +1,35 @@
+[
+  {
+    "check": "original example subprocess regression",
+    "exit_code": 1,
+    "expected": "one-stream and two-stream peers fail with EINVAL",
+    "log": "before.log"
+  },
+  {
+    "check": "fixed example three race rounds",
+    "exit_code": 0,
+    "log": "after.log"
+  },
+  {
+    "check": "vet",
+    "go": "1.26.10",
+    "exit_code": 0
+  },
+  {
+    "check": "full race/shuffle",
+    "go": "1.26.10",
+    "exit_code": 0,
+    "log": "full-go1.26.log"
+  },
+  {
+    "check": "vet",
+    "go": "1.27.3",
+    "exit_code": 0
+  },
+  {
+    "check": "full race/shuffle",
+    "go": "1.27.3",
+    "exit_code": 0,
+    "log": "full-go1.27.log"
+  }
+]

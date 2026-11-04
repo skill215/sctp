@@ -1,0 +1,240 @@
+{
+  "stream-control.log": {
+    "stored_as": "stream-control.log",
+    "bytes": 663,
+    "sha256": "48236f89a0b1ebc6c9ef6efe07e612e21a999786b2e61a6b0535c5b7a0383058"
+  },
+  "example-server-1.log": {
+    "stored_as": "example-server-1.log",
+    "bytes": 90,
+    "sha256": "6a659a8fa4ac9456133d15c810b8df8b211c86395b2f387ed7ea6c68074a3703"
+  },
+  "example-client-1.log": {
+    "stored_as": "example-client-1.log",
+    "bytes": 682,
+    "sha256": "e805b6ac88791edcc1ad46992a1be4337705178288db00214027ebdc2b763f69",
+    "original_raw_sha256": "6b5fccaaea66f42be8393e2a3afff9f503e517e04deea26bfef28c6015637184",
+    "redaction": "local paths and private IPs replaced with placeholders/documentation addresses"
+  },
+  "example-client.log": {
+    "stored_as": "example-client.log",
+    "bytes": 681,
+    "sha256": "c24a6de9e6fd64491b3fb60b603d3dc3e67ddb4d9e0eba87cb7771d67b717cfd",
+    "original_raw_sha256": "10eed8f65bce4fa77692d279731fdcf1677bb02531dca28ecaad6f2f69f17ecc",
+    "redaction": "local paths and private IPs replaced with placeholders/documentation addresses"
+  },
+  "example-server.log": {
+    "stored_as": "example-server.log",
+    "bytes": 90,
+    "sha256": "568cb656e4db773a70dd3641f47204ab56a0b6ac3dba14c6b1cf6310762d108a"
+  },
+  "readme.log": {
+    "stored_as": "readme.log",
+    "bytes": 54,
+    "sha256": "95bb929f59cfdab0fa73ee9baa6adee5992d5f40b4a574cd5920299a216ccb38"
+  },
+  "independent-api-builds.log": {
+    "stored_as": "independent-api-builds.log",
+    "bytes": 233,
+    "sha256": "2b5e80f7fe6c7fff222fb6684ce82587dc05e9e35813cf004cde8318014c2839"
+  },
+  "fuzz-AddressRoundTrip-1.27.3.log": {
+    "stored_as": "fuzz-AddressRoundTrip-1.27.3.log",
+    "bytes": 507,
+    "sha256": "1fc90353ff238a21fba3f2dabfcd8e6d1454aa9912ce7d8033e9e276b4235298"
+  },
+  "fuzz-Codec-1.27.3.log": {
+    "stored_as": "fuzz-Codec-1.27.3.log",
+    "bytes": 500,
+    "sha256": "ae88c4f97bce787db070696313e60d8b9ecb42242b448ea1a8ab68d59260e96a"
+  },
+  "fuzz-Ancillary-1.27.3.log": {
+    "stored_as": "fuzz-Ancillary-1.27.3.log",
+    "bytes": 500,
+    "sha256": "102f6519b713b1dec6530a2dd7ff9db298ebfb4d4dd393767e442177afdaadbf"
+  },
+  "required-netns.log": {
+    "stored_as": "required-netns.log",
+    "bytes": 831,
+    "sha256": "ade725da95e096e87b905bdf01b6eceecb6bef662dba46875b528d0fc8f33a6c"
+  },
+  "fuzz-RawSockaddr-1.27.3.log": {
+    "stored_as": "fuzz-RawSockaddr-1.27.3.log",
+    "bytes": 483,
+    "sha256": "6906b01bb6408bc3ed2e6517d38e60e0af4348ee40c748783ff65a413e0b369b"
+  },
+  "lowgc-1.27.3.log": {
+    "bytes": 990668,
+    "sha256": "1c170c63b8c53fa201393d5fe3ad061097d4d9da9ea28b005629d67f75ff6b57",
+    "archived_compressed_as": "lowgc-1.27.3.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "checkptr-1.27.3.log": {
+    "bytes": 987001,
+    "sha256": "daac76cadaf260bc63e2312e2d430146f0c74f07cd7ef6d768683ba1762260e5",
+    "archived_compressed_as": "checkptr-1.27.3.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "vet-1.27.3.log": {
+    "stored_as": "vet-1.27.3.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "race-1.27.3-10.log": {
+    "bytes": 988420,
+    "sha256": "2fab388142dd60ce261d18b378ba111c89b735d4f72d0cf5be20397fca4c7c50",
+    "archived_compressed_as": "race-1.27.3-10.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-9.log": {
+    "bytes": 989793,
+    "sha256": "e58a9d1be707a13ca1214487bff3a7f4f18ea4e97baa34491417fac7d648cc6c",
+    "archived_compressed_as": "race-1.27.3-9.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-8.log": {
+    "bytes": 989306,
+    "sha256": "851389df9b92958ffa30730908b6ad2af4f40d3d983573e524c97c7d4dabea97",
+    "archived_compressed_as": "race-1.27.3-8.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-7.log": {
+    "bytes": 992904,
+    "sha256": "9d241ab170566923333843ac6dc56989c24bcc58ff1c6f2665549bbbad023fc4",
+    "archived_compressed_as": "race-1.27.3-7.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-6.log": {
+    "bytes": 993928,
+    "sha256": "2ed37d68b305b949d8a157e7edd7a55fe96260f50a18a98495c3a1b5d4d7e0de",
+    "archived_compressed_as": "race-1.27.3-6.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-5.log": {
+    "bytes": 994445,
+    "sha256": "8b92617c73f4b831c291f18b155dd948853fcfe8adc380d5987628e7b4bb26c0",
+    "archived_compressed_as": "race-1.27.3-5.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-4.log": {
+    "bytes": 987939,
+    "sha256": "42d19d7f8038bb5d4ab33737e3dc63ebcb6ff2a5347180ee08c05f9d19533529",
+    "archived_compressed_as": "race-1.27.3-4.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-3.log": {
+    "bytes": 996782,
+    "sha256": "9e76913502a0ecd44d1afc9701f996858fa1c22e9fd0e64c72250d7498d4649d",
+    "archived_compressed_as": "race-1.27.3-3.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-2.log": {
+    "bytes": 986617,
+    "sha256": "86df63d4cf7a184cfd3527e475d57baaf5e1d536540c0214677e79bc0263f3f4",
+    "archived_compressed_as": "race-1.27.3-2.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.27.3-1.log": {
+    "bytes": 994345,
+    "sha256": "84a690be0b3c25b1a4de4998d8bd027b59088cbb0bbbac8cfb45a6897d324353",
+    "archived_compressed_as": "race-1.27.3-1.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "fuzz-AddressRoundTrip-1.26.10.log": {
+    "stored_as": "fuzz-AddressRoundTrip-1.26.10.log",
+    "bytes": 507,
+    "sha256": "e3754b66d512da26ef778ae912fc56d864b5846a2ffec03b8d41a78bfedc1a5f"
+  },
+  "fuzz-Codec-1.26.10.log": {
+    "stored_as": "fuzz-Codec-1.26.10.log",
+    "bytes": 500,
+    "sha256": "144fbd2606555f75194c298f97cf5a55f7c145634943b1566daa8f9c4c3dee03"
+  },
+  "fuzz-Ancillary-1.26.10.log": {
+    "stored_as": "fuzz-Ancillary-1.26.10.log",
+    "bytes": 500,
+    "sha256": "220e46b07d9c443246d10627be890119a897c95e512201e1e2954ec461be3977"
+  },
+  "fuzz-RawSockaddr-1.26.10.log": {
+    "stored_as": "fuzz-RawSockaddr-1.26.10.log",
+    "bytes": 489,
+    "sha256": "04db1b4f5a2a6a7c044da2164540d1f6789242559a888fbb02eacd18f6439f98"
+  },
+  "lowgc-1.26.10.log": {
+    "bytes": 985281,
+    "sha256": "2f65454e7106e63ebb9b87ef06168f0c5b279ff96aa899e992031d1346b83d53",
+    "archived_compressed_as": "lowgc-1.26.10.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "checkptr-1.26.10.log": {
+    "bytes": 977419,
+    "sha256": "0189ebdee29f133d16a7788afec5067e481e1a845e1c43be8dd19a25da40e9db",
+    "archived_compressed_as": "checkptr-1.26.10.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "vet-1.26.10.log": {
+    "stored_as": "vet-1.26.10.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "race-1.26.10-10.log": {
+    "bytes": 979174,
+    "sha256": "acd8826005a292efa93d7dc50c3ef1ae7b571e7db57fd988c2ab976462d6f1c2",
+    "archived_compressed_as": "race-1.26.10-10.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-9.log": {
+    "bytes": 984391,
+    "sha256": "f6d8f7733f9e8ea62e07ac633409a3ec5f0233ca40e2aec6411632324929da74",
+    "archived_compressed_as": "race-1.26.10-9.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-8.log": {
+    "bytes": 981663,
+    "sha256": "585f60d4a4a55408dfaf022be60e47140fd52da8954ff8d525670712e0990591",
+    "archived_compressed_as": "race-1.26.10-8.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-7.log": {
+    "bytes": 981367,
+    "sha256": "560f536723da10d55d3c60327f560361fc8a5790786af048f5d1dfcdcd2764b6",
+    "archived_compressed_as": "race-1.26.10-7.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-6.log": {
+    "bytes": 980379,
+    "sha256": "faaf0d63455a926c889cc4af46284470925ee96539bf77f6c026bba9c444a301",
+    "archived_compressed_as": "race-1.26.10-6.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-5.log": {
+    "bytes": 984844,
+    "sha256": "1ed97a33cda18c3241820b4b623e279ea7ddf51ef755c4e5fe0546866e6aca27",
+    "archived_compressed_as": "race-1.26.10-5.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-4.log": {
+    "bytes": 977474,
+    "sha256": "9b4eab0f7b9a824bee209079708bb23d38af114904ef654cfc5ba74a66fdf17f",
+    "archived_compressed_as": "race-1.26.10-4.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-3.log": {
+    "bytes": 981332,
+    "sha256": "6961ff55d6c92683b97751d4cfb0e389192f0c8b165bf0933ac6c8c8d49d34e9",
+    "archived_compressed_as": "race-1.26.10-3.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-2.log": {
+    "bytes": 988841,
+    "sha256": "a1dfb4ea841da80d31ee502df1659bd9c33be785e4f0948145f18f5444e0ee82",
+    "archived_compressed_as": "race-1.26.10-2.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  },
+  "race-1.26.10-1.log": {
+    "bytes": 986515,
+    "sha256": "ec58cb5181e77ca802e7c6fc60a05594d1457d119d69ed579c4b854031cd4ae1",
+    "archived_compressed_as": "race-1.26.10-1.log.gz",
+    "storage": "raw log archived outside the source tree; results in checks.json and local-test-counts.json"
+  }
+}

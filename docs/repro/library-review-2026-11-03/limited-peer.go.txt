@@ -1,0 +1,12 @@
+package main
+import("fmt";"os";"github.com/skill215/sctp")
+func main(){
+ a,_:=sctp.ResolveSCTPAddr("sctp4","127.0.0.1:0")
+ ln,err:=sctp.ListenSCTPExt("sctp4",a,sctp.InitMsg{NumOstreams:2,MaxInstreams:2});if err!=nil{panic(err)};defer ln.Close()
+ fmt.Printf("Listen on %s\n",ln.Addr())
+ c,err:=ln.AcceptSCTP();if err!=nil{panic(err)};defer c.Close()
+ status,err:=c.GetStatus();if err!=nil{panic(err)};fmt.Fprintf(os.Stderr,"negotiated inbound=%d outbound=%d\n",status.Instreams,status.Ostreams)
+ if err:=c.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO);err!=nil{panic(err)}
+ b:=make([]byte,1024)
+ for {n,info,err:=c.SCTPRead(b);if err!=nil{return};fmt.Fprintf(os.Stderr,"stream=%d ppid=%d\n",info.Stream,info.PPID);if _,err=c.SCTPWrite(b[:n],info);err!=nil{panic(err)}}
+}

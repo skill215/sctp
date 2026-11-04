@@ -3,7 +3,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/skill215/sctp.svg)](https://pkg.go.dev/github.com/skill215/sctp)
 [![Release](https://img.shields.io/github/v/release/skill215/sctp)](https://github.com/skill215/sctp/releases)
 
-Go bindings for Linux's Stream Control Transmission Protocol (SCTP) sockets.
+Linux-only Go bindings for Stream Control Transmission Protocol (SCTP) sockets.
 The package provides listeners and connections, multiple streams per association,
 multihoming, per-message metadata, and access to SCTP socket options without cgo.
 
@@ -13,9 +13,14 @@ Use `github.com/skill215/sctp` as the module and import path.
 ## Requirements and installation
 
 - **Go 1.26 or later.**
-- **Linux with kernel SCTP support.** Linux/386 and non-Linux targets use
-  unsupported socket stubs that return `ErrUnsupported`.
+- **Linux only, with kernel SCTP support.** Linux/386 is unsupported.
+  Windows, macOS, BSD, Solaris, and illumos are outside the support scope.
 - SCTP traffic must be allowed between peers. Both peers need SCTP support.
+
+Non-Linux builds, tests, and runtime behavior are not covered by the support
+policy. Existing unsupported-target stubs and compatibility checks do not extend
+platform support. See the [platform policy](docs/comparison.md#go-版本与平台约束)
+for the scope of architecture and compatibility validation.
 
 No C library or `lksctp-tools` dependency is required. If SCTP is available as a
 kernel module, load it on the host with `sudo modprobe sctp`. Containers use the
@@ -35,6 +40,10 @@ For implementation tradeoffs and API differences, see the
 The [0.7.1 audit](docs/release-audit-0.7.1.md) records the defects addressed
 by v0.7.2. See the [release validation](docs/release-plan-v0.7.2.md) for their
 regression coverage and release gates.
+
+The [library scope](docs/library-scope.md) defines this repository's
+responsibilities and release acceptance. Application services and their
+dependency upgrades are maintained separately.
 
 ## Quick start
 
@@ -297,8 +306,9 @@ operations. Closing a connection or listener wakes blocked and queued I/O.
 connection's `Close`; do not close the descriptor independently. On unsupported
 targets, construction cannot initialize I/O and immediately releases the supplied
 socket with the platform's socket-close operation. Subsequent methods return
-`ErrUnsupported`, including any saved native cleanup failure. `ErrUnsupported`
-and both `SyscallConn` methods are available across supported and stub targets.
+`ErrUnsupported`, including any saved native cleanup failure. Existing stub
+builds expose `ErrUnsupported` and both `SyscallConn` methods for compatibility;
+they do not provide supported SCTP operation on those targets.
 `FileListener(file)` duplicates the supplied descriptor, so the caller remains
 responsible for closing the original file. `PeelOff` returns a separately owned
 connection with close-on-exec set.
@@ -335,6 +345,10 @@ Architecture checks use Go 1.26 and QEMU for **ARM, ARM64, MIPS, MIPS64, PPC64,
 and s390x**. These cover socket-option/zero-iov ancillary ABI, alignment, byte order, and address
 encoding using codecs and non-SCTP sockets. They do not exercise full SCTP
 associations under emulation; integration tests run natively on Linux/amd64.
+
+Non-Linux consumer-compilation and resource-cleanup checks cover specific
+compatibility paths only. They do not establish support for those platforms.
+Linux/386 ownership checks likewise do not provide SCTP I/O support on 386.
 
 ## License
 

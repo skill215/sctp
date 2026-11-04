@@ -134,11 +134,18 @@ func main() {
 		}
 		log.Printf("SndBufSize: %d, RcvBufSize: %d", *sndbuf, *rcvbuf)
 
-		ppid := 0
+		status, err := conn.GetStatus()
+		if err != nil {
+			log.Fatalf("failed to get SCTP status: %v", err)
+		}
+		if status.Ostreams == 0 {
+			log.Fatal("no outbound SCTP streams negotiated")
+		}
+		ppid := uint32(0)
 		for {
 			info := &sctp.SndRcvInfo{
-				Stream: uint16(ppid),
-				PPID:   uint32(ppid),
+				Stream: uint16(ppid % uint32(status.Ostreams)),
+				PPID:   ppid,
 			}
 			ppid += 1
 			conn.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO)

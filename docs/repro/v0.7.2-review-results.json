@@ -1,0 +1,724 @@
+{
+  "date": "2026-10-31",
+  "reviewed_commit": "5359b448f9a2dbc21d779e485b92c5751f9f2237",
+  "comparison_commit": "e864ee06b6c5b0c77661c4715814a75576c23237",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "confirmed_findings": [
+    {
+      "priority": "P2",
+      "kind": "test-compilation regression",
+      "title": "New Unix descriptor tests break Solaris/illumos test compilation",
+      "location": "sctp_unsupported_unix_test.go:1",
+      "cause": "The !linux && !windows build condition includes Solaris and illumos, but the tests call syscall.Dup2, which is absent on these targets.",
+      "evidence": "Go 1.26.10 and 1.27.2; Solaris/amd64 and illumos/amd64; three independent compilations per matrix cell. 0.7.1 test compilation passes, v0.7.2 fails with undefined: syscall.Dup2 at lines 34 and 68. Excluding only the new test file in a diagnostic archive restores test compilation.",
+      "scope": "Production package go build passes on both revisions and targets. This is not a demonstrated Linux SCTP runtime regression.",
+      "suggestion": "Limit these real SCTP/fd=0 tests to Linux/386, or supply platform-specific primitives and socket setup for additional targets.",
+      "disposition": "deferred_out_of_scope",
+      "release_blocking": false
+    }
+  ],
+  "platform_commands": [
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.26.10 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "solaris",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "before",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "after",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 1,
+      "output": "# github.com/skill215/sctp [github.com/skill215/sctp.test]\n./sctp_unsupported_unix_test.go:34:21: undefined: syscall.Dup2\n./sctp_unsupported_unix_test.go:68:22: undefined: syscall.Dup2\n"
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "build",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 1,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 2,
+      "exit": 0,
+      "output": ""
+    },
+    {
+      "go": "go version go1.27.2 linux/amd64",
+      "target": "illumos",
+      "variant": "isolation",
+      "operation": "test-compile",
+      "iteration": 3,
+      "exit": 0,
+      "output": ""
+    }
+  ],
+  "full_native_baseline": {
+    "go": "1.26.10",
+    "command": "go test -race -shuffle=on -count=1 -timeout=120s ./...",
+    "result": "pass"
+  },
+  "affected_native_suites": [
+    {
+      "go": "1.26.10",
+      "GOMAXPROCS": 1,
+      "race": true,
+      "count": 3,
+      "shuffle": 7272101,
+      "log": "ok  \tgithub.com/skill215/sctp\t8.202s\n"
+    },
+    {
+      "go": "1.27.2",
+      "GOMAXPROCS": 8,
+      "race": true,
+      "count": 3,
+      "shuffle": 7272102,
+      "log": "ok  \tgithub.com/skill215/sctp\t7.670s\n"
+    }
+  ],
+  "additional_native_controls": [
+    {
+      "go": "1.26.10",
+      "race": true,
+      "pass_counts": {
+        "TestReviewExtendedSubscriptions": 3,
+        "TestReviewTwoAssociationControlIsolation": 3,
+        "TestReviewImportedPeeledIdle": 3
+      },
+      "log": "=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33735 aborted; association 33737 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\n=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33743 aborted; association 33745 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\n=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33751 aborted; association 33753 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\nPASS\nok  \tgithub.com/skill215/sctp\t1.192s\n"
+    },
+    {
+      "go": "1.27.2",
+      "race": true,
+      "pass_counts": {
+        "TestReviewExtendedSubscriptions": 3,
+        "TestReviewTwoAssociationControlIsolation": 3,
+        "TestReviewImportedPeeledIdle": 3
+      },
+      "log": "=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33759 aborted; association 33761 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\n=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33767 aborted; association 33769 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\n=== RUN   TestReviewExtendedSubscriptions\n    review_controls_linux_test.go:46: before=[0 0 0 0 0 1 0 0 0 0 1 1 1 1] after=[1 0 0 0 0 1 0 0 0 0 1 1 1 1]\n--- PASS: TestReviewExtendedSubscriptions (0.01s)\n=== RUN   TestReviewTwoAssociationControlIsolation\n    review_controls_linux_test.go:107: association 33775 aborted; association 33777 delivered complete payload/metadata\n--- PASS: TestReviewTwoAssociationControlIsolation (0.01s)\n=== RUN   TestReviewImportedPeeledIdle\n--- PASS: TestReviewImportedPeeledIdle (0.04s)\nPASS\nok  \tgithub.com/skill215/sctp\t1.186s\n"
+    }
+  ],
+  "excluded_suspicion": "A full 14-byte native SCTP_EVENTS query confirms that wrapper creation preserves event bytes 10..13; the suspected extended-event loss was not reproduced and is not reported as a defect.",
+  "implementation_changed": false,
+  "new_linux_runtime_regressions_confirmed": 0,
+  "limitations": "Solaris/illumos evidence is cross-compilation, not native runtime execution. Passing the tested Linux paths is not a proof that no other bugs exist.",
+  "support_policy_update": {
+    "date": "2026-10-31",
+    "supported_scope": "Linux with kernel SCTP, excluding Linux/386",
+    "solaris_illumos_disposition": "Documented and deferred at the user request; outside current support scope, not a release blocker; no Solaris/illumos fix planned."
+  }
+}

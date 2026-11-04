@@ -1,0 +1,1158 @@
+{
+  "run_id": 41595802687,
+  "url": "https://github.com/skill215/sctp/actions/runs/41595802687",
+  "base_sha": "2f7bfbc37ba6333405116b60910eb6257ebfa81a",
+  "head_sha": "c3806b41d6e78f08494d7e3f5aa0a70bcb5cb9f8",
+  "branch": "codex/sctp-library-review-2026-11-03",
+  "only_remote_change": ".github/workflows/library-review.yaml",
+  "jobs": [
+    {
+      "id": 125782757928,
+      "name": "native (ubuntu-22.04, 1.27.x)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run sudo modprobe sctp",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run bash .github/scripts/validate.sh",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Require three numeric interface namespace regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Compile independent API fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Compile and run README examples",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:58.9689531Z go version go1.27.3 linux/amd64",
+        "2026-11-03T07:21:59.8452685Z Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "2026-11-03T07:21:59.8492660Z go version go1.27.3 linux/amd64",
+        "2026-11-03T07:21:59.8523250Z race round=1 seed=7272001",
+        "2026-11-03T07:22:23.5424318Z ok  \tgithub.com/skill215/sctp\t8.038s",
+        "2026-11-03T07:22:23.6003456Z race round=2 seed=7272002",
+        "2026-11-03T07:22:32.0487249Z ok  \tgithub.com/skill215/sctp\t8.084s",
+        "2026-11-03T07:22:32.0558938Z race round=3 seed=7272003",
+        "2026-11-03T07:22:40.4668169Z ok  \tgithub.com/skill215/sctp\t8.047s",
+        "2026-11-03T07:22:40.4742674Z race round=4 seed=7272004",
+        "2026-11-03T07:22:48.9277475Z ok  \tgithub.com/skill215/sctp\t8.092s",
+        "2026-11-03T07:22:48.9352616Z race round=5 seed=7272005",
+        "2026-11-03T07:22:57.3764014Z ok  \tgithub.com/skill215/sctp\t8.071s",
+        "2026-11-03T07:22:57.3838246Z race round=6 seed=7272006",
+        "2026-11-03T07:23:05.8162748Z ok  \tgithub.com/skill215/sctp\t8.071s",
+        "2026-11-03T07:23:05.8235751Z race round=7 seed=7272007",
+        "2026-11-03T07:23:14.1706183Z ok  \tgithub.com/skill215/sctp\t7.997s",
+        "2026-11-03T07:23:14.1783975Z race round=8 seed=7272008",
+        "2026-11-03T07:23:22.6286214Z ok  \tgithub.com/skill215/sctp\t8.101s",
+        "2026-11-03T07:23:22.6363512Z race round=9 seed=7272009",
+        "2026-11-03T07:23:31.0965018Z ok  \tgithub.com/skill215/sctp\t8.100s",
+        "2026-11-03T07:23:31.1048391Z race round=10 seed=7272010",
+        "2026-11-03T07:23:39.4794907Z ok  \tgithub.com/skill215/sctp\t8.008s",
+        "2026-11-03T07:24:05.1152420Z ok  \tgithub.com/skill215/sctp\t4.880s",
+        "2026-11-03T07:24:13.7071809Z ok  \tgithub.com/skill215/sctp\t8.089s",
+        "2026-11-03T07:24:30.7425554Z fuzz: elapsed: 3s, execs: 2059 (686/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:33.7434906Z fuzz: elapsed: 6s, execs: 2059 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:36.7425903Z fuzz: elapsed: 9s, execs: 2059 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:38.7508206Z fuzz: elapsed: 11s, execs: 2059 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:38.7518760Z ok  \tgithub.com/skill215/sctp\t11.016s",
+        "2026-11-03T07:24:42.0826828Z fuzz: elapsed: 3s, execs: 96018 (32004/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:45.0829784Z fuzz: elapsed: 6s, execs: 197085 (33686/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:48.0826644Z fuzz: elapsed: 9s, execs: 301311 (34745/sec), new interesting: 6 (total: 9)",
+        "2026-11-03T07:24:49.1502123Z fuzz: elapsed: 10s, execs: 336105 (32594/sec), new interesting: 6 (total: 9)",
+        "2026-11-03T07:24:49.1516922Z ok  \tgithub.com/skill215/sctp\t10.073s",
+        "2026-11-03T07:24:52.4439574Z fuzz: elapsed: 3s, execs: 88990 (29655/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:55.4426576Z fuzz: elapsed: 6s, execs: 185528 (32188/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:58.4436598Z fuzz: elapsed: 9s, execs: 281192 (31877/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:59.5223329Z fuzz: elapsed: 10s, execs: 313913 (30335/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:59.5314943Z ok  \tgithub.com/skill215/sctp\t10.093s",
+        "2026-11-03T07:25:02.8354442Z fuzz: elapsed: 3s, execs: 81648 (27207/sec), new interesting: 44 (total: 46)",
+        "2026-11-03T07:25:05.8349906Z fuzz: elapsed: 6s, execs: 162417 (26925/sec), new interesting: 49 (total: 51)",
+        "2026-11-03T07:25:08.8348936Z fuzz: elapsed: 9s, execs: 240368 (25985/sec), new interesting: 53 (total: 55)",
+        "2026-11-03T07:25:10.2707872Z fuzz: elapsed: 10s, execs: 264734 (16969/sec), new interesting: 54 (total: 56)",
+        "2026-11-03T07:25:10.2748993Z ok  \tgithub.com/skill215/sctp\t10.444s",
+        "2026-11-03T07:25:15.9201560Z {\"target\": \"linux/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:21.9826270Z {\"target\": \"linux/386\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:28.3431524Z {\"target\": \"darwin/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:34.5186661Z {\"target\": \"freebsd/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:40.8791283Z {\"target\": \"windows/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:41.8199884Z README echo and timeout: payload/stream/PPID verified"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestIPv6ZoneNameIndexConflict"
+      ],
+      "test_pass_entries": 6
+    },
+    {
+      "id": 125782758069,
+      "name": "native (ubuntu-22.04, 1.26.x)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run sudo modprobe sctp",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run bash .github/scripts/validate.sh",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Require three numeric interface namespace regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Compile independent API fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Compile and run README examples",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:52.1266464Z go version go1.26.10 linux/amd64",
+        "2026-11-03T07:21:52.4716722Z Linux runnervmcwoy2 6.8.0-1070-azure #78~22.04.1-Ubuntu SMP Thu Sep 24 18:46:45 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "2026-11-03T07:21:52.4757008Z go version go1.26.10 linux/amd64",
+        "2026-11-03T07:21:52.4784920Z race round=1 seed=7272001",
+        "2026-11-03T07:22:18.4257992Z ok  \tgithub.com/skill215/sctp\t7.657s",
+        "2026-11-03T07:22:18.5046314Z race round=2 seed=7272002",
+        "2026-11-03T07:22:26.4821822Z ok  \tgithub.com/skill215/sctp\t7.644s",
+        "2026-11-03T07:22:26.4898235Z race round=3 seed=7272003",
+        "2026-11-03T07:22:34.4829864Z ok  \tgithub.com/skill215/sctp\t7.649s",
+        "2026-11-03T07:22:34.4953319Z race round=4 seed=7272004",
+        "2026-11-03T07:22:42.5231951Z ok  \tgithub.com/skill215/sctp\t7.671s",
+        "2026-11-03T07:22:42.5306022Z race round=5 seed=7272005",
+        "2026-11-03T07:22:50.5363458Z ok  \tgithub.com/skill215/sctp\t7.674s",
+        "2026-11-03T07:22:50.5435807Z race round=6 seed=7272006",
+        "2026-11-03T07:22:58.5310979Z ok  \tgithub.com/skill215/sctp\t7.642s",
+        "2026-11-03T07:22:58.5383805Z race round=7 seed=7272007",
+        "2026-11-03T07:23:06.5625854Z ok  \tgithub.com/skill215/sctp\t7.674s",
+        "2026-11-03T07:23:06.5700243Z race round=8 seed=7272008",
+        "2026-11-03T07:23:14.5936071Z ok  \tgithub.com/skill215/sctp\t7.680s",
+        "2026-11-03T07:23:14.6015192Z race round=9 seed=7272009",
+        "2026-11-03T07:23:22.6432451Z ok  \tgithub.com/skill215/sctp\t7.685s",
+        "2026-11-03T07:23:22.6503443Z race round=10 seed=7272010",
+        "2026-11-03T07:23:30.6109581Z ok  \tgithub.com/skill215/sctp\t7.624s",
+        "2026-11-03T07:23:53.7910005Z ok  \tgithub.com/skill215/sctp\t4.516s",
+        "2026-11-03T07:24:01.9908135Z ok  \tgithub.com/skill215/sctp\t7.686s",
+        "2026-11-03T07:24:17.8742489Z fuzz: elapsed: 3s, execs: 49004 (16334/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:20.8767863Z fuzz: elapsed: 6s, execs: 49004 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:23.8761739Z fuzz: elapsed: 9s, execs: 49004 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:25.8856023Z fuzz: elapsed: 11s, execs: 49004 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:25.8867338Z ok  \tgithub.com/skill215/sctp\t11.017s",
+        "2026-11-03T07:24:29.1896177Z fuzz: elapsed: 3s, execs: 110574 (36853/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:32.1900178Z fuzz: elapsed: 6s, execs: 222315 (37242/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:35.1911249Z fuzz: elapsed: 9s, execs: 336923 (38189/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:36.2249025Z fuzz: elapsed: 10s, execs: 375115 (36945/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:36.2265187Z ok  \tgithub.com/skill215/sctp\t10.041s",
+        "2026-11-03T07:24:39.4952393Z fuzz: elapsed: 3s, execs: 101538 (33836/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:42.4949630Z fuzz: elapsed: 6s, execs: 207596 (35356/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:45.4945360Z fuzz: elapsed: 9s, execs: 316309 (36243/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:46.5600721Z fuzz: elapsed: 10s, execs: 353409 (34818/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:46.5612509Z ok  \tgithub.com/skill215/sctp\t10.071s",
+        "2026-11-03T07:24:49.8484405Z fuzz: elapsed: 3s, execs: 93378 (31126/sec), new interesting: 49 (total: 51)",
+        "2026-11-03T07:24:52.8486962Z fuzz: elapsed: 6s, execs: 187260 (31292/sec), new interesting: 55 (total: 57)",
+        "2026-11-03T07:24:55.8491599Z fuzz: elapsed: 9s, execs: 283069 (31932/sec), new interesting: 58 (total: 60)",
+        "2026-11-03T07:24:56.9584441Z fuzz: elapsed: 10s, execs: 315656 (29376/sec), new interesting: 58 (total: 60)",
+        "2026-11-03T07:24:56.9625692Z ok  \tgithub.com/skill215/sctp\t10.118s",
+        "2026-11-03T07:25:02.5284031Z {\"target\": \"linux/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:08.1414194Z {\"target\": \"linux/386\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:13.9866696Z {\"target\": \"darwin/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:19.6494151Z {\"target\": \"freebsd/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:25.6136329Z {\"target\": \"windows/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:26.5503499Z README echo and timeout: payload/stream/PPID verified"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestIPv6ZoneNameIndexConflict"
+      ],
+      "test_pass_entries": 6
+    },
+    {
+      "id": 125782758103,
+      "name": "native (ubuntu-24.04, 1.26.x)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run sudo modprobe sctp",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run bash .github/scripts/validate.sh",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Require three numeric interface namespace regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Compile independent API fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Compile and run README examples",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:50.7661967Z go version go1.26.10 linux/amd64",
+        "2026-11-03T07:21:50.9579402Z Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "2026-11-03T07:21:50.9612052Z go version go1.26.10 linux/amd64",
+        "2026-11-03T07:21:50.9631056Z race round=1 seed=7272001",
+        "2026-11-03T07:22:12.6059228Z ok  \tgithub.com/skill215/sctp\t6.705s",
+        "2026-11-03T07:22:12.6463004Z race round=2 seed=7272002",
+        "2026-11-03T07:22:19.5045012Z ok  \tgithub.com/skill215/sctp\t6.610s",
+        "2026-11-03T07:22:19.5101628Z race round=3 seed=7272003",
+        "2026-11-03T07:22:26.4026626Z ok  \tgithub.com/skill215/sctp\t6.639s",
+        "2026-11-03T07:22:26.4078958Z race round=4 seed=7272004",
+        "2026-11-03T07:22:33.2594204Z ok  \tgithub.com/skill215/sctp\t6.601s",
+        "2026-11-03T07:22:33.2650693Z race round=5 seed=7272005",
+        "2026-11-03T07:22:40.1423533Z ok  \tgithub.com/skill215/sctp\t6.633s",
+        "2026-11-03T07:22:40.1477135Z race round=6 seed=7272006",
+        "2026-11-03T07:22:47.0653184Z ok  \tgithub.com/skill215/sctp\t6.662s",
+        "2026-11-03T07:22:47.0709759Z race round=7 seed=7272007",
+        "2026-11-03T07:22:53.9987117Z ok  \tgithub.com/skill215/sctp\t6.670s",
+        "2026-11-03T07:22:54.0044288Z race round=8 seed=7272008",
+        "2026-11-03T07:23:00.8866907Z ok  \tgithub.com/skill215/sctp\t6.629s",
+        "2026-11-03T07:23:00.8920490Z race round=9 seed=7272009",
+        "2026-11-03T07:23:07.7939392Z ok  \tgithub.com/skill215/sctp\t6.641s",
+        "2026-11-03T07:23:07.7989960Z race round=10 seed=7272010",
+        "2026-11-03T07:23:14.6742548Z ok  \tgithub.com/skill215/sctp\t6.628s",
+        "2026-11-03T07:23:34.0840505Z ok  \tgithub.com/skill215/sctp\t4.486s",
+        "2026-11-03T07:23:41.0752117Z ok  \tgithub.com/skill215/sctp\t6.619s",
+        "2026-11-03T07:23:53.9938666Z fuzz: elapsed: 3s, execs: 68573 (22850/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:23:56.9952443Z fuzz: elapsed: 6s, execs: 68573 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:23:59.9954560Z fuzz: elapsed: 9s, execs: 68573 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:02.0022193Z fuzz: elapsed: 11s, execs: 68573 (0/sec), new interesting: 2 (total: 6)",
+        "2026-11-03T07:24:02.0032239Z ok  \tgithub.com/skill215/sctp\t11.014s",
+        "2026-11-03T07:24:05.2537146Z fuzz: elapsed: 3s, execs: 138921 (46298/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:08.2541770Z fuzz: elapsed: 6s, execs: 286840 (49299/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:11.2534899Z fuzz: elapsed: 9s, execs: 433632 (48942/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:12.3135889Z fuzz: elapsed: 10s, execs: 483150 (46711/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:12.3148308Z ok  \tgithub.com/skill215/sctp\t10.065s",
+        "2026-11-03T07:24:15.5273750Z fuzz: elapsed: 3s, execs: 134519 (44839/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:18.5274232Z fuzz: elapsed: 6s, execs: 275064 (46848/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:21.5275579Z fuzz: elapsed: 9s, execs: 417336 (47421/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:22.6093971Z fuzz: elapsed: 10s, execs: 465633 (44652/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:22.6103943Z ok  \tgithub.com/skill215/sctp\t10.086s",
+        "2026-11-03T07:24:25.8219091Z fuzz: elapsed: 3s, execs: 116000 (38660/sec), new interesting: 52 (total: 54)",
+        "2026-11-03T07:24:28.8218159Z fuzz: elapsed: 6s, execs: 232446 (38816/sec), new interesting: 63 (total: 65)",
+        "2026-11-03T07:24:31.8219272Z fuzz: elapsed: 9s, execs: 350643 (39397/sec), new interesting: 67 (total: 69)",
+        "2026-11-03T07:24:32.9135209Z fuzz: elapsed: 10s, execs: 396374 (41893/sec), new interesting: 70 (total: 72)",
+        "2026-11-03T07:24:32.9176484Z ok  \tgithub.com/skill215/sctp\t10.099s",
+        "2026-11-03T07:24:38.1995664Z {\"target\": \"linux/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:24:42.9433045Z {\"target\": \"linux/386\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:24:47.8932887Z {\"target\": \"darwin/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:24:52.6384331Z {\"target\": \"freebsd/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:24:57.6853660Z {\"target\": \"windows/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:24:58.4471943Z README echo and timeout: payload/stream/PPID verified"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestIPv6ZoneNameIndexConflict"
+      ],
+      "test_pass_entries": 6
+    },
+    {
+      "id": 125782758155,
+      "name": "arch / abi (arm, arm)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:52.0449819Z go version go1.26.10 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    },
+    {
+      "id": 125782758163,
+      "name": "native (ubuntu-24.04, 1.27.x)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Run sudo modprobe sctp",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Run bash .github/scripts/validate.sh",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Require three numeric interface namespace regressions",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Compile independent API fixtures",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7
+        },
+        {
+          "name": "Compile and run README examples",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:56.8568602Z go version go1.27.3 linux/amd64",
+        "2026-11-03T07:21:57.1099473Z Linux runnervm48cm3 7.0.0-1017-azure #17~24.04.1-Ubuntu SMP PREEMPT Thu Sep 24 18:46:57 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+        "2026-11-03T07:21:57.1132405Z go version go1.27.3 linux/amd64",
+        "2026-11-03T07:21:57.1158140Z race round=1 seed=7272001",
+        "2026-11-03T07:22:19.3578981Z ok  \tgithub.com/skill215/sctp\t7.384s",
+        "2026-11-03T07:22:19.4058069Z race round=2 seed=7272002",
+        "2026-11-03T07:22:27.0444873Z ok  \tgithub.com/skill215/sctp\t7.306s",
+        "2026-11-03T07:22:27.0506430Z race round=3 seed=7272003",
+        "2026-11-03T07:22:34.7051470Z ok  \tgithub.com/skill215/sctp\t7.348s",
+        "2026-11-03T07:22:34.7109338Z race round=4 seed=7272004",
+        "2026-11-03T07:22:42.3707421Z ok  \tgithub.com/skill215/sctp\t7.357s",
+        "2026-11-03T07:22:42.3769746Z race round=5 seed=7272005",
+        "2026-11-03T07:22:50.0677314Z ok  \tgithub.com/skill215/sctp\t7.385s",
+        "2026-11-03T07:22:50.0748473Z race round=6 seed=7272006",
+        "2026-11-03T07:22:57.7252113Z ok  \tgithub.com/skill215/sctp\t7.341s",
+        "2026-11-03T07:22:57.7316408Z race round=7 seed=7272007",
+        "2026-11-03T07:23:05.3754716Z ok  \tgithub.com/skill215/sctp\t7.346s",
+        "2026-11-03T07:23:05.3822145Z race round=8 seed=7272008",
+        "2026-11-03T07:23:13.0684440Z ok  \tgithub.com/skill215/sctp\t7.381s",
+        "2026-11-03T07:23:13.0743812Z race round=9 seed=7272009",
+        "2026-11-03T07:23:20.7083919Z ok  \tgithub.com/skill215/sctp\t7.338s",
+        "2026-11-03T07:23:20.7144474Z race round=10 seed=7272010",
+        "2026-11-03T07:23:28.3554953Z ok  \tgithub.com/skill215/sctp\t7.337s",
+        "2026-11-03T07:23:53.3482841Z ok  \tgithub.com/skill215/sctp\t5.161s",
+        "2026-11-03T07:24:01.1652555Z ok  \tgithub.com/skill215/sctp\t7.365s",
+        "2026-11-03T07:24:17.4722787Z fuzz: elapsed: 3s, execs: 7205 (2400/sec), new interesting: 1 (total: 5)",
+        "2026-11-03T07:24:20.4731915Z fuzz: elapsed: 6s, execs: 7205 (0/sec), new interesting: 1 (total: 5)",
+        "2026-11-03T07:24:23.4731515Z fuzz: elapsed: 9s, execs: 7205 (0/sec), new interesting: 1 (total: 5)",
+        "2026-11-03T07:24:25.4833102Z fuzz: elapsed: 11s, execs: 7205 (0/sec), new interesting: 1 (total: 5)",
+        "2026-11-03T07:24:25.4843362Z ok  \tgithub.com/skill215/sctp\t11.017s",
+        "2026-11-03T07:24:28.7974260Z fuzz: elapsed: 3s, execs: 99040 (33008/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:31.7970942Z fuzz: elapsed: 6s, execs: 200839 (33937/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:34.7976528Z fuzz: elapsed: 9s, execs: 301255 (33466/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:35.8823392Z fuzz: elapsed: 10s, execs: 334777 (30907/sec), new interesting: 5 (total: 8)",
+        "2026-11-03T07:24:35.8839600Z ok  \tgithub.com/skill215/sctp\t10.090s",
+        "2026-11-03T07:24:39.1402662Z fuzz: elapsed: 3s, execs: 91820 (30603/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:42.1400133Z fuzz: elapsed: 6s, execs: 187775 (31988/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:45.1405064Z fuzz: elapsed: 9s, execs: 284279 (32163/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:46.1921005Z fuzz: elapsed: 10s, execs: 316151 (30336/sec), new interesting: 0 (total: 2)",
+        "2026-11-03T07:24:46.1921890Z ok  \tgithub.com/skill215/sctp\t10.055s",
+        "2026-11-03T07:24:49.4466073Z fuzz: elapsed: 3s, execs: 83386 (27793/sec), new interesting: 54 (total: 56)",
+        "2026-11-03T07:24:52.4466815Z fuzz: elapsed: 6s, execs: 165532 (27381/sec), new interesting: 61 (total: 63)",
+        "2026-11-03T07:24:55.4467303Z fuzz: elapsed: 9s, execs: 243828 (26098/sec), new interesting: 64 (total: 66)",
+        "2026-11-03T07:24:56.5354163Z fuzz: elapsed: 10s, execs: 270517 (24516/sec), new interesting: 65 (total: 67)",
+        "2026-11-03T07:24:56.5397804Z ok  \tgithub.com/skill215/sctp\t10.096s",
+        "2026-11-03T07:25:02.0502096Z {\"target\": \"linux/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:07.6594788Z {\"target\": \"linux/386\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:13.4552011Z {\"target\": \"darwin/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:19.1196335Z {\"target\": \"freebsd/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:25.8335696Z {\"target\": \"windows/amd64\", \"consumer\": \"pass\"}",
+        "2026-11-03T07:25:26.6725679Z README echo and timeout: payload/stream/PPID verified"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestIPv6ZoneNameIndexConflict"
+      ],
+      "test_pass_entries": 6
+    },
+    {
+      "id": 125782758196,
+      "name": "arch / abi (arm64, aarch64)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:51.7994762Z go version go1.26.10 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    },
+    {
+      "id": 125782758266,
+      "name": "arch / abi (mips, mips)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:58.5852169Z go version go1.26.10 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    },
+    {
+      "id": 125782758282,
+      "name": "arch / abi (ppc64, ppc64)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:57.4072936Z go version go1.26.10 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    },
+    {
+      "id": 125782758314,
+      "name": "arch / abi (mips64, mips64)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:53.2520149Z go version go1.26.9 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    },
+    {
+      "id": 125782758454,
+      "name": "arch / abi (s390x, s390x)",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2
+        },
+        {
+          "name": "Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3
+        },
+        {
+          "name": "Install user-mode emulators",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4
+        },
+        {
+          "name": "Compile regression tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5
+        },
+        {
+          "name": "Test ABI, alignment, and address encoding",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6
+        },
+        {
+          "name": "Post Run actions/setup-go@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13
+        }
+      ],
+      "evidence": [
+        "2026-11-03T07:21:50.5124589Z go version go1.26.10 linux/amd64"
+      ],
+      "failures": [],
+      "passed_tests": [
+        "TestAddressQueryGrowth",
+        "TestAddressQueryBudgetAndErrors",
+        "TestAddressQueryBudgetAndErrors/too-large",
+        "TestAddressQueryBudgetAndErrors/peer-short",
+        "TestAddressQueryBudgetAndErrors/count",
+        "TestAddressQueryBudgetAndErrors/truncated",
+        "TestAddressQueryBudgetAndErrors/family",
+        "TestParseSndRcvInfoOwnsData",
+        "TestParseSndRcvInfoTruncated",
+        "TestNativeCodecLayout",
+        "TestNativeCodecTruncated",
+        "TestSocketOptionLengthABI",
+        "TestSocketTimeoutABI",
+        "TestWrappedWriteUnalignedHeader",
+        "TestWrappedWriteUnalignedHeader/0",
+        "TestWrappedWriteUnalignedHeader/1",
+        "TestWrappedWriteUnalignedHeader/2",
+        "TestWrappedWriteUnalignedHeader/3",
+        "TestRawSockaddrMixedFamilies",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_::1]",
+        "TestRawSockaddrMixedFamilies/[::1_127.0.0.1]",
+        "TestRawSockaddrMixedFamilies/[127.0.0.1_127.0.0.2_::1]",
+        "TestRawSockaddrInvalidBuffers",
+        "TestRawSockaddrInvalidBuffers/empty",
+        "TestRawSockaddrInvalidBuffers/negative",
+        "TestRawSockaddrInvalidBuffers/large_count",
+        "TestRawSockaddrInvalidBuffers/short_family",
+        "TestRawSockaddrInvalidBuffers/short_ipv6",
+        "TestRawSockaddrInvalidBuffers/unknown_family",
+        "TestNumericIPv6ZoneEncoding",
+        "TestNumericIPv6ZoneEncoding/0",
+        "TestNumericIPv6ZoneEncoding/1",
+        "TestNumericIPv6ZoneEncoding/42",
+        "TestNumericIPv6ZoneEncoding/4294967294",
+        "TestInvalidNetwork",
+        "TestSendmsgZeroAncillaryABI"
+      ],
+      "test_pass_entries": 108
+    }
+  ]
+}

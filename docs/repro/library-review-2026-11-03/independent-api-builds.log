@@ -1,0 +1,5 @@
+{"target": "linux/amd64", "consumer": "pass"}
+{"target": "linux/386", "consumer": "pass"}
+{"target": "darwin/amd64", "consumer": "pass"}
+{"target": "freebsd/amd64", "consumer": "pass"}
+{"target": "windows/amd64", "consumer": "pass"}

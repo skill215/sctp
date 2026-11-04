@@ -1,0 +1,21 @@
+-test.shuffle 7273601
+=== RUN   TestClientHonorsNegotiatedStreams
+=== RUN   TestClientHonorsNegotiatedStreams/1
+=== RUN   TestClientHonorsNegotiatedStreams/2
+--- PASS: TestClientHonorsNegotiatedStreams (6.06s)
+    --- PASS: TestClientHonorsNegotiatedStreams/1 (3.03s)
+    --- PASS: TestClientHonorsNegotiatedStreams/2 (3.03s)
+=== RUN   TestClientHonorsNegotiatedStreams
+=== RUN   TestClientHonorsNegotiatedStreams/1
+=== RUN   TestClientHonorsNegotiatedStreams/2
+--- PASS: TestClientHonorsNegotiatedStreams (6.06s)
+    --- PASS: TestClientHonorsNegotiatedStreams/1 (3.03s)
+    --- PASS: TestClientHonorsNegotiatedStreams/2 (3.03s)
+=== RUN   TestClientHonorsNegotiatedStreams
+=== RUN   TestClientHonorsNegotiatedStreams/1
+=== RUN   TestClientHonorsNegotiatedStreams/2
+--- PASS: TestClientHonorsNegotiatedStreams (6.05s)
+    --- PASS: TestClientHonorsNegotiatedStreams/1 (3.02s)
+    --- PASS: TestClientHonorsNegotiatedStreams/2 (3.03s)
+PASS
+ok  	github.com/skill215/sctp/example	19.192s
