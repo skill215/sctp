@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-06",
+  "baseline": "v0.7.3",
+  "baseline_commit": "e4154064dc9928274bcf4615c5382dd6fd81ad21",
+  "candidate": "local working tree; not committed or published",
+  "go": [
+    "1.26.10",
+    "1.27.3"
+  ],
+  "platform": "Linux/amd64",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "scope": "SCTP repository only",
+  "fixed_issues": [
+    19,
+    20,
+    21,
+    22,
+    23,
+    24
+  ],
+  "new_issues": [
+    "https://github.com/skill215/sctp/issues/23",
+    "https://github.com/skill215/sctp/issues/24"
+  ],
+  "final_main_commands": 26,
+  "final_main_passed": 26,
+  "final_architecture_compile_commands": 12,
+  "final_architecture_compile_passed": 12,
+  "compatibility_commands": 8,
+  "compatibility_passed": 8,
+  "compatibility_note": "After core fixes; subsequent changes only affect Linux test fixtures. Includes real Linux/386 stub tests, required namespace tests, consumer compilation and README execution on both Go versions.",
+  "seeds": [
+    72611061,
+    72611062,
+    72611063,
+    72611064,
+    72611065
+  ],
+  "fuzz_seconds_each": 10,
+  "fuzz_minimization_budget": "1s",
+  "qemu_runtime_executed": false,
+  "two_kernel_remote_matrix_executed": false,
+  "solaris_library_build": "pass using Go 1.26.10; unsupported runtime and deferred test-compilation gap unchanged",
+  "retained_failure": "Pre-fixture low-GC EISCONN reproduced with public and native syscall controls; fixed as issue #24; final low-GC runs passed.",
+  "default_environment": {
+    "GOCACHE": "${GOCACHE}",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off"
+  },
+  "issues_closed": false,
+  "release_performed": false
+}

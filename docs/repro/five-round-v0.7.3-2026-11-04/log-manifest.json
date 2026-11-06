@@ -1,0 +1,234 @@
+{
+  "buffers-126-1.log": {
+    "sha256": "fc08caf1d01dcb432dcea3ab17d658d8e6acf6a98fcb3a0c46a72e5d277cf98b",
+    "redacted": true
+  },
+  "buffers-126-2.log": {
+    "sha256": "0d755d5a6f5db4e1173e874927105fcb37d0053f5d7d1b467e035220aa01a4bd",
+    "redacted": false
+  },
+  "buffers-126-3.log": {
+    "sha256": "0d86bd52a815ba58c3b9ce62588773d331ba7d3d23c9eab4d805bc592863716e",
+    "redacted": true
+  },
+  "buffers-127-1.log": {
+    "sha256": "70a52cd8f0efb520b2f29747b6cdb40898a828d74e3d9347a07efb81de186bb4",
+    "redacted": true
+  },
+  "buffers-127-2.log": {
+    "sha256": "ff063189caa2639e32c99eb3b6ee7922067c1a1087981ac03205e6dd12d4445a",
+    "redacted": false
+  },
+  "buffers-127-3.log": {
+    "sha256": "117b3972501d2a93ea8e059c0cfc42c22d338cb3901387fceab374d6e5ecc7c4",
+    "redacted": true
+  },
+  "compile-1.26.10-arm.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.26.10-arm64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.26.10-mips.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.26.10-mips64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.26.10-ppc64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.26.10-s390x.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-arm.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-arm64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-mips.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-mips64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-ppc64.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "compile-1.27.3-s390x.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "init-ranges-1.26.10-1.log": {
+    "sha256": "55f98d316ad538018a418b73f639dd36dce2f98ccbe09d3975cb8d2a0413c060",
+    "redacted": false
+  },
+  "init-ranges-1.26.10-2.log": {
+    "sha256": "cb76c195b699f06288ee7a3cec16e5f4e5c5068c189a8e9bbdb492d169e33666",
+    "redacted": false
+  },
+  "init-ranges-1.26.10-3.log": {
+    "sha256": "1be0b3ecbeb33821f2e7d2f2c2abb29717f49b2838a0b7955b89b102d397be6c",
+    "redacted": false
+  },
+  "init-ranges-1.27.3-1.log": {
+    "sha256": "55f98d316ad538018a418b73f639dd36dce2f98ccbe09d3975cb8d2a0413c060",
+    "redacted": false
+  },
+  "init-ranges-1.27.3-2.log": {
+    "sha256": "1be0b3ecbeb33821f2e7d2f2c2abb29717f49b2838a0b7955b89b102d397be6c",
+    "redacted": false
+  },
+  "init-ranges-1.27.3-3.log": {
+    "sha256": "1df5357055ef633c7c33aa06246d3e35b534e22b156838d9cb4d601a3dcd9660",
+    "redacted": false
+  },
+  "required-netns-1.26.10.log": {
+    "sha256": "16266fcc787b7db9693d34f88d4424cccda2e3e41699ec5606506c255d96e059",
+    "redacted": false
+  },
+  "required-netns-1.27.3.log": {
+    "sha256": "558f48e61a2fc1db2490d13c98a1ac924646adae318ab1dbca6d320638b72de0",
+    "redacted": false
+  },
+  "round1-1.26.10-focused.log": {
+    "sha256": "7f1071f87c57898f7ccfba5e09fef12428a994954555d191fea14476d7374222",
+    "redacted": false
+  },
+  "round1-1.26.10-full.log": {
+    "sha256": "659b384ffde68944b0333d35c2a5d57e7b326f4d8464ae732ba87617563fae0c",
+    "redacted": false
+  },
+  "round1-1.27.3-focused.log": {
+    "sha256": "7e25c49b375a99ee28751facb8084379c3da73c1bbe4e448a86e3413f829b024",
+    "redacted": false
+  },
+  "round1-1.27.3-full.log": {
+    "sha256": "14018e8b84b6d804e96579f75cfc27a68c6e05111589a03d239f571a943d6175",
+    "redacted": false
+  },
+  "round2-1.26.10-focused.log": {
+    "sha256": "004476584df00bd1c8c695156dc934d30208f14c7d76a29700daa60c8df826a1",
+    "redacted": false
+  },
+  "round2-1.26.10-full.log": {
+    "sha256": "e3b920c46477e1ad4c8fa11e1602dca5f2ab10249e5cbe4488eb102bdec63687",
+    "redacted": false
+  },
+  "round2-1.27.3-focused.log": {
+    "sha256": "9ad62eac69418a0c45ba2ee7115f3cea100eddd8451cb60733841f1e9fa8b722",
+    "redacted": false
+  },
+  "round2-1.27.3-full.log": {
+    "sha256": "b7d9c01c67a1f08ec6c0f4f1f9491e661224bac79f82522f3d750d2e98eab781",
+    "redacted": false
+  },
+  "round3-1.26.10-focused.log": {
+    "sha256": "439310c6975a0e9b11729b039cb5dc775c578f0926fa2ba0438090dc080fe637",
+    "redacted": false
+  },
+  "round3-1.26.10-full.log": {
+    "sha256": "0e9501938cb9749b398ead2a3991dfc8cd1120921df28cf495275c3855722e40",
+    "redacted": false
+  },
+  "round3-1.27.3-focused.log": {
+    "sha256": "77bf05c3bafe4c3886c2609b57d218b772d978ad3f365333b9a6145368f792cb",
+    "redacted": false
+  },
+  "round3-1.27.3-full.log": {
+    "sha256": "4f4bf1393e218c5216d64f1a3c8a537eb555b76401a2f6556f28c3ff4cdd152c",
+    "redacted": false
+  },
+  "round4-1.26.10-focused.log": {
+    "sha256": "7695bd9be474e75288862291726e8b63479661884d545854042a5c03fd0fb425",
+    "redacted": false
+  },
+  "round4-1.26.10-full.log": {
+    "sha256": "8cc842ac7914f8466c48d40584089f322fc5b787cdd5a434c7fada1c899b4be2",
+    "redacted": false
+  },
+  "round4-1.26.10-fuzz-AddressRoundTrip.log": {
+    "sha256": "3200f4956bfaf3db2e328a6ac7a3bd9ac2ade680e6bc952245ec33fe3c713a9a",
+    "redacted": false
+  },
+  "round4-1.26.10-fuzz-Ancillary.log": {
+    "sha256": "d9e0f78e7336816830d02ce8e5c45c063343d49fe4d26e4a19c2e0f76be3bf9d",
+    "redacted": false
+  },
+  "round4-1.26.10-fuzz-Codec.log": {
+    "sha256": "8db1c11da8978c77378dce3881c59b785c24b5969d669682ea8a73bb5866a22c",
+    "redacted": false
+  },
+  "round4-1.26.10-fuzz-RawSockaddr.log": {
+    "sha256": "f344b2aae0ce15a01fea8452b3564151799fd3676f2620b38681423d9fb55699",
+    "redacted": false
+  },
+  "round4-1.27.3-focused.log": {
+    "sha256": "03a303b9113b0462830bc7ecf4594f00413b003ff16088c565209f784803a5c7",
+    "redacted": false
+  },
+  "round4-1.27.3-full.log": {
+    "sha256": "e3940098970c81539c92710e3831e05f5884c036b2ca1c9a865e460367b1a8ab",
+    "redacted": false
+  },
+  "round4-1.27.3-fuzz-AddressRoundTrip.log": {
+    "sha256": "084de0c02a35c7f241d738253b276a2ef0320aef889e9ac7ead850962c3fd1cd",
+    "redacted": false
+  },
+  "round4-1.27.3-fuzz-Ancillary.log": {
+    "sha256": "8282d09ab6d34e3705bf81839980e6a992f62bc42c925e78a23d126d5462f07e",
+    "redacted": false
+  },
+  "round4-1.27.3-fuzz-Codec.log": {
+    "sha256": "ad448ad3b8297137397eb945b22d296d727d6656430cece4f60b1697c45f684a",
+    "redacted": false
+  },
+  "round4-1.27.3-fuzz-RawSockaddr.log": {
+    "sha256": "8ca8fe562e2c7cefc4f4298d7d30acd044d5a020e6bcd29125cf62b346ba707e",
+    "redacted": false
+  },
+  "round5-1.26.10-checkptr.log": {
+    "sha256": "b2db7018044e4ecb232e3d2369de15a52101e8a32aba283fa54327f700ded7f0",
+    "redacted": false
+  },
+  "round5-1.26.10-full.log": {
+    "sha256": "5288c349b7beabfdc78879ec6d3b56cef0eb2ff8e44559f56467da65aeb2f96e",
+    "redacted": false
+  },
+  "round5-1.26.10-lowgc.log": {
+    "sha256": "2255966d7dd2d1bb55d0b8cb65a7592f43564ec10f9358d46df4a377b6f020d4",
+    "redacted": false
+  },
+  "round5-1.26.10-vet.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  },
+  "round5-1.27.3-checkptr.log": {
+    "sha256": "6a7cc13da426ed395165a3f6c5c8b540543c02075e9e636771b8351c8e6210dd",
+    "redacted": false
+  },
+  "round5-1.27.3-full.log": {
+    "sha256": "916deb743dbac017b026aa191c68df597a511a7d209917d0aa97e1807ac7affc",
+    "redacted": false
+  },
+  "round5-1.27.3-lowgc.log": {
+    "sha256": "00388d3547ccef159af697072866062a2b251ed3ac13a7aa02164f2bff4870c0",
+    "redacted": false
+  },
+  "round5-1.27.3-vet.log": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "redacted": false
+  }
+}

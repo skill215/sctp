@@ -1,0 +1,7 @@
+--- FAIL: TestPeelOffCloseOnExec (0.01s)
+    --- FAIL: TestPeelOffCloseOnExec/legacy=false (0.01s)
+        sctp_regression_linux_test.go:498: transport endpoint is already connected
+FAIL
+FAIL	github.com/skill215/sctp	7.495s
+ok  	github.com/skill215/sctp/example	7.213s
+FAIL

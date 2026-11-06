@@ -5,10 +5,27 @@ package sctp
 import (
 	"errors"
 	"net"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 )
+
+func TestAddressQueryRejectsWideAssociationID(t *testing.T) {
+	if strconv.IntSize != 64 {
+		t.Skip("out-of-range int association IDs require 64 bits")
+	}
+	for _, id := range []int64{1<<32 + 7, -1<<32 + 7, 1<<63 - 1, -1 << 63} {
+		calls := 0
+		addr, err := querySCTPAddrs(int(id), SCTP_GET_LOCAL_ADDRS, func([]byte, *uint32) error {
+			calls++
+			return syscall.EIO
+		})
+		if addr != nil || !errors.Is(err, syscall.EINVAL) || calls != 0 {
+			t.Fatalf("id=%d addr=%v error=%v kernel calls=%d", id, addr, err, calls)
+		}
+	}
+}
 
 func TestAddressQueryGrowth(t *testing.T) {
 	raw := (&SCTPAddr{Port: 42, IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}, {IP: net.IPv6loopback}}}).ToRawSockAddrBuf()

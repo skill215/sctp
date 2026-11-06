@@ -1,0 +1,44 @@
+=== RUN   TestServerRejectsInvalidAddresses
+=== RUN   TestServerRejectsInvalidAddresses/%
+    server_linux_test.go:56: invalid address did not fail before listening: error=signal: killed context=context deadline exceeded
+        2026/11/06 08:51:55 Error resolving address '%': lookup %: no such host
+        2026/11/06 08:51:55 raw addr: [2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+        2026/11/06 08:51:55 Listen on 127.0.0.1/192.0.2.1/[::1%lo]/192.0.2.1/[fe80::215:5dff:fe1c:7d03%eth0]:54455
+=== RUN   TestServerRejectsInvalidAddresses/127.0.0.1,%
+    server_linux_test.go:56: invalid address did not fail before listening: error=signal: killed context=context deadline exceeded
+        2026/11/06 08:51:58 Resolved address '127.0.0.1' to 127.0.0.1
+        2026/11/06 08:51:58 Error resolving address '%': lookup %: no such host
+        2026/11/06 08:51:58 raw addr: [2 0 0 0 127 0 0 1 0 0 0 0 0 0 0 0]
+        2026/11/06 08:51:58 Listen on 127.0.0.1:51596
+--- FAIL: TestServerRejectsInvalidAddresses (6.01s)
+    --- FAIL: TestServerRejectsInvalidAddresses/% (3.01s)
+    --- FAIL: TestServerRejectsInvalidAddresses/127.0.0.1,% (3.00s)
+=== RUN   TestServerKeepsBufferSettingsAcrossClients
+=== RUN   TestServerKeepsBufferSettingsAcrossClients/false
+    server_linux_test.go:155: client 1 changed settings: first=212992,212992 got=425984,425984
+    server_linux_test.go:99: 2026/11/06 08:52:01 Resolved address '127.0.0.1' to 127.0.0.1
+        2026/11/06 08:52:01 raw addr: [2 0 0 0 127 0 0 1 0 0 0 0 0 0 0 0]
+        2026/11/06 08:52:01 Listen on 127.0.0.1:33609
+        2026/11/06 08:52:01 Accepted Connection from RemoteAddr: 127.0.0.1/192.0.2.1/192.0.2.1:45805
+        2026/11/06 08:52:01 SndBufSize: 212992, RcvBufSize: 212992
+        2026/11/06 08:52:01 read failed: EOF
+        2026/11/06 08:52:01 Accepted Connection from RemoteAddr: 127.0.0.1/192.0.2.1/192.0.2.1:44107
+        2026/11/06 08:52:01 SndBufSize: 425984, RcvBufSize: 425984
+        2026/11/06 08:52:01 read failed: EOF
+=== RUN   TestServerKeepsBufferSettingsAcrossClients/true
+    server_linux_test.go:145: client 1: actual=16384,16384 independent control=8192,8192 errors=<nil>,<nil>
+    server_linux_test.go:99: 2026/11/06 08:52:01 Resolved address '127.0.0.1' to 127.0.0.1
+        2026/11/06 08:52:01 raw addr: [2 0 0 0 127 0 0 1 0 0 0 0 0 0 0 0]
+        2026/11/06 08:52:01 Listen on 127.0.0.1:50027
+        2026/11/06 08:52:01 Accepted Connection from RemoteAddr: 127.0.0.1/192.0.2.1/192.0.2.1:38964
+        2026/11/06 08:52:01 SndBufSize: 8192, RcvBufSize: 8192
+        2026/11/06 08:52:01 read failed: EOF
+        2026/11/06 08:52:01 Accepted Connection from RemoteAddr: 127.0.0.1/192.0.2.1/192.0.2.1:34198
+        2026/11/06 08:52:01 SndBufSize: 16384, RcvBufSize: 16384
+        2026/11/06 08:52:01 read failed: EOF
+--- FAIL: TestServerKeepsBufferSettingsAcrossClients (0.07s)
+    --- FAIL: TestServerKeepsBufferSettingsAcrossClients/false (0.03s)
+    --- FAIL: TestServerKeepsBufferSettingsAcrossClients/true (0.03s)
+FAIL
+FAIL	github.com/skill215/sctp/example	6.090s
+FAIL

@@ -1,0 +1,35 @@
+from pathlib import Path
+import subprocess,time,re,socket,json
+r=Path('${REVIEW_DIR}');rows=[]
+for version in ['126','127']:
+ for run in range(1,4):
+  log=r/'logs'/f'buffers-{version}-{run}.log'
+  with log.open('w') as f:
+   p=subprocess.Popen([str(r/('example-'+version)),'-server','-ip','127.0.0.1','-port','0','-sndbuf','4096','-rcvbuf','4096'],stdout=f,stderr=subprocess.STDOUT)
+   try:
+    deadline=time.monotonic()+4;port=None
+    while time.monotonic()<deadline:
+     m=re.search(r'Listen on 127\.0\.0\.1:(\d+)',log.read_text())
+     if m:port=int(m.group(1));break
+     if p.poll() is not None:break
+     time.sleep(.01)
+    if port is None:raise RuntimeError(log.read_text())
+    for count in range(1,4):
+     with socket.socket(socket.AF_INET,socket.SOCK_STREAM,132) as c:c.settimeout(2);c.connect(('127.0.0.1',port))
+     deadline=time.monotonic()+2
+     while time.monotonic()<deadline:
+      sizes=re.findall(r'SndBufSize: (\d+), RcvBufSize: (\d+)',log.read_text())
+      if len(sizes)>=count:break
+      time.sleep(.01)
+     else:raise RuntimeError(log.read_text())
+    controls=[]
+    for _ in range(3):
+     with socket.socket(socket.AF_INET,socket.SOCK_STREAM,132) as c:
+      c.setsockopt(socket.SOL_SOCKET,socket.SO_SNDBUF,4096);c.setsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF,4096)
+      controls.append([c.getsockopt(socket.SOL_SOCKET,socket.SO_SNDBUF),c.getsockopt(socket.SOL_SOCKET,socket.SO_RCVBUF)])
+    row={'go':version,'run':run,'server_buffers':[list(map(int,x)) for x in sizes],'raw_controls':controls};rows.append(row);print(json.dumps(row),flush=True)
+   finally:
+    p.terminate()
+    try:p.wait(timeout=3)
+    except subprocess.TimeoutExpired:p.kill();p.wait()
+(r/'buffer-results.json').write_text(json.dumps(rows,indent=2)+'\n')

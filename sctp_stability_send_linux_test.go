@@ -9,7 +9,6 @@ import (
 	"io"
 	"syscall"
 	"testing"
-	"time"
 )
 
 func TestStabilityEmptySends(t *testing.T) {
@@ -48,39 +47,13 @@ func TestStabilityEmptySends(t *testing.T) {
 	}
 }
 
-func stabilityEndpoint(t *testing.T) (*SCTPConn, *SCTPConn, int) {
-	t.Helper()
-	ln := lifecycleListener(t)
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 132)
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
-	if err != nil {
-		syscall.Close(fd)
-		t.Fatal(err)
-	}
-	c := NewSCTPConn(fd, nil)
-	t.Cleanup(func() { c.Close() })
-	p, err := ln.AcceptSCTP()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { p.Close() })
-	raw, _ := p.SyscallConn()
-	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 200*time.Millisecond); err != nil {
-		t.Fatal(err)
-	}
-	return c, p, id
-}
-
 func TestStabilitySendControls(t *testing.T) {
 	if SCTP_EOF != 0x200 {
 		t.Fatalf("EOF=%#x", SCTP_EOF)
 	}
 	for _, mode := range []string{"eof", "abort", "reason", "wrapped-eof"} {
 		t.Run(mode, func(t *testing.T) {
-			c, p, id := stabilityEndpoint(t)
+			c, p, id := lifecycleEndpoint(t)
 			info := SndRcvInfo{AssocID: int32(id), Flags: SCTP_ABORT}
 			if mode == "eof" || mode == "wrapped-eof" {
 				info.Flags = SCTP_EOF
@@ -174,8 +147,8 @@ func TestStabilityDefaultSendControls(t *testing.T) {
 func TestStabilityControlCombinations(t *testing.T) {
 	for _, flags := range []uint16{SCTP_EOF | SCTP_ABORT, 0xffff} {
 		t.Run(fmt.Sprintf("%x", flags), func(t *testing.T) {
-			c, p, id := stabilityEndpoint(t)
-			control, controlPeer, controlID := stabilityEndpoint(t)
+			c, p, id := lifecycleEndpoint(t)
+			control, controlPeer, controlID := lifecycleEndpoint(t)
 			rawInfo := SndRcvInfo{AssocID: int32(controlID), Flags: flags}
 			var rawErr error
 			if err := control.withFD(func(fd int) error { _, rawErr = sendmsgZero(fd, sndRcvControlMessage(toBuf(&rawInfo))); return nil }); err != nil {

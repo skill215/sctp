@@ -1,0 +1,15 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/11 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 11/11 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 62433 (20809/sec), new interesting: 2 (total: 13)
+fuzz: elapsed: 6s, execs: 83078 (6881/sec), new interesting: 6 (total: 17)
+fuzz: elapsed: 9s, execs: 95213 (4045/sec), new interesting: 10 (total: 21)
+fuzz: elapsed: 12s, execs: 135829 (13541/sec), new interesting: 12 (total: 23)
+fuzz: elapsed: 15s, execs: 206910 (23692/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 18s, execs: 340261 (44446/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 21s, execs: 471652 (43795/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 24s, execs: 604310 (44228/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 27s, execs: 734126 (43272/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 30s, execs: 873632 (46491/sec), new interesting: 14 (total: 25)
+fuzz: elapsed: 30s, execs: 873632 (0/sec), new interesting: 14 (total: 25)
+PASS
+ok  	github.com/skill215/sctp	30.115s

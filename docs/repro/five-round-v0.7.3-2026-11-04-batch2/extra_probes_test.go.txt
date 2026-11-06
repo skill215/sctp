@@ -1,0 +1,163 @@
+//go:build linux && !386
+
+package sctp
+
+import (
+	"errors"
+	"fmt"
+	"syscall"
+	"testing"
+	"time"
+	"unsafe"
+)
+
+func TestReviewExtendedEvents(t *testing.T) {
+	for _, index := range []int{10, 11, 12, 13} {
+		t.Run(fmt.Sprint(index), func(t *testing.T) {
+			c, _ := lifecyclePair(t)
+			var b [14]byte
+			b[index] = 1
+			if _, _, e := c.setsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&b)), uintptr(len(b))); e != nil {
+				t.Fatal(e)
+			}
+			read := func() [14]byte {
+				var out [14]byte
+				n := uint32(len(out))
+				if _, _, e := c.getsockopt(SCTP_EVENTS, uintptr(unsafe.Pointer(&out)), &n); e != nil {
+					t.Fatal(e)
+				}
+				return out
+			}
+			before := read()
+			if before[index] != 1 {
+				t.Fatal("subscription not enabled")
+			}
+			for range 2 {
+				w := NewSCTPSndRcvInfoWrappedConn(c)
+				if w.initErr != nil {
+					t.Fatal(w.initErr)
+				}
+			}
+			after := read()
+			if after[index] != 1 || after[0] != 1 {
+				t.Fatalf("wrapper changed subscription: before=%v after=%v", before, after)
+			}
+			t.Logf("preserved extended byte %d through two wraps", index)
+		})
+	}
+}
+func TestReviewTimeoutReconfiguration(t *testing.T) {
+	for _, method := range []string{"Read", "SCTPRead", "wrapped"} {
+		t.Run(method, func(t *testing.T) {
+			c, peer := lifecyclePair(t)
+			raw, e := c.SyscallConn()
+			if e != nil {
+				t.Fatal(e)
+			}
+			read := c.Read
+			switch method {
+			case "SCTPRead":
+				read = func(b []byte) (int, error) { n, _, e := c.SCTPRead(b); return n, e }
+			case "wrapped":
+				read = NewSCTPSndRcvInfoWrappedConn(c).Read
+			}
+			for _, budget := range []time.Duration{40 * time.Millisecond, 120 * time.Millisecond} {
+				if e := setSocketTimeout(raw, syscall.SO_RCVTIMEO, budget); e != nil {
+					t.Fatal(e)
+				}
+				start := time.Now()
+				_, e := read(make([]byte, 128))
+				if !errors.Is(e, syscall.EAGAIN) {
+					t.Fatalf("timeout %s: %v", budget, e)
+				}
+				if elapsed := time.Since(start); elapsed < budget/2 || elapsed > 2*time.Second {
+					t.Fatalf("budget=%s elapsed=%s", budget, elapsed)
+				}
+			}
+			if e := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 0); e != nil {
+				t.Fatal(e)
+			}
+			done := make(chan error, 1)
+			go func() {
+				b := make([]byte, 128)
+				n, e := read(b)
+				if method == "wrapped" && n >= 32 {
+					b = b[32:]
+					n -= 32
+				}
+				if e == nil && string(b[:n]) != "after clear" {
+					e = fmt.Errorf("unexpected payload %q", b[:n])
+				}
+				done <- e
+			}()
+			t.Cleanup(func() { c.Close() })
+			select {
+			case e := <-done:
+				t.Fatalf("cleared timeout returned early: %v", e)
+			case <-time.After(200 * time.Millisecond):
+			}
+			if _, e := peer.Write([]byte("after clear")); e != nil {
+				t.Fatal(e)
+			}
+			select {
+			case e := <-done:
+				if e != nil {
+					t.Fatal(e)
+				}
+			case <-time.After(time.Second):
+				c.Close()
+				<-done
+				t.Fatal("read blocked after data")
+			}
+		})
+	}
+}
+func TestReviewAcceptTimeoutClear(t *testing.T) {
+	ln := lifecycleListener(t)
+	raw, e := ln.SyscallConn()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 40*time.Millisecond); e != nil {
+		t.Fatal(e)
+	}
+	if c, e := ln.AcceptSCTP(); !errors.Is(e, syscall.EAGAIN) {
+		if c != nil {
+			c.Close()
+		}
+		t.Fatalf("accept timeout=%v", e)
+	}
+	if e := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 0); e != nil {
+		t.Fatal(e)
+	}
+	done := make(chan error, 1)
+	go func() {
+		c, e := ln.AcceptSCTP()
+		if c != nil {
+			c.Close()
+		}
+		done <- e
+	}()
+	select {
+	case e := <-done:
+		t.Fatalf("cleared accept returned early: %v", e)
+	case <-time.After(100 * time.Millisecond):
+	}
+	c, e := DialSCTP("sctp", nil, ln.Addr().(*SCTPAddr))
+	if e != nil {
+		ln.Close()
+		<-done
+		t.Fatal(e)
+	}
+	defer c.Close()
+	select {
+	case e := <-done:
+		if e != nil {
+			t.Fatal(e)
+		}
+	case <-time.After(time.Second):
+		ln.Close()
+		<-done
+		t.Fatal("accept blocked")
+	}
+}

@@ -313,6 +313,12 @@ they do not provide supported SCTP operation on those targets.
 responsible for closing the original file. `PeelOff` returns a separately owned
 connection with close-on-exec set.
 
+On supported Linux targets, `PeelOff`, `SCTPLocalAddr` and `SCTPRemoteAddr`
+reject association IDs outside the signed 32-bit kernel range with `EINVAL`.
+`SetInitMsg` accepts values from 0 through 65535; zero preserves the kernel's
+existing/default value. Out-of-range values return `EINVAL` without changing
+socket options. Unsupported targets continue returning `ErrUnsupported`.
+
 The package uses non-blocking descriptors with Go's runtime poller. Raw callbacks
 follow the `syscall.RawConn` contract: keep syscalls non-blocking and return
 `false` from `Read` or `Write` callbacks on `EAGAIN` so the poller can wait for

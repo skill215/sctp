@@ -1,0 +1,40 @@
+[
+  {
+    "name": "extra-probes-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-overlay",
+      "${REVIEW_DIR}/overlay.json",
+      "-run",
+      "^TestReview",
+      "-v",
+      "-count=3",
+      "-timeout=60s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 6.1811094820004655,
+    "log": "extra-probes-1.26.10.log"
+  },
+  {
+    "name": "extra-probes-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-overlay",
+      "${REVIEW_DIR}/overlay.json",
+      "-run",
+      "^TestReview",
+      "-v",
+      "-count=3",
+      "-timeout=60s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 6.231265567999799,
+    "log": "extra-probes-1.27.3.log"
+  }
+]

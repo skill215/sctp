@@ -1,0 +1,23 @@
+[
+  {
+    "run": 1,
+    "invalid_address_rejected_in_log": true,
+    "listener_started": true,
+    "accepted_connection": true,
+    "bound_address_count": 5
+  },
+  {
+    "run": 2,
+    "invalid_address_rejected_in_log": true,
+    "listener_started": true,
+    "accepted_connection": true,
+    "bound_address_count": 5
+  },
+  {
+    "run": 3,
+    "invalid_address_rejected_in_log": true,
+    "listener_started": true,
+    "accepted_connection": true,
+    "bound_address_count": 5
+  }
+]

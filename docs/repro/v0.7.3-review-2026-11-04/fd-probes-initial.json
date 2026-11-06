@@ -1,0 +1,110 @@
+[
+  {
+    "go": "1.26.10",
+    "mode": "FileListenerCloseReuse",
+    "run": 1,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-FileListenerCloseReuse-1.log"
+  },
+  {
+    "go": "1.26.10",
+    "mode": "FileListenerCloseReuse",
+    "run": 2,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-FileListenerCloseReuse-2.log"
+  },
+  {
+    "go": "1.26.10",
+    "mode": "FileListenerCloseReuse",
+    "run": 3,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-FileListenerCloseReuse-3.log"
+  },
+  {
+    "go": "1.26.10",
+    "mode": "PinnedFileDupControl",
+    "run": 1,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-PinnedFileDupControl-1.log"
+  },
+  {
+    "go": "1.26.10",
+    "mode": "PinnedFileDupControl",
+    "run": 2,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-PinnedFileDupControl-2.log"
+  },
+  {
+    "go": "1.26.10",
+    "mode": "PinnedFileDupControl",
+    "run": 3,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.26.10-PinnedFileDupControl-3.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "FileListenerCloseReuse",
+    "run": 1,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-FileListenerCloseReuse-1.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "FileListenerCloseReuse",
+    "run": 2,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-FileListenerCloseReuse-2.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "FileListenerCloseReuse",
+    "run": 3,
+    "exit_code": 1,
+    "data_race": true,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-FileListenerCloseReuse-3.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "PinnedFileDupControl",
+    "run": 1,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-PinnedFileDupControl-1.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "PinnedFileDupControl",
+    "run": 2,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-PinnedFileDupControl-2.log"
+  },
+  {
+    "go": "1.27.3",
+    "mode": "PinnedFileDupControl",
+    "run": 3,
+    "exit_code": 0,
+    "data_race": false,
+    "wrong_fd_observed": false,
+    "log": "fd-1.27.3-PinnedFileDupControl-3.log"
+  }
+]

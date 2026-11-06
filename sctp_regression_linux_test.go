@@ -487,23 +487,8 @@ func TestInvalidNetwork(t *testing.T) {
 func TestPeelOffCloseOnExec(t *testing.T) {
 	for _, legacy := range []bool{false, true} {
 		t.Run(fmt.Sprintf("legacy=%v", legacy), func(t *testing.T) {
-			ln := lifecycleListener(t)
-			fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, syscall.IPPROTO_SCTP)
-			if err != nil {
-				t.Fatal(err)
-			}
-			id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
-			if err != nil {
-				syscall.Close(fd)
-				t.Fatal(err)
-			}
-			original := NewSCTPConn(fd, nil)
-			defer original.Close()
-			server, err := ln.AcceptSCTP()
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer server.Close()
+			original, server, id := lifecycleEndpoint(t)
+			var err error
 			var peeled *SCTPConn
 			if legacy {
 				var peeledFD int

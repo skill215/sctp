@@ -1,0 +1,13 @@
+from pathlib import Path
+import os,subprocess,json,time
+r=Path('${REVIEW_DIR}');env=dict(os.environ,GOCACHE='/tmp/sctp-gocache',GOMODCACHE=str(r/'modcache'),GOTOOLCHAIN='local',GOPROXY='off');checks=[]
+for ver,go in [('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_TOOLCHAIN}/bin/go')]:
+ cases=[(f'race-{i}',['test','-race','-shuffle='+str(7273700+i),'-count=1','-timeout=120s','./...'],{}) for i in range(1,11)]
+ cases += [('vet',['vet','./...'],{}),('checkptr',['test','-gcflags=all=-d=checkptr=2','-count=1','-timeout=120s','./...'],{}),('lowgc',['test','-race','-count=1','-timeout=120s','./...'],{'GOGC':'1'})]
+ cases += [('fuzz-'+name,['test','-run','^$','-fuzz=^Fuzz'+name+'$','-fuzztime=10s','-parallel=2','-timeout=60s','.'],{}) for name in ['RawSockaddr','Ancillary','Codec','AddressRoundTrip']]
+ for name,args,extra in cases:
+  label=ver+'-'+name;start=time.monotonic()
+  with (r/'logs'/(label+'.log')).open('w') as f:p=subprocess.run([go,*args],env=dict(env,**extra),stdout=f,stderr=subprocess.STDOUT,timeout=150)
+  row={'name':label,'exit_code':p.returncode,'seconds':time.monotonic()-start,'command':[go,*args]};checks.append(row);(r/'checks.json').write_text(json.dumps(checks,indent=2)+'\n');print(json.dumps(row),flush=True)
+  if p.returncode:print((r/'logs'/(label+'.log')).read_text()[-4000:],flush=True)
+raise SystemExit(any(x['exit_code'] for x in checks))

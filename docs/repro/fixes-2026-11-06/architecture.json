@@ -1,0 +1,254 @@
+[
+  {
+    "name": "compile-arm-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-arm.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "arm",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.917392720999942,
+    "log": "compile-arm-1.26.10.log"
+  },
+  {
+    "name": "compile-arm-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-arm.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "arm",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9166978660000495,
+    "log": "compile-arm-1.27.3.log"
+  },
+  {
+    "name": "compile-arm64-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-arm64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "arm64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9679315369999131,
+    "log": "compile-arm64-1.26.10.log"
+  },
+  {
+    "name": "compile-arm64-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-arm64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "arm64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9678561020000416,
+    "log": "compile-arm64-1.27.3.log"
+  },
+  {
+    "name": "compile-mips-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-mips.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "mips",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9664592760000232,
+    "log": "compile-mips-1.27.3.log"
+  },
+  {
+    "name": "compile-mips-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-mips.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "mips",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9674901280000086,
+    "log": "compile-mips-1.26.10.log"
+  },
+  {
+    "name": "compile-mips64-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-mips64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "mips64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9159240319995661,
+    "log": "compile-mips64-1.26.10.log"
+  },
+  {
+    "name": "compile-mips64-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-mips64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "mips64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9169544019996465,
+    "log": "compile-mips64-1.27.3.log"
+  },
+  {
+    "name": "compile-ppc64-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-ppc64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "ppc64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9161178969998218,
+    "log": "compile-ppc64-1.27.3.log"
+  },
+  {
+    "name": "compile-ppc64-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-ppc64.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "ppc64",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.917113074000099,
+    "log": "compile-ppc64-1.26.10.log"
+  },
+  {
+    "name": "compile-s390x-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.27.3-s390x.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "s390x",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9174210180003683,
+    "log": "compile-s390x-1.27.3.log"
+  },
+  {
+    "name": "compile-s390x-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-p=2",
+      "-c",
+      "-o",
+      "${REVIEW_DIR}/final/1.26.10-s390x.test",
+      "."
+    ],
+    "environment": {
+      "GOOS": "linux",
+      "GOARCH": "s390x",
+      "CGO_ENABLED": "0",
+      "GOMAXPROCS": "2"
+    },
+    "exit_code": 0,
+    "seconds": 0.9169381400001839,
+    "log": "compile-s390x-1.26.10.log"
+  }
+]

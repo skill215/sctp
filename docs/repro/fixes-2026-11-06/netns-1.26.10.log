@@ -1,0 +1,20 @@
+=== RUN   TestIPv6ZoneNameIndexConflict
+    sctp_zone_linux_test.go:103: isolated interface test:
+        === RUN   TestIPv6ZoneNameIndexConflict
+        --- PASS: TestIPv6ZoneNameIndexConflict (0.01s)
+        PASS
+--- PASS: TestIPv6ZoneNameIndexConflict (1.04s)
+=== RUN   TestIPv6ZoneNameIndexConflict
+    sctp_zone_linux_test.go:103: isolated interface test:
+        === RUN   TestIPv6ZoneNameIndexConflict
+        --- PASS: TestIPv6ZoneNameIndexConflict (0.01s)
+        PASS
+--- PASS: TestIPv6ZoneNameIndexConflict (1.03s)
+=== RUN   TestIPv6ZoneNameIndexConflict
+    sctp_zone_linux_test.go:103: isolated interface test:
+        === RUN   TestIPv6ZoneNameIndexConflict
+        --- PASS: TestIPv6ZoneNameIndexConflict (0.01s)
+        PASS
+--- PASS: TestIPv6ZoneNameIndexConflict (1.03s)
+PASS
+ok  	github.com/skill215/sctp	4.119s

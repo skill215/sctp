@@ -1,0 +1,41 @@
+package sctp
+
+import (
+	"syscall"
+	"testing"
+	"unsafe"
+)
+
+func TestFiveReviewInitMsgRanges(t *testing.T) {
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, syscall.IPPROTO_SCTP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewSCTPConn(fd, nil)
+	defer c.Close()
+	get := func() InitMsg {
+		var v InitMsg
+		n := uint32(unsafe.Sizeof(v))
+		if _, _, err := c.Getsockopt(SCTP_INITMSG, uintptr(unsafe.Pointer(&v)), uintptr(unsafe.Pointer(&n))); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if err := c.SetInitMsg(4, 5, 6, 7); err != nil {
+		t.Fatal(err)
+	}
+	if v := get(); v != (InitMsg{4, 5, 6, 7}) {
+		t.Fatalf("valid control=%+v", v)
+	}
+	for _, v := range []int{-1, 65536, 65537} {
+		if err := c.SetInitMsg(4, 5, 6, 7); err != nil {
+			t.Fatal(err)
+		}
+		err := c.SetInitMsg(v, v, v, v)
+		got := get()
+		t.Logf("input=%d result=%v kernel=%+v", v, err, got)
+		if err == nil {
+			t.Errorf("out-of-range InitMsg input %d accepted as %+v", v, got)
+		}
+	}
+}

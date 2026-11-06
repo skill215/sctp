@@ -1,0 +1,11 @@
+=== RUN   TestFiveReviewInitMsgRanges
+    zz_five_review_test.go:11: input=-1 result=<nil> kernel={NumOstreams:65535 MaxInstreams:65535 MaxAttempts:65535 MaxInitTimeout:65535}
+    zz_five_review_test.go:12: out-of-range InitMsg input -1 accepted as {NumOstreams:65535 MaxInstreams:65535 MaxAttempts:65535 MaxInitTimeout:65535}
+    zz_five_review_test.go:11: input=65536 result=<nil> kernel={NumOstreams:4 MaxInstreams:5 MaxAttempts:6 MaxInitTimeout:7}
+    zz_five_review_test.go:12: out-of-range InitMsg input 65536 accepted as {NumOstreams:4 MaxInstreams:5 MaxAttempts:6 MaxInitTimeout:7}
+    zz_five_review_test.go:11: input=65537 result=<nil> kernel={NumOstreams:1 MaxInstreams:1 MaxAttempts:1 MaxInitTimeout:1}
+    zz_five_review_test.go:12: out-of-range InitMsg input 65537 accepted as {NumOstreams:1 MaxInstreams:1 MaxAttempts:1 MaxInitTimeout:1}
+--- FAIL: TestFiveReviewInitMsgRanges (0.00s)
+FAIL
+FAIL	github.com/skill215/sctp	0.018s
+FAIL

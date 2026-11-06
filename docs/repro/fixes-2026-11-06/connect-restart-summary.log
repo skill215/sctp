@@ -1,0 +1,4 @@
+    restart_probe_test.go:16: native=false counts=map[transport endpoint is already connected:1000]
+    restart_probe_test.go:16: native=true counts=map[transport endpoint is already connected:1000]
+--- PASS: TestProbeConnectRestart (11.60s)
+PASS

@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-04",
+  "baseline": "v0.7.3",
+  "commit": "e4154064dc9928274bcf4615c5382dd6fd81ad21",
+  "scope": "SCTP repository only",
+  "platform": "Linux/amd64",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "go": [
+    "1.26.10",
+    "1.27.3"
+  ],
+  "rounds": 5,
+  "seeds": [
+    7273901,
+    7273902,
+    7273903,
+    7273904,
+    7273905
+  ],
+  "final_main_commands": 32,
+  "final_main_passed": 32,
+  "additional_recorded_commands": 10,
+  "additional_passed": 10,
+  "retained_initial_fuzz_timeouts": 1,
+  "new_confirmed_bugs": 0,
+  "excluded_known_issues": [
+    19,
+    20,
+    21,
+    22
+  ],
+  "cross_architecture_runtime_tested": false,
+  "implementation_changed": false,
+  "permanent_tests_changed": false,
+  "release_performed": false,
+  "base_environment": {
+    "GOCACHE": "${GOCACHE}",
+    "GOTOOLCHAIN": "local",
+    "GOPROXY": "off"
+  },
+  "caveat": "The initial RawSockaddr fuzz deadline termination has no reproducing crash input and remains unclassified; passing retries are not proof of its root cause."
+}

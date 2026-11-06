@@ -33,23 +33,7 @@ func TestStabilityAssociationStatusProbe(t *testing.T) {
 	if !errors.Is(recvErr, syscall.EAGAIN) {
 		t.Fatalf("terminated nonblocking recv=%v", recvErr)
 	}
-	ln := lifecycleListener(t)
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, 132)
-	if err != nil {
-		t.Fatal(err)
-	}
-	id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
-	if err != nil {
-		syscall.Close(fd)
-		t.Fatal(err)
-	}
-	endpoint := NewSCTPConn(fd, nil)
-	defer endpoint.Close()
-	server, err := ln.AcceptSCTP()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer server.Close()
+	endpoint, _, id := lifecycleEndpoint(t)
 	if _, err := endpoint.GetStatus(); !errors.Is(err, syscall.EINVAL) {
 		t.Fatalf("endpoint status zero=%v", err)
 	}
