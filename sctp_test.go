@@ -83,7 +83,7 @@ var sctpListenerNameTests = []struct {
 	{"sctp4", &SCTPAddr{IPAddrs: []net.IPAddr{net.IPAddr{IP: net.IPv4(127, 0, 0, 1)}}}},
 	{"sctp4", &SCTPAddr{}},
 	{"sctp4", nil},
-	{"sctp", &SCTPAddr{Port: 7777}},
+	{"sctp", &SCTPAddr{}},
 }
 
 func TestSCTPListenerName(t *testing.T) {

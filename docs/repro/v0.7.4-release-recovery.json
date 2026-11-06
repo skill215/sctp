@@ -1,0 +1,59 @@
+{
+  "date": "2026-11-06",
+  "failed_release_commit": "0ebac5e6981f3c1d285d725e938e26afea9e0319",
+  "failed_run": 42144113334,
+  "failed_job": 127651330008,
+  "failure": "FuzzCodec completed 320471 executions in ten seconds, then context deadline exceeded; no target assertion or saved input",
+  "publication": "blocked; tag absent",
+  "local_exact_duration_codec_retry": "pass",
+  "no_op_controls": {
+    "timed_short_runs": 40,
+    "timed_failures": 0,
+    "counted_runs": 40,
+    "counted_failures": 0,
+    "inference_limit": "Short no-op controls did not independently reproduce the coordinator timing error"
+  },
+  "full_count_controls": {
+    "go126_Codec": 1000000,
+    "go126_RawSockaddr": 1000000,
+    "go127_noop": 10000,
+    "all_passed": true
+  },
+  "negative_generated_input_control": {
+    "exit_code": 1,
+    "crash_input_written": true
+  },
+  "offline_publication_before": "new candidate passed; pending candidate failed to create tag",
+  "offline_publication_after": {
+    "new": "pass",
+    "pending": "pass",
+    "released": "pass; tag unchanged",
+    "collision": "pass; collision rejected and tag unchanged"
+  },
+  "issues": [
+    26,
+    27,
+    29
+  ],
+  "policy": {
+    "fuzz_executions_per_target": 1000000,
+    "minimization_executions": 100,
+    "hard_timeout_seconds": 180,
+    "automatic_retries": false,
+    "ignored_errors": false,
+    "native_race_rounds_per_job": 10,
+    "release_requires_all_validation": true
+  },
+  "go_library_source_changed": false,
+  "remote_revalidation_required": true,
+  "fixed_port_failure": {
+    "run": 42145806675,
+    "job": 127656865106,
+    "seed": 7272002,
+    "error": "EADDRINUSE while binding fixed 54321",
+    "controlled_before": "four affected child tests fail with own listener holding 54321",
+    "controlled_after": "three reserved-port child runs pass",
+    "go127_after": "ten shuffled race repetitions pass",
+    "implementation_changes": "test fixtures only; library/example source unchanged"
+  }
+}

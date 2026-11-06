@@ -29,7 +29,7 @@ import (
 
 func TestNotificationHandlerAssignmentOnDialing(t *testing.T) {
 	network := "sctp"
-	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 54321}
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
 	testErr := errors.New("test error")
 	notificationHandler := func([]byte) error { return testErr }
 
@@ -37,20 +37,26 @@ func TestNotificationHandlerAssignmentOnDialing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { listener.Close() })
+	addr = listener.Addr().(*SCTPAddr)
 	conn, err := dialSCTPExtConfig(network, nil, addr, InitMsg{}, nil, notificationHandler)
 	if err != nil {
 		t.Fatalf("failed to establish connection due to: %v", err)
 	}
+	t.Cleanup(func() { conn.Close() })
+	peer, err := listener.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { peer.Close() })
 	if conn == nil || conn.notificationHandler(nil) != testErr {
 		t.Fatalf("notification handler has not been assigned")
 	}
-	listener.Close()
-	conn.Close()
 }
 
 func TestNotificationHandlerAssignmentOnListening(t *testing.T) {
 	network := "sctp"
-	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 54321}
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
 	testErr := errors.New("test error")
 	notificationHandler := func([]byte) error { return testErr }
 
@@ -58,10 +64,10 @@ func TestNotificationHandlerAssignmentOnListening(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to start listening due to: %v", err)
 	}
+	t.Cleanup(func() { listener.Close() })
 	if listener == nil || listener.notificationHandler(nil) != testErr {
 		t.Fatalf("notification handler has not been assigned")
 	}
-	listener.Close()
 }
 
 func TestDialUseControlFuncWithoutLocalAddress(t *testing.T) {
@@ -104,7 +110,7 @@ func validationControlFunc(t *testing.T, network string) func(networkFunc, addre
 
 func TestSyscallConn(t *testing.T) {
 	network := "sctp"
-	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 54321}
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
 	listener, err := ListenSCTP(network, addr)
 	if err != nil {
 		t.Fatal(err)
@@ -117,11 +123,17 @@ func TestSyscallConn(t *testing.T) {
 	if raw == nil {
 		t.Fatalf("Expected non-nil RawConn, got nil")
 	}
+	addr = listener.Addr().(*SCTPAddr)
 	conn, err := DialSCTP(network, nil, addr)
 	if err != nil {
 		t.Fatalf("Failed to create SCTP connection: %v", err)
 	}
 	defer conn.Close()
+	peer, err := listener.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer peer.Close()
 
 	raw, err = conn.SyscallConn()
 	if err != nil {
@@ -155,7 +167,7 @@ func TestSyscallConn(t *testing.T) {
 }
 
 func TestSCTPListenerNameFromFd(t *testing.T) {
-	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}, Port: 54321}
+	addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
 	ln, err := ListenSCTP("sctp", addr)
 	if err != nil {
 		t.Fatal(err)

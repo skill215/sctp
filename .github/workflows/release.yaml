@@ -34,9 +34,9 @@ jobs:
             tags=("$GITHUB_REF_NAME")
             git fetch origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           else
-            # New canonical release notes authorize publication from this
-            # validated master commit. Editing existing notes creates no tag.
-            mapfile -t notes < <(git diff --diff-filter=A --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- 'releases/v*.md')
+            # Include an explicitly edited, still-untagged candidate after an
+            # earlier validation failure. Released notes retain their tags.
+            mapfile -t notes < <(git diff --diff-filter=AM --name-only "$BEFORE_SHA" "$GITHUB_SHA" -- 'releases/v*.md')
             tags=()
             for note in "${notes[@]}"; do
               tag="$(basename "$note" .md)"
@@ -44,6 +44,10 @@ jobs:
               test -s "$note"
               # Refuse to move or replace any pre-existing tag.
               if git show-ref --verify --quiet "refs/tags/$tag"; then
+                if git cat-file -e "$BEFORE_SHA:$note" 2>/dev/null; then
+                  echo "Existing release tag retained: $tag"
+                  continue
+                fi
                 echo "Tag already exists: $tag" >&2
                 exit 1
               fi
