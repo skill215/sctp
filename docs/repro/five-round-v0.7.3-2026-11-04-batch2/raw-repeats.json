@@ -1,0 +1,104 @@
+[
+  {
+    "name": "raw-repeat-1.26.10-1",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.37256552799954,
+    "log": "raw-repeat-1.26.10-1.log"
+  },
+  {
+    "name": "raw-repeat-1.26.10-2",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.37490801599961,
+    "log": "raw-repeat-1.26.10-2.log"
+  },
+  {
+    "name": "raw-repeat-1.26.10-3",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.37316588500107,
+    "log": "raw-repeat-1.26.10-3.log"
+  },
+  {
+    "name": "raw-repeat-1.27.3-1",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.372831220998705,
+    "log": "raw-repeat-1.27.3-1.log"
+  },
+  {
+    "name": "raw-repeat-1.27.3-2",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.372444499000267,
+    "log": "raw-repeat-1.27.3-2.log"
+  },
+  {
+    "name": "raw-repeat-1.27.3-3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=20s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 21.374754418999146,
+    "log": "raw-repeat-1.27.3-3.log"
+  }
+]

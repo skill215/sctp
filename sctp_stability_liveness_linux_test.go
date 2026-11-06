@@ -160,7 +160,7 @@ func TestStabilityOneToManyIdle(t *testing.T) {
 }
 
 func TestStabilityPeeledConsumedReset(t *testing.T) {
-	endpoint, p, id := stabilityEndpoint(t)
+	endpoint, p, id := lifecycleEndpoint(t)
 	peeled, err := endpoint.PeelOff(id)
 	if err != nil {
 		t.Fatal(err)
@@ -213,7 +213,7 @@ func TestStabilityBufferedShutdown(t *testing.T) {
 }
 
 func TestStabilityOneToManyAssociation(t *testing.T) {
-	c, p, _ := stabilityEndpoint(t)
+	c, p, _ := lifecycleEndpoint(t)
 	if c.singleAssociation {
 		t.Fatal("endpoint classified as exclusive")
 	}

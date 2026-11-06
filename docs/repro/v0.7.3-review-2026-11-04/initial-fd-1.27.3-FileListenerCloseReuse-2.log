@@ -1,0 +1,63 @@
+=== RUN   TestReviewFileListenerCloseReuse
+==================
+WARNING: DATA RACE
+Write at 0x00c00001a070 by goroutine 9:
+  internal/poll.(*FD).destroy()
+      ${GO_TOOLCHAIN}/src/internal/poll/fd_unix.go:84 +0xcc
+  internal/poll.(*FD).decref()
+      ${GO_TOOLCHAIN}/src/internal/poll/fd_mutex.go:224 +0x36
+  internal/poll.(*FD).Close()
+      ${GO_TOOLCHAIN}/src/internal/poll/fd_unix.go:105 +0x7c
+  os.(*file).close()
+      ${GO_TOOLCHAIN}/src/os/file_unix.go:315 +0xdc
+  os.(*File).Close()
+      ${GO_TOOLCHAIN}/src/os/file_posix.go:24 +0x55b
+  github.com/skill215/sctp.reviewFileDupRace()
+      ${REPO_ROOT}/zz_review_filelistener_test.go:20 +0x52b
+  github.com/skill215/sctp.TestReviewFileListenerCloseReuse()
+      ${REPO_ROOT}/zz_review_filelistener_test.go:3 +0x28
+  testing.tRunner()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2195 +0x21c
+  testing.(*T).Run.gowrap1()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2260 +0x38
+
+Previous read at 0x00c00001a070 by goroutine 10:
+  os.(*File).fd()
+      ${GO_TOOLCHAIN}/src/os/file_unix.go:84 +0x9c
+  os.(*File).Fd()
+      ${GO_TOOLCHAIN}/src/os/file.go:723 +0x36
+  github.com/skill215/sctp.FileListener()
+      ${REPO_ROOT}/sctp_linux.go:400 +0x33
+  github.com/skill215/sctp.reviewFileDupRace.func1()
+      ${REPO_ROOT}/zz_review_filelistener_test.go:13 +0x4cf
+
+Goroutine 9 (running) created at:
+  testing.(*T).Run()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2260 +0xb12
+  testing.runTests.func1()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2744 +0x84
+  testing.tRunner()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2195 +0x21c
+  testing.runTests()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2742 +0x9e9
+  testing.(*M).Run()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2602 +0xf44
+  main.main()
+      _testmain.go:246 +0x164
+
+Goroutine 10 (finished) created at:
+  github.com/skill215/sctp.reviewFileDupRace()
+      ${REPO_ROOT}/zz_review_filelistener_test.go:12 +0x52a
+  github.com/skill215/sctp.TestReviewFileListenerCloseReuse()
+      ${REPO_ROOT}/zz_review_filelistener_test.go:3 +0x28
+  testing.tRunner()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2195 +0x21c
+  testing.(*T).Run.gowrap1()
+      ${GO_TOOLCHAIN}/src/testing/testing.go:2260 +0x38
+==================
+    zz_review_filelistener_test.go:33: 30000 concurrent close/reuse attempts: pinned=false
+    testing.go:1867: race detected during execution of test
+--- FAIL: TestReviewFileListenerCloseReuse (2.29s)
+FAIL
+FAIL	github.com/skill215/sctp	2.310s
+FAIL

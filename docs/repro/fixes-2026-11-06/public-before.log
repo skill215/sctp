@@ -1,0 +1,4 @@
+local: validID=15 error=<nil>; invalidID=4294967311 error=<nil>
+remote: validID=15 error=<nil>; invalidID=4294967311 error=<nil>
+PeelOff(4294967311): returnedConnection=true error=<nil>
+originalID=15 peeledID=15 peerReceived="live association peeled"

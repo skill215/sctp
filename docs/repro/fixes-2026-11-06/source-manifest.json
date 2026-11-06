@@ -1,0 +1,162 @@
+[
+  {
+    "path": "address.go",
+    "sha256": "0688d588996d95a330ce825c8b810ca4b11801796a1000add13c163ad1f68cf6"
+  },
+  {
+    "path": "address_query_linux_test.go",
+    "sha256": "efe54e4608599906410fca7b66b0d27ec504222844b0158f420da0b8db5ba865"
+  },
+  {
+    "path": "association.go",
+    "sha256": "8f6734e50321b09ba732390679f5c697e122362a1d7fa172b7963ad0d0fde422"
+  },
+  {
+    "path": "close_unsupported_unix.go",
+    "sha256": "c99cc3f6f5a8f4e38f0fa826bf3e8d967fcb801ee8e4a6d06458c0703daf10ea"
+  },
+  {
+    "path": "close_unsupported_windows.go",
+    "sha256": "94f02495677e2ef21487ea61b14d59f61d10c19bc5f8b59cb11999fe278d63d9"
+  },
+  {
+    "path": "codec.go",
+    "sha256": "3aa1792b833a2706a75776b515dc6c683bc0f6ca22d912cfe8b919cf3ef51e4c"
+  },
+  {
+    "path": "codec_linux_test.go",
+    "sha256": "e479689b2d40c9b309268fc9025eb1389450226e23176ae6ecbd7b6fc21e7ec8"
+  },
+  {
+    "path": "codec_test.go",
+    "sha256": "de0291f2f9f2a9a4bd540af23c6eb90eaa42ccd52098df5adcf196a2fafd0599"
+  },
+  {
+    "path": "example/sctp.go",
+    "sha256": "3275a93887ec3216667f1aed505c60f2fda544db97adb8245a3d6ef8a873ce88"
+  },
+  {
+    "path": "example/sctp_linux_test.go",
+    "sha256": "cdb77da0acaddad30baf68921b3a19123e1e298771d1a0ff808e35495d06417a"
+  },
+  {
+    "path": "example/server_linux_test.go",
+    "sha256": "04b2820dec2b09e5fae8ddce8c267d06fed9149cb6e039b0306f5047153a5e2e"
+  },
+  {
+    "path": "file_listener_linux_test.go",
+    "sha256": "886f9a51313b9ebbb1d45e95abd5f49df9ac8f2cdcb56b1222f753d1f7a5e969"
+  },
+  {
+    "path": "go.mod",
+    "sha256": "c9a20e60abe57678521c6b7c35b9463179ca76c8701f4d4d279ed6e359c18bee"
+  },
+  {
+    "path": "go.sum",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "ipsock_linux.go",
+    "sha256": "8c03789d893aece2f197b0511e962a56ed42f45dd3e568aa9269fc7d365baaa4"
+  },
+  {
+    "path": "sctp.go",
+    "sha256": "8f2d328b393f32be0d460727be755b151ddcbe7903866306c7dd9ce4a07a59a2"
+  },
+  {
+    "path": "sctp_fuzz_linux_test.go",
+    "sha256": "f010424636ddfc579f40db3c11ab46e6a9e78990ee525b40d86f49cefa047e7e"
+  },
+  {
+    "path": "sctp_lifecycle_linux_test.go",
+    "sha256": "170aeece5721539f4fa9354f388023145f19e2d396dc2d8210888cf603c56767"
+  },
+  {
+    "path": "sctp_linux.go",
+    "sha256": "03fad7345a9401aab82f07b3856cfe544b991b6ab934d6d15fce2ce56804d709"
+  },
+  {
+    "path": "sctp_linux_test.go",
+    "sha256": "c02f573d2082e8bd44b5e73905408253f0eb5a853e30e2701cacfb88290f301a"
+  },
+  {
+    "path": "sctp_portability_test.go",
+    "sha256": "4f958376921288b8dc7dbd3033e16b37ad11e47de11839406d7427133e27fbb4"
+  },
+  {
+    "path": "sctp_regression_linux_test.go",
+    "sha256": "7c3e5dfeb82b0ab537f35f2929964f1b5306607bc8fdcc79333080ee966657a6"
+  },
+  {
+    "path": "sctp_stability_address_linux_test.go",
+    "sha256": "c34f3f8fc606c26862ac7947402a2bcd555b67b3ffa70805511830a40fc85d49"
+  },
+  {
+    "path": "sctp_stability_io_linux_test.go",
+    "sha256": "dad18cfd19fdb4ac02b2ce2ae8b08b08c3766b305595654b0bbba9ab00cae324"
+  },
+  {
+    "path": "sctp_stability_liveness_linux_test.go",
+    "sha256": "9d925591c9080a125cf0e8ab194f58a8f081abbfb42d7393efcf7e00bca8d9e1"
+  },
+  {
+    "path": "sctp_stability_send_linux_test.go",
+    "sha256": "5f33d3fd142640ba5538ce568dbf415a8951ab34e8a0285dd5016f4086ff520b"
+  },
+  {
+    "path": "sctp_stability_status_linux_test.go",
+    "sha256": "d521e1206f3ae2aa3b2568085fdd858c4ec34ef46f1cae6e66d45d8d09fb55bf"
+  },
+  {
+    "path": "sctp_streams_test.go",
+    "sha256": "be9d2b580cfe8e2094c22853556c8a6ef8aaa73eaef16a38cc0fe8fcaa780fc9"
+  },
+  {
+    "path": "sctp_test.go",
+    "sha256": "cc0bea7175781759bb9f239d1363f26a8ca160c9a54a4e437b3447bdd2b65994"
+  },
+  {
+    "path": "sctp_timeout_linux_test.go",
+    "sha256": "677a0d5f14151576ac2f76e506a259eeb7255ee87b32e6d3e487f720187ffe9e"
+  },
+  {
+    "path": "sctp_unsupported.go",
+    "sha256": "074e51afce8769febde7c2627a6ec9e9a156232f46779ae5eb3c5cc49374d69e"
+  },
+  {
+    "path": "sctp_unsupported_unix_test.go",
+    "sha256": "a01032175fb0157031974dbe91fb770e9f308266a38c203e2b01ee4823c18790"
+  },
+  {
+    "path": "sctp_unsupported_windows_test.go",
+    "sha256": "85503482ee5b06c831a222359391dfb522de7bc456e84fcf77c3ee95d200ece5"
+  },
+  {
+    "path": "sctp_validation_linux_test.go",
+    "sha256": "79ba2e949d5c27b6b145c9adbc6248923cd8e9d113d0dd58dfd3449ccdee8197"
+  },
+  {
+    "path": "sctp_zone_linux_test.go",
+    "sha256": "e5f8937eb7706e0b24832af28ad0c34cd576427d3c6a843e255a30757a8e6638"
+  },
+  {
+    "path": "sendmsg_linux.go",
+    "sha256": "2f4281ba2648fca4a3f49c0ee889d17a6d7ff3629d9e3b36794f30d2b11d40ce"
+  },
+  {
+    "path": "sendmsg_linux_test.go",
+    "sha256": "d2c437a165915ae1471b9167afeb78a8049cf2a536d8900a6b57ee1872338005"
+  },
+  {
+    "path": "socket_io_linux.go",
+    "sha256": "43e967204e132b7cde8e36e10b4b64ea260a0b1305927b0c44c051c48a668780"
+  },
+  {
+    "path": "unsupported.go",
+    "sha256": "f9b84f7939bec0e09bdac42a020f1118e327960c015c30669db2765965d58950"
+  },
+  {
+    "path": "unsupported_contract_test.go",
+    "sha256": "473875397035dcefc69c00aa0c2940673f7187dad6b13222716d9706ad6732de"
+  }
+]

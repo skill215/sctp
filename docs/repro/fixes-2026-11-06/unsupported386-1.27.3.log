@@ -1,0 +1,32 @@
+=== RUN   TestUnsupportedSentinelExported
+--- PASS: TestUnsupportedSentinelExported (0.00s)
+=== RUN   TestUnsupportedOwnsSocket
+--- PASS: TestUnsupportedOwnsSocket (0.00s)
+=== RUN   TestUnsupportedOwnsFDZero
+--- PASS: TestUnsupportedOwnsFDZero (0.00s)
+=== RUN   TestUnsupportedCleanupError
+--- PASS: TestUnsupportedCleanupError (0.00s)
+=== RUN   TestUnsupportedParameterValidation
+--- PASS: TestUnsupportedParameterValidation (0.00s)
+=== RUN   TestUnsupportedSentinelExported
+--- PASS: TestUnsupportedSentinelExported (0.00s)
+=== RUN   TestUnsupportedOwnsSocket
+--- PASS: TestUnsupportedOwnsSocket (0.00s)
+=== RUN   TestUnsupportedOwnsFDZero
+--- PASS: TestUnsupportedOwnsFDZero (0.00s)
+=== RUN   TestUnsupportedCleanupError
+--- PASS: TestUnsupportedCleanupError (0.00s)
+=== RUN   TestUnsupportedParameterValidation
+--- PASS: TestUnsupportedParameterValidation (0.00s)
+=== RUN   TestUnsupportedSentinelExported
+--- PASS: TestUnsupportedSentinelExported (0.00s)
+=== RUN   TestUnsupportedOwnsSocket
+--- PASS: TestUnsupportedOwnsSocket (0.00s)
+=== RUN   TestUnsupportedOwnsFDZero
+--- PASS: TestUnsupportedOwnsFDZero (0.00s)
+=== RUN   TestUnsupportedCleanupError
+--- PASS: TestUnsupportedCleanupError (0.00s)
+=== RUN   TestUnsupportedParameterValidation
+--- PASS: TestUnsupportedParameterValidation (0.00s)
+PASS
+ok  	github.com/skill215/sctp	0.015s

@@ -1,0 +1,146 @@
+[
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.26.10",
+    "run": 1,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.26.10-1.log"
+  },
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.26.10",
+    "run": 2,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.26.10-2.log"
+  },
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.26.10",
+    "run": 3,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.26.10-3.log"
+  },
+  {
+    "check": "required namespace three runs",
+    "go": "1.26.10",
+    "exit_code": 0,
+    "log": "required-netns-1.26.10.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "arm",
+    "exit_code": 0,
+    "log": "compile-1.26.10-arm.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "arm64",
+    "exit_code": 0,
+    "log": "compile-1.26.10-arm64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "mips",
+    "exit_code": 0,
+    "log": "compile-1.26.10-mips.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "mips64",
+    "exit_code": 0,
+    "log": "compile-1.26.10-mips64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "ppc64",
+    "exit_code": 0,
+    "log": "compile-1.26.10-ppc64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.26.10",
+    "arch": "s390x",
+    "exit_code": 0,
+    "log": "compile-1.26.10-s390x.log"
+  },
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.27.3",
+    "run": 1,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.27.3-1.log"
+  },
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.27.3",
+    "run": 2,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.27.3-2.log"
+  },
+  {
+    "check": "InitMsg invalid range",
+    "go": "1.27.3",
+    "run": 3,
+    "exit_code": 1,
+    "expected_failure": true,
+    "log": "init-ranges-1.27.3-3.log"
+  },
+  {
+    "check": "required namespace three runs",
+    "go": "1.27.3",
+    "exit_code": 0,
+    "log": "required-netns-1.27.3.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "arm",
+    "exit_code": 0,
+    "log": "compile-1.27.3-arm.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "arm64",
+    "exit_code": 0,
+    "log": "compile-1.27.3-arm64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "mips",
+    "exit_code": 0,
+    "log": "compile-1.27.3-mips.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "mips64",
+    "exit_code": 0,
+    "log": "compile-1.27.3-mips64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "ppc64",
+    "exit_code": 0,
+    "log": "compile-1.27.3-ppc64.log"
+  },
+  {
+    "check": "architecture compile only",
+    "go": "1.27.3",
+    "arch": "s390x",
+    "exit_code": 0,
+    "log": "compile-1.27.3-s390x.log"
+  }
+]

@@ -1,0 +1,25 @@
+from pathlib import Path
+import subprocess,time,re,socket,json
+r=Path('${REVIEW_DIR}');results=[]
+for i in range(1,4):
+ logfile=r/'logs'/f'invalid-bind-{i}.log'
+ with logfile.open('w') as f:
+  p=subprocess.Popen([str(r/'example'),'-server','-ip','%','-port','0'],stdout=f,stderr=subprocess.STDOUT)
+  try:
+   deadline=time.monotonic()+4;m=None
+   while time.monotonic()<deadline:
+    text=logfile.read_text();m=re.search(r'Listen on (.+):(\d+)',text)
+    if m or p.poll() is not None:break
+    time.sleep(.02)
+   accepted=False;addresses=[]
+   if m:
+    addresses=m.group(1).split('/')
+    with socket.socket(socket.AF_INET,socket.SOCK_STREAM,132) as c:
+     c.settimeout(2);c.connect(('127.0.0.1',int(m.group(2))));accepted=True
+   result={'run':i,'invalid_address_rejected_in_log':'Error resolving' in logfile.read_text(),'listener_started':m is not None,'accepted_connection':accepted,'bound_address_count':len(addresses)}
+   results.append(result);print(json.dumps(result),flush=True)
+  finally:
+   p.terminate()
+   try:p.wait(timeout=3)
+   except subprocess.TimeoutExpired:p.kill();p.wait()
+(r/'invalid-bind.json').write_text(json.dumps(results,indent=2)+'\n')

@@ -1,0 +1,17 @@
+//go:build linux && !386
+package sctp
+import("testing";"syscall";"runtime";"time";"unsafe")
+func TestProbeConnectRestart(t *testing.T){
+ ln:=lifecycleListener(t);addr:=ln.Addr().(*SCTPAddr);raw,_:=ln.SyscallConn();if e:=setSocketTimeout(raw,syscall.SO_RCVTIMEO,time.Second);e!=nil{t.Fatal(e)}
+ runtime.LockOSThread();defer runtime.UnlockOSThread();tid:=syscall.Gettid();stop:=make(chan struct{});done:=make(chan struct{})
+ go func(){defer close(done);tick:=time.NewTicker(100*time.Microsecond);defer tick.Stop();for{select{case <-stop:return;case <-tick.C:syscall.Tgkill(syscall.Getpid(),tid,syscall.SIGURG)}}}();defer func(){close(stop);<-done}()
+ for _,native:=range []bool{false,true}{counts:=map[string]int{}
+ for range 1000{
+ fd,e:=syscall.Socket(syscall.AF_INET,syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC,132);if e!=nil{t.Fatal(e)}
+ var id int
+ if native{buf:=addr.ToRawSockAddrBuf();param:=GetAddrsOld{AddrNum:int32(len(buf)),Addrs:uintptr(unsafe.Pointer(&buf[0]))};size:=uint32(unsafe.Sizeof(param));_,_,e=getsockopt(fd,SCTP_SOCKOPT_CONNECTX3,uintptr(unsafe.Pointer(&param)),&size);runtime.KeepAlive(buf);id=int(param.AssocID)}else{id,e=SCTPConnect(fd,addr)}
+ key:="success";if e!=nil{key=e.Error()};counts[key]++
+ if e!=nil{var info PeerAddrinfo;copy(info.Address[:],addr.ToRawSockAddrBuf());size:=uint32(unsafe.Sizeof(info));_,_,lookupErr:=getsockopt(fd,SCTP_GET_PEER_ADDR_INFO,uintptr(unsafe.Pointer(&info)),&size);t.Logf("native=%v connect=%v returnedID=%d actualID=%d lookup=%v",native,e,id,info.AssocID,lookupErr);if lookupErr!=nil{syscall.Close(fd);continue}}
+ peer,e:=ln.AcceptSCTP();syscall.Close(fd);if e!=nil{t.Fatal(e)};peer.Close()
+ };t.Logf("native=%v counts=%v",native,counts)}
+}

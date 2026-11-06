@@ -1,0 +1,565 @@
+[
+  {
+    "round": 1,
+    "go": "1.26.10",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": null,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273801",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round1-1.26.10-full.log",
+    "started_before_harness": true
+  },
+  {
+    "round": 1,
+    "go": "1.26.10",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.880749058999754,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test.*(Close|Own|RawConn|PeelOff|ControlFunc|Input)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round1-1.26.10-focused.log"
+  },
+  {
+    "round": 1,
+    "go": "1.27.3",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.187122102000103,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273801",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round1-1.27.3-full.log"
+  },
+  {
+    "round": 1,
+    "go": "1.27.3",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.929763335000644,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test.*(Close|Own|RawConn|PeelOff|ControlFunc|Input)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round1-1.27.3-focused.log"
+  },
+  {
+    "round": 2,
+    "go": "1.26.10",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.188957248999941,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273802",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round2-1.26.10-full.log"
+  },
+  {
+    "round": 2,
+    "go": "1.26.10",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.027244747000623,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test(Read|Write|Accept|Connect|Queued|CloseUnblocks|Notification|Stability.*Read)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round2-1.26.10-focused.log"
+  },
+  {
+    "round": 2,
+    "go": "1.27.3",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.19084276600006,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273802",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round2-1.27.3-full.log"
+  },
+  {
+    "round": 2,
+    "go": "1.27.3",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.02662161400076,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test(Read|Write|Accept|Connect|Queued|CloseUnblocks|Notification|Stability.*Read)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round2-1.27.3-focused.log"
+  },
+  {
+    "round": 3,
+    "go": "1.26.10",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.189243107999573,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273803",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round3-1.26.10-full.log"
+  },
+  {
+    "round": 3,
+    "go": "1.26.10",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.478504036000231,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test.*(Address|Addr|Zone|SocketOption|DefaultSentParam|Network)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round3-1.26.10-focused.log"
+  },
+  {
+    "round": 3,
+    "go": "1.27.3",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.1883994180007,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273803",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round3-1.27.3-full.log"
+  },
+  {
+    "round": 3,
+    "go": "1.27.3",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 4.4791689219991895,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test.*(Address|Addr|Zone|SocketOption|DefaultSentParam|Network)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round3-1.27.3-focused.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.337537434000296,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273804",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round4-1.26.10-full.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 3.0741174609993323,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test(Streams|GetStatus|Stability.*(Send|Wrapped|Empty|Notification)|Wrapped.*|ParseSndRcvInfo.*|Sendmsg.*)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round4-1.26.10-focused.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "fuzz-RawSockaddr",
+    "exit_code": 0,
+    "seconds": 11.344583768999655,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.26.10-fuzz-RawSockaddr.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "fuzz-Ancillary",
+    "exit_code": 0,
+    "seconds": 10.391897594000511,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzAncillary$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.26.10-fuzz-Ancillary.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "fuzz-Codec",
+    "exit_code": 0,
+    "seconds": 10.394313703999615,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzCodec$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.26.10-fuzz-Codec.log"
+  },
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "fuzz-AddressRoundTrip",
+    "exit_code": 0,
+    "seconds": 10.441226968000592,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzAddressRoundTrip$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.26.10-fuzz-AddressRoundTrip.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 8.239567031999286,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273804",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round4-1.27.3-full.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "focused",
+    "exit_code": 0,
+    "seconds": 2.973081868999543,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "Test(Streams|GetStatus|Stability.*(Send|Wrapped|Empty|Notification)|Wrapped.*|ParseSndRcvInfo.*|Sendmsg.*)",
+      "-count=2",
+      "-timeout=120s",
+      "."
+    ],
+    "log": "round4-1.27.3-focused.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "fuzz-RawSockaddr",
+    "exit_code": 0,
+    "seconds": 11.396828764999555,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.27.3-fuzz-RawSockaddr.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "fuzz-Ancillary",
+    "exit_code": 0,
+    "seconds": 10.442907145999925,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzAncillary$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.27.3-fuzz-Ancillary.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "fuzz-Codec",
+    "exit_code": 0,
+    "seconds": 10.448283314999571,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzCodec$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.27.3-fuzz-Codec.log"
+  },
+  {
+    "round": 4,
+    "go": "1.27.3",
+    "name": "fuzz-AddressRoundTrip",
+    "exit_code": 0,
+    "seconds": 10.48725343300066,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzAddressRoundTrip$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.27.3-fuzz-AddressRoundTrip.log"
+  },
+  {
+    "round": 5,
+    "go": "1.26.10",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 9.145294551000006,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273805",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.26.10-full.log"
+  },
+  {
+    "round": 5,
+    "go": "1.26.10",
+    "name": "vet",
+    "exit_code": 0,
+    "seconds": 0.16458107699963875,
+    "command": [
+      "/usr/local/go/bin/go",
+      "vet",
+      "./..."
+    ],
+    "log": "round5-1.26.10-vet.log"
+  },
+  {
+    "round": 5,
+    "go": "1.26.10",
+    "name": "checkptr",
+    "exit_code": 0,
+    "seconds": 9.163736281000638,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-gcflags=all=-d=checkptr=2",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.26.10-checkptr.log"
+  },
+  {
+    "round": 5,
+    "go": "1.26.10",
+    "name": "lowgc",
+    "exit_code": 0,
+    "seconds": 9.32279820399981,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.26.10-lowgc.log",
+    "environment": {
+      "GOGC": "1"
+    }
+  },
+  {
+    "round": 5,
+    "go": "1.27.3",
+    "name": "full",
+    "exit_code": 0,
+    "seconds": 9.006390719000592,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-shuffle=7273805",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.27.3-full.log"
+  },
+  {
+    "round": 5,
+    "go": "1.27.3",
+    "name": "vet",
+    "exit_code": 0,
+    "seconds": 0.16484993099948042,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "vet",
+      "./..."
+    ],
+    "log": "round5-1.27.3-vet.log"
+  },
+  {
+    "round": 5,
+    "go": "1.27.3",
+    "name": "checkptr",
+    "exit_code": 0,
+    "seconds": 6.420883746000072,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-gcflags=all=-d=checkptr=2",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.27.3-checkptr.log"
+  },
+  {
+    "round": 5,
+    "go": "1.27.3",
+    "name": "lowgc",
+    "exit_code": 0,
+    "seconds": 9.111068146999969,
+    "command": [
+      "${GO_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-count=1",
+      "-timeout=120s",
+      "./..."
+    ],
+    "log": "round5-1.27.3-lowgc.log",
+    "environment": {
+      "GOGC": "1"
+    }
+  }
+]

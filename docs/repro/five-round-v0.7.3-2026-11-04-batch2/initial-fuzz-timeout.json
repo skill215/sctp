@@ -1,0 +1,21 @@
+[
+  {
+    "round": 4,
+    "go": "1.26.10",
+    "name": "fuzz-RawSockaddr",
+    "exit_code": 1,
+    "seconds": 11.370856501000162,
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=10s",
+      "-parallel=2",
+      "-timeout=60s",
+      "."
+    ],
+    "log": "round4-1.26.10-fuzz-RawSockaddr.log"
+  }
+]

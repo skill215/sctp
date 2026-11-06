@@ -1,0 +1,10 @@
+from pathlib import Path
+import subprocess,os,json
+r=Path('${REVIEW_DIR}');rows=[]
+for version,go in [('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_TOOLCHAIN}/bin/go')]:
+ for mode in ['FileListenerCloseReuse','PinnedFileDupControl']:
+  for i in range(1,4):
+   name=f'fd-{version}-{mode}-{i}.log';cmd=[go,'test','-overlay='+str(r/'race-overlay.json'),'-race','-run','^TestReview'+mode+'$','-count=1','-v','-timeout=30s','.']
+   with (r/'logs'/name).open('w') as f:p=subprocess.run(cmd,env=dict(os.environ,GOCACHE='/tmp/sctp-gocache',GOMODCACHE=str(r/'modcache'),GOTOOLCHAIN='local',GOPROXY='off'),stdout=f,stderr=subprocess.STDOUT,timeout=45)
+   s=(r/'logs'/name).read_text();row={'go':version,'mode':mode,'run':i,'exit_code':p.returncode,'data_race':'WARNING: DATA RACE' in s,'wrong_fd_observed':'imported a non-socket' in s,'log':name};rows.append(row);print(json.dumps(row),flush=True)
+(r/'fd-probes.json').write_text(json.dumps(rows,indent=2)+'\n')

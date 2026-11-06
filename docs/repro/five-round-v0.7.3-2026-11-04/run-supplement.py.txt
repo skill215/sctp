@@ -1,0 +1,16 @@
+from pathlib import Path
+import os,subprocess,json
+r=Path('${REVIEW_DIR}');base=dict(os.environ,GOCACHE='/tmp/sctp-gocache',GOMODCACHE='/tmp/sctp-five-rounds-modcache',GOTOOLCHAIN='local',GOPROXY='off');rows=[]
+for ver,go in [('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_TOOLCHAIN}/bin/go')]:
+ for i in range(1,4):
+  log=f'init-ranges-{ver}-{i}.log'
+  with (r/'logs'/log).open('w') as f:p=subprocess.run([go,'test','-race','-overlay='+str(r/'overlay.json'),'-run','^TestFiveReviewInitMsgRanges$','-count=1','-v','-timeout=15s','.'],env=base,stdout=f,stderr=subprocess.STDOUT,timeout=30)
+  rows.append({'check':'InitMsg invalid range','go':ver,'run':i,'exit_code':p.returncode,'expected_failure':True,'log':log});print(json.dumps(rows[-1]),flush=True)
+ cmd=[go,'test','-race','-run','^TestIPv6ZoneNameIndexConflict$','-count=3','-v','-timeout=60s','.'];log='required-netns-'+ver+'.log'
+ with (r/'logs'/log).open('w') as f:p=subprocess.run(cmd,env=dict(base,SCTP_TEST_REQUIRE_NETNS='1'),stdout=f,stderr=subprocess.STDOUT,timeout=90)
+ rows.append({'check':'required namespace three runs','go':ver,'exit_code':p.returncode,'log':log});print(json.dumps(rows[-1]),flush=True)
+ for arch in ['arm','arm64','mips','mips64','ppc64','s390x']:
+  cmd=[go,'test','-c','-o',str(r/('compile-'+ver+'-'+arch)),'.'];log='compile-'+ver+'-'+arch+'.log'
+  with (r/'logs'/log).open('w') as f:p=subprocess.run(cmd,env=dict(base,GOOS='linux',GOARCH=arch,CGO_ENABLED='0'),stdout=f,stderr=subprocess.STDOUT,timeout=120)
+  rows.append({'check':'architecture compile only','go':ver,'arch':arch,'exit_code':p.returncode,'log':log});print(json.dumps(rows[-1]),flush=True)
+(r/'supplement.json').write_text(json.dumps(rows,indent=2)+'\n')

@@ -48,7 +48,7 @@ func main() {
 			log.Printf("Resolved address '%s' to %s", i, a)
 			ips = append(ips, *a)
 		} else {
-			log.Printf("Error resolving address '%s': %v", i, err)
+			log.Fatalf("failed to resolve address '%s': %v", i, err)
 		}
 	}
 
@@ -84,15 +84,15 @@ func main() {
 					log.Fatalf("failed to set read buf: %v", err)
 				}
 			}
-			*sndbuf, err = wconn.GetWriteBuffer()
+			actualSndbuf, err := wconn.GetWriteBuffer()
 			if err != nil {
 				log.Fatalf("failed to get write buf: %v", err)
 			}
-			*rcvbuf, err = wconn.GetReadBuffer()
+			actualRcvbuf, err := wconn.GetReadBuffer()
 			if err != nil {
 				log.Fatalf("failed to get read buf: %v", err)
 			}
-			log.Printf("SndBufSize: %d, RcvBufSize: %d", *sndbuf, *rcvbuf)
+			log.Printf("SndBufSize: %d, RcvBufSize: %d", actualSndbuf, actualRcvbuf)
 
 			go serveClient(wconn, *bufsize)
 		}

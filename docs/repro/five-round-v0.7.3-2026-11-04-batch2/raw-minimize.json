@@ -1,0 +1,38 @@
+[
+  {
+    "name": "raw-minimize-1.26.10-1",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=30s",
+      "-fuzzminimizetime=1s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 30.447841798999434,
+    "log": "raw-minimize-1.26.10-1.log"
+  },
+  {
+    "name": "raw-minimize-1.27.3-1",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^$",
+      "-fuzz=^FuzzRawSockaddr$",
+      "-fuzztime=30s",
+      "-fuzzminimizetime=1s",
+      "-parallel=2",
+      "-timeout=90s",
+      "."
+    ],
+    "exit_code": 0,
+    "seconds": 30.400170324999635,
+    "log": "raw-minimize-1.27.3-1.log"
+  }
+]

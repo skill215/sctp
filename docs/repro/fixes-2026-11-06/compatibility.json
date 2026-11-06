@@ -1,0 +1,146 @@
+[
+  {
+    "name": "unsupported386-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-run",
+      "^TestUnsupported",
+      "-count=3",
+      "-v",
+      "-timeout=60s",
+      "."
+    ],
+    "environment": {
+      "GOARCH": "386",
+      "CGO_ENABLED": "0",
+      "PATH": "/usr/local/go/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 7.179227267999977,
+    "log": "unsupported386-1.26.10.log",
+    "go_version": "1.26.10"
+  },
+  {
+    "name": "unsupported386-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-run",
+      "^TestUnsupported",
+      "-count=3",
+      "-v",
+      "-timeout=60s",
+      "."
+    ],
+    "environment": {
+      "GOARCH": "386",
+      "CGO_ENABLED": "0",
+      "PATH": "${GO_1_27_TOOLCHAIN}/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 7.231156373999966,
+    "log": "unsupported386-1.27.3.log",
+    "go_version": "1.27.3"
+  },
+  {
+    "name": "netns-1.26.10",
+    "command": [
+      "/usr/local/go/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "^TestIPv6ZoneNameIndexConflict$",
+      "-count=3",
+      "-v",
+      "-timeout=60s",
+      "."
+    ],
+    "environment": {
+      "SCTP_TEST_REQUIRE_NETNS": "1",
+      "PATH": "/usr/local/go/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 4.48092378399997,
+    "log": "netns-1.26.10.log",
+    "go_version": "1.26.10"
+  },
+  {
+    "name": "netns-1.27.3",
+    "command": [
+      "${GO_1_27_TOOLCHAIN}/bin/go",
+      "test",
+      "-race",
+      "-run",
+      "^TestIPv6ZoneNameIndexConflict$",
+      "-count=3",
+      "-v",
+      "-timeout=60s",
+      "."
+    ],
+    "environment": {
+      "SCTP_TEST_REQUIRE_NETNS": "1",
+      "PATH": "${GO_1_27_TOOLCHAIN}/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 4.528135435999957,
+    "log": "netns-1.27.3.log",
+    "go_version": "1.27.3"
+  },
+  {
+    "name": "consumer-1.26.10",
+    "command": [
+      "python3",
+      ".github/scripts/consumer.py"
+    ],
+    "environment": {
+      "PATH": "/usr/local/go/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 16.22721011999988,
+    "log": "consumer-1.26.10.log",
+    "go_version": "1.26.10"
+  },
+  {
+    "name": "readme-1.26.10",
+    "command": [
+      "python3",
+      ".github/scripts/readme.py"
+    ],
+    "environment": {
+      "PATH": "/usr/local/go/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 1.4243540519998987,
+    "log": "readme-1.26.10.log",
+    "go_version": "1.26.10"
+  },
+  {
+    "name": "consumer-1.27.3",
+    "command": [
+      "python3",
+      ".github/scripts/consumer.py"
+    ],
+    "environment": {
+      "PATH": "${GO_1_27_TOOLCHAIN}/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 19.49975903299992,
+    "log": "consumer-1.27.3.log",
+    "go_version": "1.27.3"
+  },
+  {
+    "name": "readme-1.27.3",
+    "command": [
+      "python3",
+      ".github/scripts/readme.py"
+    ],
+    "environment": {
+      "PATH": "${GO_1_27_TOOLCHAIN}/bin:${PATH}"
+    },
+    "exit_code": 0,
+    "seconds": 2.5803845319999255,
+    "log": "readme-1.27.3.log",
+    "go_version": "1.27.3"
+  }
+]

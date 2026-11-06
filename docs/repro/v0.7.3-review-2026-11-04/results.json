@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-04",
+  "baseline": "e4154064dc9928274bcf4615c5382dd6fd81ad21",
+  "version": "v0.7.3",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "local_checks": 34,
+  "full_race_processes": 20,
+  "findings": [
+    {
+      "priority": "P2",
+      "file": "sctp_linux.go",
+      "line": 400,
+      "title": "FileListener uses an unpinned os.File.Fd during concurrent Close",
+      "race_reproductions": 6,
+      "pinned_control_passes": 6,
+      "wrong_descriptor_observed": true,
+      "wrong_descriptor_recheck_runs": 2,
+      "github_issue": "https://github.com/skill215/sctp/issues/19"
+    },
+    {
+      "priority": "P2",
+      "file": "example/sctp.go",
+      "line": 51,
+      "title": "Invalid bind-address errors fall through to wildcard listening",
+      "reproductions": 3,
+      "github_issue": "https://github.com/skill215/sctp/issues/20"
+    }
+  ],
+  "implementation_changed": false,
+  "recording_recheck": {
+    "data_race_runs": 6,
+    "pinned_control_passes": 6,
+    "actual_non_socket_imports": 2,
+    "invalid_bind_reproductions": 3
+  }
+}

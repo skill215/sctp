@@ -1,0 +1,26 @@
+from pathlib import Path
+import subprocess,os,json,time
+r=Path('${REVIEW_DIR}');base=dict(os.environ,GOCACHE='/tmp/sctp-gocache',GOMODCACHE='/tmp/sctp-five-rounds-modcache',GOTOOLCHAIN='local',GOPROXY='off');rows=[]
+toolchains=[('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_TOOLCHAIN}/bin/go')]
+focus={1:'Test.*(Close|Own|RawConn|PeelOff|ControlFunc|Input)',2:'Test(Read|Write|Accept|Connect|Queued|CloseUnblocks|Notification|Stability.*Read)',3:'Test.*(Address|Addr|Zone|SocketOption|DefaultSentParam|Network)',4:'Test(Streams|GetStatus|Stability.*(Send|Wrapped|Empty|Notification)|Wrapped.*|ParseSndRcvInfo.*|Sendmsg.*)'}
+def run(round,ver,go,name,args,extra=None):
+ label=f'round{round}-{ver}-{name}';t=time.monotonic()
+ if round==1 and ver=='1.26.10' and name=='full':code=0
+ else:
+  with (r/'logs'/(label+'.log')).open('w') as f:p=subprocess.run([go,*args],env=dict(base,**(extra or {})),stdout=f,stderr=subprocess.STDOUT,timeout=180)
+  code=p.returncode
+ row={'round':round,'go':ver,'name':name,'exit_code':code,'seconds':time.monotonic()-t,'command':[go,*args],'log':label+'.log'};rows.append(row);(r/'checks.json').write_text(json.dumps(rows,indent=2)+'\n');print(json.dumps(row),flush=True)
+ if code:print((r/'logs'/(label+'.log')).read_text()[-3500:],flush=True)
+for round in range(1,6):
+ print('BEGIN ROUND '+str(round),flush=True)
+ for ver,go in toolchains:
+  run(round,ver,go,'full',['test','-race','-shuffle='+str(7273800+round),'-count=1','-timeout=120s','./...'])
+  if round in focus:run(round,ver,go,'focused',['test','-race','-run',focus[round],'-count=2','-timeout=120s','.'])
+  if round==4:
+   for target in ['RawSockaddr','Ancillary','Codec','AddressRoundTrip']:run(round,ver,go,'fuzz-'+target,['test','-run','^$','-fuzz=^Fuzz'+target+'$','-fuzztime=10s','-parallel=2','-timeout=60s','.'])
+  if round==5:
+   run(round,ver,go,'vet',['vet','./...'])
+   run(round,ver,go,'checkptr',['test','-gcflags=all=-d=checkptr=2','-count=1','-timeout=120s','./...'])
+   run(round,ver,go,'lowgc',['test','-race','-count=1','-timeout=120s','./...'],{'GOGC':'1'})
+ print('END ROUND '+str(round),flush=True)
+raise SystemExit(any(x['exit_code'] for x in rows))

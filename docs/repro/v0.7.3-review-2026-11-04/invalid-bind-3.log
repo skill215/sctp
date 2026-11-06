@@ -1,0 +1,6 @@
+2026/11/04 11:17:44 Error resolving address '%': lookup %: no such host
+2026/11/04 11:17:44 raw addr: [2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0]
+2026/11/04 11:17:44 Listen on 127.0.0.1/192.0.2.1/[::1%lo]/192.0.2.1/[fe80::215:5dff:fe38:1ea7%eth0]:60187
+2026/11/04 11:17:44 Accepted Connection from RemoteAddr: %!s(<nil>)
+2026/11/04 11:17:44 SndBufSize: 212992, RcvBufSize: 212992
+2026/11/04 11:17:44 read failed: EOF

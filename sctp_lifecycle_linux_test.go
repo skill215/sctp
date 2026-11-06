@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"runtime"
 	"sync"
 	"syscall"
 	"testing"
@@ -44,6 +45,138 @@ func lifecyclePair(t *testing.T) (*SCTPConn, *SCTPConn) {
 	}
 	t.Cleanup(func() { server.Close() })
 	return client, server
+}
+
+// lifecycleEndpoint establishes a one-to-many association without depending
+// on a blocking CONNECTX3 surviving signals. Readiness and the association ID
+// come from an actual peer message, even if connect returned EINPROGRESS.
+func lifecycleEndpoint(t *testing.T) (*SCTPConn, *SCTPConn, int) {
+	t.Helper()
+	ln := lifecycleListener(t)
+	listenRaw, err := ln.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setSocketTimeout(listenRaw, syscall.SO_RCVTIMEO, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC|syscall.SOCK_NONBLOCK, syscall.IPPROTO_SCTP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := NewSCTPConn(fd, nil)
+	t.Cleanup(func() { c.Close() })
+	var reportedID int
+	err = c.withFD(func(fd int) error {
+		addr := &SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}}
+		if err := SCTPBind(fd, addr, SCTP_BINDX_ADD_ADDR); err != nil {
+			return err
+		}
+		var err error
+		reportedID, err = SCTPConnect(fd, ln.Addr().(*SCTPAddr))
+		return err
+	})
+	immediate := err == nil
+	if err != nil && err != syscall.EINPROGRESS && err != syscall.EINTR && err != syscall.EALREADY && err != syscall.EISCONN {
+		t.Fatal(err)
+	}
+	peer, err := ln.AcceptSCTP()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { peer.Close() })
+	peerRaw, err := peer.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setSocketTimeout(peerRaw, syscall.SO_RCVTIMEO, 200*time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := c.SyscallConn()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SubscribeEvents(SCTP_EVENT_DATA_IO); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := peer.Write([]byte("ready")); err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 32)
+	n, info, err := c.SCTPRead(buf)
+	if err != nil || string(buf[:n]) != "ready" || info == nil || info.AssocID == 0 {
+		t.Fatalf("association readiness: n=%d info=%+v error=%v", n, info, err)
+	}
+	if immediate && reportedID != int(info.AssocID) {
+		t.Fatalf("successful connect ID=%d metadata ID=%d", reportedID, info.AssocID)
+	}
+	if err := c.SubscribeEvents(0); err != nil {
+		t.Fatal(err)
+	}
+	if err := setSocketTimeout(raw, syscall.SO_RCVTIMEO, 0); err != nil {
+		t.Fatal(err)
+	}
+	return c, peer, int(info.AssocID)
+}
+
+func TestOneToManySetupUnderSignals(t *testing.T) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	tid := syscall.Gettid()
+	stop, done, ready := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var signalErr error
+	signals := 0
+	go func() {
+		defer close(done)
+		signalErr = syscall.Tgkill(syscall.Getpid(), tid, syscall.SIGURG)
+		if signalErr == nil {
+			signals++
+		}
+		close(ready)
+		ticker := time.NewTicker(100 * time.Microsecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				if signalErr = syscall.Tgkill(syscall.Getpid(), tid, syscall.SIGURG); signalErr != nil {
+					return
+				}
+				signals++
+			}
+		}
+	}()
+	defer func() {
+		close(stop)
+		<-done
+		if signalErr != nil || signals < 2 {
+			t.Errorf("signal stimulus: count=%d error=%v", signals, signalErr)
+		}
+	}()
+	<-ready
+	for range 20 {
+		c, peer, id := lifecycleEndpoint(t)
+		peeled, err := c.PeelOff(id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := peeled.Write([]byte("signal-safe setup")); err != nil {
+			peeled.Close()
+			t.Fatal(err)
+		}
+		buf := make([]byte, 64)
+		n, err := peer.Read(buf)
+		peeled.Close()
+		c.Close()
+		peer.Close()
+		if err != nil || string(buf[:n]) != "signal-safe setup" {
+			t.Fatalf("post-setup payload: n=%d error=%v", n, err)
+		}
+	}
 }
 
 func lifecycleFD(t *testing.T, raw syscall.RawConn) int {
@@ -318,24 +451,7 @@ func TestKernelStatusConstants(t *testing.T) {
 }
 
 func TestPeelOffOwnsUsableSocket(t *testing.T) {
-	ln := lifecycleListener(t)
-	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_SEQPACKET|syscall.SOCK_CLOEXEC, syscall.IPPROTO_SCTP)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Start the association with a blocking socket, then transfer ownership.
-	id, err := SCTPConnect(fd, ln.Addr().(*SCTPAddr))
-	if err != nil {
-		syscall.Close(fd)
-		t.Fatal(err)
-	}
-	original := NewSCTPConn(fd, nil)
-	t.Cleanup(func() { original.Close() })
-	server, err := ln.AcceptSCTP()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { server.Close() })
+	original, server, id := lifecycleEndpoint(t)
 	peeled, err := original.PeelOff(id)
 	if err != nil {
 		t.Fatal(err)

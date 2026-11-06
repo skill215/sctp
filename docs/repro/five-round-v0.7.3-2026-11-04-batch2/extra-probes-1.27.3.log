@@ -1,0 +1,74 @@
+=== RUN   TestReviewExtendedEvents
+=== RUN   TestReviewExtendedEvents/10
+    review_batch2_test.go:13: preserved extended byte 10 through two wraps
+=== RUN   TestReviewExtendedEvents/11
+    review_batch2_test.go:13: preserved extended byte 11 through two wraps
+=== RUN   TestReviewExtendedEvents/12
+    review_batch2_test.go:13: preserved extended byte 12 through two wraps
+=== RUN   TestReviewExtendedEvents/13
+    review_batch2_test.go:13: preserved extended byte 13 through two wraps
+--- PASS: TestReviewExtendedEvents (0.03s)
+    --- PASS: TestReviewExtendedEvents/10 (0.01s)
+    --- PASS: TestReviewExtendedEvents/11 (0.01s)
+    --- PASS: TestReviewExtendedEvents/12 (0.01s)
+    --- PASS: TestReviewExtendedEvents/13 (0.01s)
+=== RUN   TestReviewTimeoutReconfiguration
+=== RUN   TestReviewTimeoutReconfiguration/Read
+=== RUN   TestReviewTimeoutReconfiguration/SCTPRead
+=== RUN   TestReviewTimeoutReconfiguration/wrapped
+--- PASS: TestReviewTimeoutReconfiguration (1.11s)
+    --- PASS: TestReviewTimeoutReconfiguration/Read (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/SCTPRead (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/wrapped (0.37s)
+=== RUN   TestReviewAcceptTimeoutClear
+--- PASS: TestReviewAcceptTimeoutClear (0.15s)
+=== RUN   TestReviewExtendedEvents
+=== RUN   TestReviewExtendedEvents/10
+    review_batch2_test.go:13: preserved extended byte 10 through two wraps
+=== RUN   TestReviewExtendedEvents/11
+    review_batch2_test.go:13: preserved extended byte 11 through two wraps
+=== RUN   TestReviewExtendedEvents/12
+    review_batch2_test.go:13: preserved extended byte 12 through two wraps
+=== RUN   TestReviewExtendedEvents/13
+    review_batch2_test.go:13: preserved extended byte 13 through two wraps
+--- PASS: TestReviewExtendedEvents (0.04s)
+    --- PASS: TestReviewExtendedEvents/10 (0.01s)
+    --- PASS: TestReviewExtendedEvents/11 (0.01s)
+    --- PASS: TestReviewExtendedEvents/12 (0.01s)
+    --- PASS: TestReviewExtendedEvents/13 (0.01s)
+=== RUN   TestReviewTimeoutReconfiguration
+=== RUN   TestReviewTimeoutReconfiguration/Read
+=== RUN   TestReviewTimeoutReconfiguration/SCTPRead
+=== RUN   TestReviewTimeoutReconfiguration/wrapped
+--- PASS: TestReviewTimeoutReconfiguration (1.11s)
+    --- PASS: TestReviewTimeoutReconfiguration/Read (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/SCTPRead (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/wrapped (0.37s)
+=== RUN   TestReviewAcceptTimeoutClear
+--- PASS: TestReviewAcceptTimeoutClear (0.15s)
+=== RUN   TestReviewExtendedEvents
+=== RUN   TestReviewExtendedEvents/10
+    review_batch2_test.go:13: preserved extended byte 10 through two wraps
+=== RUN   TestReviewExtendedEvents/11
+    review_batch2_test.go:13: preserved extended byte 11 through two wraps
+=== RUN   TestReviewExtendedEvents/12
+    review_batch2_test.go:13: preserved extended byte 12 through two wraps
+=== RUN   TestReviewExtendedEvents/13
+    review_batch2_test.go:13: preserved extended byte 13 through two wraps
+--- PASS: TestReviewExtendedEvents (0.04s)
+    --- PASS: TestReviewExtendedEvents/10 (0.01s)
+    --- PASS: TestReviewExtendedEvents/11 (0.01s)
+    --- PASS: TestReviewExtendedEvents/12 (0.01s)
+    --- PASS: TestReviewExtendedEvents/13 (0.01s)
+=== RUN   TestReviewTimeoutReconfiguration
+=== RUN   TestReviewTimeoutReconfiguration/Read
+=== RUN   TestReviewTimeoutReconfiguration/SCTPRead
+=== RUN   TestReviewTimeoutReconfiguration/wrapped
+--- PASS: TestReviewTimeoutReconfiguration (1.11s)
+    --- PASS: TestReviewTimeoutReconfiguration/Read (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/SCTPRead (0.37s)
+    --- PASS: TestReviewTimeoutReconfiguration/wrapped (0.37s)
+=== RUN   TestReviewAcceptTimeoutClear
+--- PASS: TestReviewAcceptTimeoutClear (0.15s)
+PASS
+ok  	github.com/skill215/sctp	4.909s

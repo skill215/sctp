@@ -533,15 +533,24 @@ func (c *SCTPConn) Read(b []byte) (int, error) {
 	return n, err
 }
 
+// SetInitMsg sets initialization options. Each value must be in [0, 65535];
+// zero retains the kernel's existing/default value. Invalid values return EINVAL.
 func (c *SCTPConn) SetInitMsg(numOstreams, maxInstreams, maxAttempts, maxInitTimeout int) error {
-	options := InitMsg{
-		NumOstreams:    uint16(numOstreams),
-		MaxInstreams:   uint16(maxInstreams),
-		MaxAttempts:    uint16(maxAttempts),
-		MaxInitTimeout: uint16(maxInitTimeout),
-	}
-	_, _, err := c.setsockopt(SCTP_INITMSG, uintptr(unsafe.Pointer(&options)), unsafe.Sizeof(options))
-	return err
+	return c.withFD(func(fd int) error {
+		for _, value := range [...]int{numOstreams, maxInstreams, maxAttempts, maxInitTimeout} {
+			if value < 0 || value > 65535 {
+				return syscall.EINVAL
+			}
+		}
+		options := InitMsg{
+			NumOstreams:    uint16(numOstreams),
+			MaxInstreams:   uint16(maxInstreams),
+			MaxAttempts:    uint16(maxAttempts),
+			MaxInitTimeout: uint16(maxInitTimeout),
+		}
+		_, _, err := setsockopt(fd, SCTP_INITMSG, uintptr(unsafe.Pointer(&options)), unsafe.Sizeof(options))
+		return err
+	})
 }
 
 func (c *SCTPConn) SubscribeEvents(flags int) error {
@@ -789,6 +798,9 @@ func sctpGetAddrs(fd, id, optname int) (*SCTPAddr, error) {
 const maxAddressBytes = 1 << 20
 
 func querySCTPAddrs(id, optname int, query func([]byte, *uint32) error) (*SCTPAddr, error) {
+	if err := validateAssociationID(id); err != nil {
+		return nil, err
+	}
 	const header = 8
 	for capacity := 4096; capacity <= maxAddressBytes; capacity *= 2 {
 		buf := make([]byte, header+capacity)
@@ -848,11 +860,13 @@ func (c *SCTPConn) getAddrs(id, optname int) (*SCTPAddr, error) {
 
 // SCTPLocalAddr queries complete local addresses within a 1 MiB address budget.
 // Exhausting the budget returns an error wrapping syscall.ENOMEM.
+// Association IDs outside the signed 32-bit Linux ABI return EINVAL.
 func (c *SCTPConn) SCTPLocalAddr(id int) (*SCTPAddr, error) {
 	return c.getAddrs(id, SCTP_GET_LOCAL_ADDRS)
 }
 
 // SCTPRemoteAddr uses the same 1 MiB address budget as SCTPLocalAddr.
+// Association IDs outside the signed 32-bit Linux ABI return EINVAL.
 func (c *SCTPConn) SCTPRemoteAddr(id int) (*SCTPAddr, error) {
 	return c.getAddrs(id, SCTP_GET_PEER_ADDRS)
 }
@@ -873,9 +887,14 @@ func (c *SCTPConn) RemoteAddr() net.Addr {
 	return addr
 }
 
+// PeelOff transfers an association to a separately owned connection.
+// Association IDs outside the signed 32-bit Linux ABI return EINVAL.
 func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
 	var peeledFD int
 	err := c.withFD(func(fd int) error {
+		if err := validateAssociationID(id); err != nil {
+			return err
+		}
 		var err error
 		peeledFD, err = peelOffSocket(fd, id)
 		return err

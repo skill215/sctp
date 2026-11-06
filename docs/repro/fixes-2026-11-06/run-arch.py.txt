@@ -1,0 +1,16 @@
+from pathlib import Path
+import json,os,subprocess,time,concurrent.futures,threading
+r=Path(__file__).parent;rows=[];lock=threading.Lock()
+def worker(ver,go):
+ env=dict(os.environ,GOCACHE='${GOCACHE}',GOTOOLCHAIN='local',GOPROXY='off',PATH=str(Path(go).parent)+os.pathsep+os.environ['PATH'])
+ jobs=[]
+ for arch in ['arm','arm64','mips','mips64','ppc64','s390x']:jobs.append(('compile-'+arch,[go,'test','-p=2','-c','-o',str(r/(ver+'-'+arch+'.test')),'.'],{'GOOS':'linux','GOARCH':arch,'CGO_ENABLED':'0','GOMAXPROCS':'2'}))
+ for name,cmd,extra in jobs:
+  label=name+'-'+ver;start=time.monotonic()
+  with (r/(label+'.log')).open('w') as f:
+   try: code=subprocess.run(cmd,env=dict(env,**extra),stdout=f,stderr=subprocess.STDOUT,timeout=360).returncode
+   except subprocess.TimeoutExpired:code=124
+  row=dict(name=label,command=cmd,environment=extra,exit_code=code,seconds=time.monotonic()-start,log=label+'.log')
+  with lock:rows.append(row);(r/'architecture-final.json').write_text(json.dumps(rows,indent=2));print(json.dumps(row),flush=True)
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:list(pool.map(lambda x:worker(*x),[('1.26.10','/usr/local/go/bin/go'),('1.27.3','${GO_1_27_TOOLCHAIN}/bin/go')]))
+raise SystemExit(any(x['exit_code'] for x in rows))

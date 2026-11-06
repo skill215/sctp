@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -397,20 +396,34 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 // FileListener takes a file, dup's the underlying file descriptor, and returns
 // a SCTPListener created from the dup'd fd.
 func FileListener(file *os.File) (*SCTPListener, error) {
-	r1, _, err := syscall.Syscall(syscall.SYS_FCNTL, file.Fd(), syscall.F_DUPFD_CLOEXEC, 0)
-	runtime.KeepAlive(file)
-	if err != 0 {
-		return nil, os.NewSyscallError("fcntl", err)
+	if file == nil {
+		return nil, syscall.EINVAL
+	}
+	raw, err := file.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+	var duplicated uintptr
+	var dupErr syscall.Errno
+	// Pin the source until duplication completes. Fd does not pin it against
+	// Close and can also switch a pollable source into blocking mode.
+	if err := raw.Control(func(fd uintptr) {
+		duplicated, _, dupErr = syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_DUPFD_CLOEXEC, 0)
+	}); err != nil {
+		return nil, err
+	}
+	if dupErr != 0 {
+		return nil, os.NewSyscallError("fcntl", dupErr)
 	}
 
-	owned, initErr := socketFile(int(r1))
+	owned, initErr := socketFile(int(duplicated))
 	if initErr != nil {
-		syscall.Close(int(r1))
+		syscall.Close(int(duplicated))
 		return nil, initErr
 	}
 
 	return &SCTPListener{
-		fd:                  int(r1),
+		fd:                  int(duplicated),
 		file:                owned,
 		io:                  newSocketIO(owned),
 		notificationHandler: nil,

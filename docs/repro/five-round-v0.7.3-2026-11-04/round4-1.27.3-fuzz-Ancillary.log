@@ -1,0 +1,8 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/8 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 8/8 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 134451 (44813/sec), new interesting: 0 (total: 8)
+fuzz: elapsed: 6s, execs: 284438 (49987/sec), new interesting: 0 (total: 8)
+fuzz: elapsed: 9s, execs: 428067 (47874/sec), new interesting: 0 (total: 8)
+fuzz: elapsed: 10s, execs: 474761 (43965/sec), new interesting: 0 (total: 8)
+PASS
+ok  	github.com/skill215/sctp	10.070s
