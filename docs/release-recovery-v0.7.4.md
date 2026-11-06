@@ -54,9 +54,27 @@ note/tag collision all pass, including target commit and immutable tag checks.
 The test runs inside the existing native validation script. It does not contact
 GitHub or create a real release.
 
+## Shared test ports (#29)
+
+The first recovery PR run exposed a separate pre-existing isolation defect:
+Ubuntu 22.04 / Go 1.26 failed race round 2 with EADDRINUSE in two fixtures that
+bind port 54321. An independent parent process reserving that SCTP port made all
+four affected fixtures fail deterministically. The actual busy-port owner on
+the remote runner is unknown; this is not attributed to the library's transport.
+
+Notification, RawConn and listener-from-file tests now bind port zero and use
+the assigned address. Dial fixtures explicitly accept and clean up peer sockets;
+cleanup is registered before further assertions can fail. The generic listener
+name table's unnecessary fixed 7777 case also becomes dynamic. Parser-only
+numeric-port tests are retained. The permanent child-process regression keeps
+legacy ports unavailable and runs the affected tests; an already-busy legacy
+port does not skip those child checks. Reserved-port probes passed three times,
+and Go 1.27 passed ten shuffled race repetitions of the affected fixtures.
+
 ## Final-candidate requirements
 
-No Go library or example source changes are included in this recovery. The
+Only test fixtures and validation/publication machinery changed in this recovery;
+Go library and example implementation source is unchanged. The
 native two-kernel/two-toolchain matrix, ten race processes per native job,
 vet/checkptr/low-GOGC, namespace regressions, README/consumer checks, unsupported
 stubs and six QEMU ABI jobs remain required. The corrected PR and its merged
