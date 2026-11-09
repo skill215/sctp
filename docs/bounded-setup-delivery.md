@@ -4,8 +4,12 @@ A–E is implemented and locally reviewed on top of the U2–U5 commit
 `1649569dd9b851b95664fef36f575c88a3547a78`. The review fixed one P2 issue and
 found no remaining blocking issue in the reviewed scope. The exact pushed SHA,
 installable module version/checksums and remote CI outcomes are recorded on
-[PR #30](https://github.com/skill215/sctp/pull/30). This is an incremental candidate;
-no tag, merge, release or diameterkit dependency change is included.
+[PR #30](https://github.com/skill215/sctp/pull/30). This delivery is included in the v0.8.0 release candidate.
+[Release tracking #31](https://github.com/skill215/sctp/issues/31) records the
+actual merge/tag/release status, final module checksums and no-replace consumer
+verification; pre-release candidate evidence alone is not publication evidence.
+The [release notes](../releases/v0.8.0.md) describe compatibility against v0.7.4.
+No diameterkit dependency change is included.
 
 ## A–E status and API mapping
 
@@ -102,7 +106,8 @@ candidate; their module sums must not be reused for the new version.
 
 The next diameterkit session should:
 
-1. Pin the reviewed remote candidate and its actual go.sum after the remote gates.
+1. After #31 confirms publication and final consumer verification, pin v0.8.0
+   and its actual go.sum; do not reuse the earlier pseudo-version checksums.
 2. Delete 20ms accept polling; call AcceptSCTPContext/SetDeadline.
 3. Delete direct setsockopt/getsockname; call SetSocketTimeouts/BoundAddr.
 4. Delete duplicated N/Z/D parsing/copying and use the bounded setup facade.
