@@ -18,6 +18,8 @@
 package sctp
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -126,6 +128,9 @@ func (c *SCTPConn) SyscallConn() (syscall.RawConn, error) {
 }
 
 func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
+	if c != nil && c.messages != nil {
+		return 0, ErrIOMode
+	}
 	var cbuf []byte
 	if info != nil {
 		// Fix PPID to network byte order
@@ -149,16 +154,12 @@ func (c *SCTPConn) SCTPWrite(b []byte, info *SndRcvInfo) (int, error) {
 	var n int
 	var writeErr error
 	err = raw.Write(func(fd uintptr) bool {
-		for {
-			if len(b) == 0 {
-				n, writeErr = sendmsgZero(int(fd), cbuf)
-			} else {
-				n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
-			}
-			if writeErr != syscall.EINTR {
-				return writeErr != syscall.EAGAIN
-			}
+		if len(b) == 0 {
+			n, writeErr = sendmsgZero(int(fd), cbuf)
+		} else {
+			n, writeErr = syscall.SendmsgN(int(fd), b, cbuf, nil, 0)
 		}
+		return writeErr != syscall.EAGAIN && writeErr != syscall.EINTR
 	})
 	if err != nil {
 		if c.fd() < 0 {
@@ -195,6 +196,9 @@ func parseSndRcvInfo(b []byte) (*SndRcvInfo, error) {
 }
 
 func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
+	if c != nil && c.messages != nil {
+		return 0, nil, ErrIOMode
+	}
 	raw, err := c.socketRaw()
 	if err != nil {
 		return 0, nil, err
@@ -214,33 +218,28 @@ func (c *SCTPConn) SCTPRead(b []byte) (int, *SndRcvInfo, error) {
 		var n, oobn, recvflags int
 		var readErr error
 		err := raw.pollDeadline(true, deadline, func(fd uintptr) bool {
-			for {
-				n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
-				if readErr != syscall.EINTR {
-					if readErr == syscall.EAGAIN && c.singleAssociation {
-						readErr = associationReadError(int(fd))
-						if readErr == nil {
-							return false
-						}
-						if readErr == syscall.ENOTCONN {
-							// Shutdown or data can arrive between the first
-							// EAGAIN and the status query. Drain that result
-							// before reporting an absent association.
-							for {
-								n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
-								if readErr != syscall.EINTR {
-									break
-								}
-							}
-							if readErr == syscall.EAGAIN {
-								readErr = syscall.ENOTCONN
-							}
-						}
-						return true // preserve every status-query error
-					}
-					return readErr != syscall.EAGAIN
-				}
+			n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
+			if readErr == syscall.EINTR {
+				return false
 			}
+			if readErr == syscall.EAGAIN && c.singleAssociation {
+				readErr = associationReadError(int(fd))
+				if readErr == nil {
+					return false
+				}
+				if readErr == syscall.ENOTCONN {
+					// Drain data/EOF that raced the status query before reporting reset.
+					n, oobn, recvflags, _, readErr = syscall.Recvmsg(int(fd), b, oob, 0)
+					if readErr == syscall.EINTR {
+						return false
+					}
+					if readErr == syscall.EAGAIN {
+						readErr = syscall.ENOTCONN
+					}
+				}
+				return true
+			}
+			return readErr != syscall.EAGAIN
 		})
 		if err != nil {
 			if c.fd() < 0 {
@@ -317,7 +316,18 @@ func ListenSCTPExt(network string, laddr *SCTPAddr, options InitMsg) (*SCTPListe
 }
 
 // listenSCTPExtConfig - start listener on specified address/port with given SCTP options and socket configuration
-func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network, address string, c syscall.RawConn) error, notificationHandler NotificationHandler) (*SCTPListener, error) {
+func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network, address string, c syscall.RawConn) error, notificationHandler NotificationHandler, messages ...*MessageOptions) (*SCTPListener, error) {
+	return listenSCTPContextConfig(context.Background(), false, network, laddr, options, control, notificationHandler, messages...)
+}
+
+func listenSCTPContextConfig(ctx context.Context, bounded bool, network string, laddr *SCTPAddr, options InitMsg, control func(string, string, syscall.RawConn) error, notificationHandler NotificationHandler, messages ...*MessageOptions) (*SCTPListener, error) {
+	if e := contextError(ctx); e != nil {
+		return nil, e
+	}
+	var m *MessageOptions
+	if len(messages) > 0 {
+		m = messages[0]
+	}
 	network, err := normalizeNetwork(network)
 	if err != nil {
 		return nil, err
@@ -348,8 +358,16 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			io.Close()
 		}
 	}()
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
+	}
+	if bounded && af == syscall.AF_INET6 {
+		if err = syscall.SetsockoptInt(sock, syscall.IPPROTO_IPV6, syscall.IPV6_V6ONLY, boolint(ipv6only)); err != nil {
+			return nil, err
+		}
 	}
 	if control != nil {
 		rc := io
@@ -361,11 +379,22 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			return nil, err
 		}
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	err = setInitOpts(sock, options)
 	if err != nil {
 		return nil, err
 	}
 
+	if m != nil {
+		if err = configureMessageFD(sock, *m); err != nil {
+			return nil, err
+		}
+	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	if laddr != nil {
 		// If IP address and/or port was not provided so far, let's use the unspecified IPv4 or IPv6 address
 		if len(laddr.IPAddrs) == 0 {
@@ -380,11 +409,31 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			return nil, err
 		}
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	err = syscall.Listen(sock, syscall.SOMAXCONN)
 	if err != nil {
 		return nil, err
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
+	if m != nil {
+		if err = verifyMessageFD(sock, *m); err != nil {
+			return nil, err
+		}
+	}
+	bound, err := boundAddrFD(sock, laddr)
+	if err != nil {
+		return nil, err
+	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	return &SCTPListener{
+			bound:               bound,
+			messages:            m,
 			fd:                  sock,
 			file:                file,
 			io:                  io,
@@ -432,33 +481,11 @@ func FileListener(file *os.File) (*SCTPListener, error) {
 
 // AcceptSCTP waits for and returns the next SCTP connection to the listener.
 func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
-	raw, err := ln.SyscallConn()
-	if err != nil {
-		return nil, err
+	conn, err := ln.AcceptSCTPContext(context.Background())
+	if errors.Is(err, ErrSocketTimeout) {
+		err = syscall.EAGAIN
 	}
-	var fd int
-	var acceptErr error
-	err = raw.Read(func(listenFD uintptr) bool {
-		for {
-			fd, _, acceptErr = syscall.Accept4(int(listenFD), syscall.SOCK_CLOEXEC|syscall.SOCK_NONBLOCK)
-			if acceptErr != syscall.EINTR {
-				return acceptErr != syscall.EAGAIN
-			}
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
-	if acceptErr != nil {
-		return nil, acceptErr
-	}
-	conn := NewSCTPConn(fd, ln.notificationHandler)
-	conn.singleAssociation = true
-	if conn.initErr != nil {
-		conn.Close()
-		return nil, conn.initErr
-	}
-	return conn, nil
+	return conn, err
 }
 
 // Accept waits for and returns the next connection connection to the listener.

@@ -3,6 +3,7 @@ package sctp
 import (
 	"net"
 	"strconv"
+	"strings"
 )
 
 func validateSCTPAddr(addr *SCTPAddr, required bool) error {
@@ -32,7 +33,7 @@ func cloneSCTPAddr(addr *SCTPAddr) *SCTPAddr {
 		copyAddr.IPAddrs = make([]net.IPAddr, len(addr.IPAddrs))
 	}
 	for i, ip := range addr.IPAddrs {
-		copyAddr.IPAddrs[i] = net.IPAddr{IP: append(net.IP(nil), ip.IP...), Zone: ip.Zone}
+		copyAddr.IPAddrs[i] = net.IPAddr{IP: append(net.IP(nil), ip.IP...), Zone: strings.Clone(ip.Zone)}
 	}
 	return copyAddr
 }

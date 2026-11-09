@@ -45,6 +45,10 @@ The [library scope](docs/library-scope.md) defines this repository's
 responsibilities and release acceptance. Application services and their
 dependency upgrades are maintained separately.
 
+The [v1.0 redesign proposal](docs/v1-design.md) (中文) describes a future
+replacement API and implementation. It is a design draft, not functionality
+available in the current release.
+
 ## Quick start
 
 The following server echoes the payload and its stream/PPID metadata. Create a
@@ -248,10 +252,15 @@ kernel. Header-only wrapped controls count the 32-byte header only on success.
 
 ## Socket configuration and timeouts
 
-`SetDeadline`, `SetReadDeadline`, and `SetWriteDeadline` currently return
-`syscall.EOPNOTSUPP`, including on wrapped connections. Use `SO_RCVTIMEO` and
-`SO_SNDTIMEO` through `SocketConfig.Control` instead. This hook runs after socket
-creation and before binding or connecting:
+On supported Linux targets, `SetDeadline`, `SetReadDeadline`, and
+`SetWriteDeadline` affect current and future I/O, including wrapped connections.
+Zero clears the public deadline. Expiry matches `os.ErrDeadlineExceeded`;
+unsupported targets retain `syscall.EOPNOTSUPP`. See the
+[waiting-layer scope and validation](docs/diameterkit-u3-foundation.md).
+
+`SO_RCVTIMEO` and `SO_SNDTIMEO` remain optional fixed per-operation budgets,
+independent of the public deadlines. Set them through `SocketConfig.Control`.
+This hook runs after socket creation and before binding or connecting:
 
 ```go
 import (
@@ -294,11 +303,12 @@ connection or listener, get `SyscallConn()` and set the options inside its
 | `SO_SNDTIMEO` | Write | `syscall.EAGAIN` |
 | `SO_SNDTIMEO` | Connection attempt | `syscall.EINPROGRESS` |
 
-A zero timeout allows unlimited waiting. Each operation snapshots its timeout;
+A zero socket timeout adds no relative limit; a public deadline may still apply.
+Each operation snapshots its timeout;
 time queued behind another operation counts toward that budget. A read keeps
 the same budget while processing notifications, but cannot interrupt a running
-notification handler. A timeout does not leave a deadline on subsequent
-operations. Closing a connection or listener wakes blocked and queued I/O.
+notification handler. A socket timeout does not leak its temporary deadline into subsequent
+operations; an explicit public deadline remains until changed. Closing a connection or listener wakes blocked and queued I/O.
 
 ## File descriptors and raw I/O
 
@@ -360,3 +370,53 @@ Linux/386 ownership checks likewise do not provide SCTP I/O support on 386.
 
 [Apache License 2.0](LICENSE). See [release notes](releases/0.7.1.md) for the
 Go 1.26 migration and recent reliability fixes.
+
+## Context-aware establishment
+
+`ResolveSCTPAddrContext` uses the Go resolver and returns owned addresses. Pass the
+same context to `SocketConfig.DialContext` to cover resolution and establishment
+with one total budget. The new dial rejects `Control` before socket creation and
+checks cancellation before connection handoff; cancelling afterward does not
+close the returned connection. Existing resolve/dial APIs remain unchanged.
+These calls still use legacy receive mode; see [scope and examples](docs/diameterkit-u3-context.md).
+
+### Explicit message I/O candidate (diameterkit batch 60)
+
+`SocketConfig.Messages` opts into immutable SNDRCV message mode with
+`ReadEvent`, `WriteMsgContext`, `MessageIORequirements` and `GetMessageOptions`.
+It cannot be combined with legacy I/O or notification callbacks. See the
+[message-mode contract and validation boundary](docs/diameterkit-u2-message.md).
+Use keyed `SocketConfig` literals when migrating. This local incremental candidate
+is not a released API or the independent v1 rewrite; typed U4 notifications,
+platform/release gates and diameterkit integration remain pending.
+
+### Typed notification candidate (diameterkit batch 61)
+
+`ParseNotification` decodes the five selected Linux notification families into
+owned fixed fields and an explicitly borrowed tail. Unknown notification types
+remain raw, and the newer SEND_FAILED_EVENT is not mistaken for old SEND_FAILED.
+See [typed notifications and native validation](docs/diameterkit-u4-notifications.md).
+All five families and the large-notification retry path have local kernel tests;
+U5 budget/platform/publication and diameterkit integration remain separate gates.
+
+### U5 integration candidate (diameterkit batch 62)
+
+The [resource ledger and release gates](docs/diameterkit-u5-resources.md) define
+bounded-reader/writer accounting, simultaneous setup/connection slots, native
+ABI/lifecycle checks and the limits of the8192-byte logical fixed reserve.
+It is not an RSS cap. New APIs are covered by downstream compile checks and the
+notification parser joins the existing release fuzz gate. An offline install
+proof is not an upstream release or completed native CI matrix.
+
+### Bounded setup and listener cancellation
+
+Use `SetupConfig` with explicit `AddressLimits`, `NewDialer`/`DialContext` and
+`ListenContext` for owned, bounded setup with one context budget. Listeners expose
+`AcceptSCTPContext`, `SetDeadline` and owned `BoundAddr`; existing connections expose
+`SetSocketTimeouts` for SOL_SOCKET timeout cleanup without raw syscalls.
+`SetupRequirements` supplies a versioned resource ledger, superseding the historical
+8192 integration constant. Message mode validates cross-fragment continuity and
+negotiated directional stream counts; `ReadResult.EndOfRecord()` exposes EOR.
+See [contracts, ledger and migration](docs/bounded-setup.md), the
+[standalone consumer](docs/examples/bounded-consumer/main.go.txt), and
+[candidate provenance and actual validation](docs/bounded-setup-delivery.md).
