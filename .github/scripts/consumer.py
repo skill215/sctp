@@ -12,6 +12,7 @@ import (
  "context"
  "errors"
  "syscall"
+ "time"
  "github.com/skill215/sctp"
 )
 var _ syscall.Conn = (*sctp.SCTPConn)(nil)
@@ -20,6 +21,15 @@ func main() {
  _ = errors.Is(nil, sctp.ErrUnsupported)
  m := sctp.MessageOptions{ReceiveInfo:sctp.ReceiveInfoSNDRCV, AllowFragmentation:true}
  _, _ = sctp.MessageIORequirements(m)
+ cfg := sctp.SetupConfig{Socket:sctp.SocketConfig{Messages:&m},Limits:sctp.AddressLimits{MaxAddresses:16,MaxZoneBytes:256,MaxAddressBytes:4096}}
+ _, _ = sctp.SetupRequirements(cfg)
+ _, _ = sctp.NewDialer("sctp4","","127.0.0.1:9",cfg)
+ var _ func(context.Context,string,string,sctp.SetupConfig)(*sctp.SCTPListener,error) = sctp.ListenContext
+ var _ func(context.Context)(*sctp.SCTPConn,error) = (*sctp.SCTPListener)(nil).AcceptSCTPContext
+ var _ func(time.Time)error = (*sctp.SCTPListener)(nil).SetDeadline
+ var _ func()(*sctp.SCTPAddr,error) = (*sctp.SCTPListener)(nil).BoundAddr
+ var _ func(time.Duration,time.Duration)error = (*sctp.SCTPConn)(nil).SetSocketTimeouts
+ _ = (sctp.ReadResult{}).EndOfRecord()
  _, _ = sctp.ParseNotification(nil)
  var _ func(context.Context, []byte, []byte, []byte) (sctp.ReadResult,error) = (*sctp.SCTPConn)(nil).ReadEvent
  var _ func(context.Context, []byte, sctp.SndInfo) (int,error) = (*sctp.SCTPConn)(nil).WriteMsgContext

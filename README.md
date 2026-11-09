@@ -45,6 +45,10 @@ The [library scope](docs/library-scope.md) defines this repository's
 responsibilities and release acceptance. Application services and their
 dependency upgrades are maintained separately.
 
+The [v1.0 redesign proposal](docs/v1-design.md) (中文) describes a future
+replacement API and implementation. It is a design draft, not functionality
+available in the current release.
+
 ## Quick start
 
 The following server echoes the payload and its stream/PPID metadata. Create a
@@ -403,3 +407,16 @@ ABI/lifecycle checks and the limits of the8192-byte logical fixed reserve.
 It is not an RSS cap. New APIs are covered by downstream compile checks and the
 notification parser joins the existing release fuzz gate. An offline install
 proof is not an upstream release or completed native CI matrix.
+
+### Bounded setup and listener cancellation
+
+Use `SetupConfig` with explicit `AddressLimits`, `NewDialer`/`DialContext` and
+`ListenContext` for owned, bounded setup with one context budget. Listeners expose
+`AcceptSCTPContext`, `SetDeadline` and owned `BoundAddr`; existing connections expose
+`SetSocketTimeouts` for SOL_SOCKET timeout cleanup without raw syscalls.
+`SetupRequirements` supplies a versioned resource ledger, superseding the historical
+8192 integration constant. Message mode validates cross-fragment continuity and
+negotiated directional stream counts; `ReadResult.EndOfRecord()` exposes EOR.
+See [contracts, ledger and migration](docs/bounded-setup.md), the
+[standalone consumer](docs/examples/bounded-consumer/main.go.txt), and
+[candidate provenance and actual validation](docs/bounded-setup-delivery.md).

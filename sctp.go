@@ -461,16 +461,19 @@ func SCTPBind(fd int, addr *SCTPAddr, flags int) error {
 }
 
 type SCTPConn struct {
-	messages            *MessageOptions
-	messageAssoc        int32
-	messageReadErr      error // protected by the read direction gate
-	_fd                 atomic.Int32
-	file                *os.File
-	io                  *socketIO
-	initErr             error
-	eventsMu            sync.Mutex
-	singleAssociation   bool // immutable after construction; includes library peeloffs
-	notificationHandler NotificationHandler
+	messages              *MessageOptions
+	messageAssoc          int32
+	messageIn, messageOut uint16        // immutable negotiated snapshot, valid until restart
+	messageCursor         messageCursor // read gate protects it
+	messageRestart        atomic.Bool
+	messageReadErr        error // protected by the read direction gate
+	_fd                   atomic.Int32
+	file                  *os.File
+	io                    *socketIO
+	initErr               error
+	eventsMu              sync.Mutex
+	singleAssociation     bool // immutable after construction; includes library peeloffs
+	notificationHandler   NotificationHandler
 }
 
 // socketIO serializes each polling direction so an operation's temporary
@@ -946,6 +949,8 @@ func (c *SCTPConn) SetWriteDeadline(t time.Time) error {
 }
 
 type SCTPListener struct {
+	bound               *SCTPAddr // immutable explicit bind snapshot; nil for imported sockets
+	zeroTimeouts        bool      // bounded facade: accepted sockets must retain S=0
 	messages            *MessageOptions
 	fd                  int
 	file                *os.File

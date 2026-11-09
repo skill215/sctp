@@ -128,6 +128,10 @@ func finishMessageConn(c *SCTPConn, m *MessageOptions) error {
 	if e != nil {
 		return e
 	}
+	if status.Instreams == 0 || status.Ostreams == 0 {
+		return ErrInvalidConfig
+	}
+	c.messageIn, c.messageOut = status.Instreams, status.Ostreams
 	c.messages = m
 	c.messageAssoc = int32(status.AssocID)
 	return nil

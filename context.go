@@ -98,7 +98,7 @@ func resolveSCTPAddrContext(ctx context.Context, network, addrs string, resolver
 				return nil, &net.AddrError{Err: "no suitable address", Addr: host}
 			}
 			v := values[selected]
-			result.IPAddrs = append(result.IPAddrs, net.IPAddr{IP: append(net.IP(nil), v.IP.To16()...), Zone: v.Zone})
+			result.IPAddrs = append(result.IPAddrs, net.IPAddr{IP: append(net.IP(nil), v.IP.To16()...), Zone: strings.Clone(v.Zone)})
 		}
 	}
 	if e = contextError(ctx); e != nil {

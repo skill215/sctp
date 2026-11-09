@@ -158,12 +158,22 @@ func (c *SCTPConn) readEvent(ctx context.Context, data, notification, oob []byte
 		}
 		if err != nil {
 			actual = err
+			if c.messageCursor.active {
+				result.CloseRequired = true
+				actual = errors.Join(actual, ErrMessageBoundary)
+				c.messageReadErr = actual
+			}
 			return true
 		}
 		notify := flags&MSG_NOTIFICATION != 0
 		if n == 0 && !notify && flags&syscall.MSG_EOR == 0 && flags&syscall.MSG_CTRUNC == 0 {
 			result.Kind = ReadEOF
 			actual = io.EOF
+			if e := c.advanceMessage(result); e != nil {
+				result.CloseRequired = true
+				actual = errors.Join(actual, e)
+				c.messageReadErr = actual
+			}
 			return true
 		}
 		var declared uint32
@@ -196,12 +206,41 @@ func (c *SCTPConn) readEvent(ctx context.Context, data, notification, oob []byte
 			return false
 		}
 		result, actual = messageReceived(notify, declared, target, oob, n, on, flags, err)
+		// A terminal consume failure can follow a successful peek without new
+		// bytes. Earlier fragments still lost their boundary; do not let the
+		// zero-progress result leave that unfinished message readable.
+		if actual != nil && c.messageCursor.active && !result.CloseRequired {
+			result.CloseRequired = true
+			actual = errors.Join(actual, ErrMessageBoundary)
+		}
 		if notify && n >= 8 && n <= len(target) && nativeEndian.Uint32(peek[:4]) != nativeEndian.Uint32(target[:4]) {
 			result.CloseRequired = true
 			actual = errors.Join(actual, ErrMessageBoundary)
 		}
+		if !result.CloseRequired {
+			if e := c.advanceMessage(result); e != nil {
+				result.CloseRequired = true
+				actual = errors.Join(actual, e)
+			}
+		}
+		// A restart ends the lifetime of the establishment stream snapshot. Preserve
+		// the raw notification so callers can still decode all restart facts.
+		if notify && result.Consumed && result.N >= 20 && nativeEndian.Uint16(target) == uint16(SCTP_ASSOC_CHANGE) && nativeEndian.Uint16(target[8:]) == uint16(SCTP_RESTART) {
+			c.messageRestart.Store(true)
+			result.CloseRequired = true
+			actual = errors.Join(actual, ErrAssociationChanged)
+		}
+		// Keep the notification a successful raw event, but an explicitly
+		// aborted partial delivery cannot be resumed as the next message.
+		// In particular, unordered SSN is not a substitute message identity.
+		if notify && result.Consumed && result.N == 24 && c.messageCursor.active && nativeEndian.Uint16(target) == uint16(SCTP_PARTIAL_DELIVERY_EVENT) && nativeEndian.Uint32(target[8:]) == PartialDeliveryAborted {
+			result.CloseRequired = true
+		}
 		if result.CloseRequired {
 			c.messageReadErr = actual
+			if c.messageReadErr == nil {
+				c.messageReadErr = ErrMessageBoundary
+			}
 		}
 		return true
 	})
@@ -258,7 +297,10 @@ func (c *SCTPConn) writeMsgContext(ctx context.Context, p []byte, info SndInfo, 
 	if e := contextError(ctx); e != nil {
 		return 0, e
 	}
-	if len(p) == 0 || info.Flags & ^uint16(SCTP_UNORDERED) != 0 || info.AssocID != 0 && info.AssocID != c.messageAssoc {
+	if c.messageRestart.Load() {
+		return 0, ErrAssociationChanged
+	}
+	if len(p) == 0 || info.SID >= c.messageOut || info.Flags & ^uint16(SCTP_UNORDERED) != 0 || info.AssocID != 0 && info.AssocID != c.messageAssoc {
 		return 0, ErrInvalidConfig
 	}
 	owner, e := c.socketRaw()
@@ -274,6 +316,10 @@ func (c *SCTPConn) writeMsgContext(ctx context.Context, p []byte, info SndInfo, 
 	var n int
 	var actual error
 	e = owner.pollContext(ctx, false, timeout, func(fd uintptr) bool {
+		if c.messageRestart.Load() {
+			actual = ErrAssociationChanged
+			return true
+		}
 		n, actual = send(int(fd), p, oob, nil, 0)
 		return n > 0 || actual != syscall.EAGAIN && actual != syscall.EINTR
 	})

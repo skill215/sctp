@@ -76,3 +76,42 @@ func copyMessageConfig(cfg *SocketConfig) (*MessageOptions, error) {
 	}
 	return &m, nil
 }
+
+// ErrAssociationChanged means a received restart invalidated the negotiated
+// stream snapshot. The notification's raw bytes/flags remain available; close
+// this connection generation. Dynamic stream reset/expansion is not supported.
+var ErrAssociationChanged = errors.New("SCTP association restarted; close required")
+
+// EndOfRecord reports the native EOR flag portably; RecvFlags remains available.
+// It is evidence about this receive record, not application frame completeness.
+func (r ReadResult) EndOfRecord() bool { return r.RecvFlags&0x80 != 0 }
+
+type messageCursor struct {
+	info   SndRcvInfo
+	active bool
+}
+
+// advance runs only under the read gate. Notifications and unconsumed
+// cancellation leave the cursor untouched. No payload or caller buffers survive.
+func (c *SCTPConn) advanceMessage(r ReadResult) error {
+	if r.Kind == ReadEOF && c.messageCursor.active {
+		return ErrMessageBoundary
+	}
+	if r.Kind != ReadData || !r.Consumed {
+		return nil
+	}
+	i := r.Info
+	if !r.InfoPresent || i.AssocID != c.messageAssoc || i.Stream >= c.messageIn {
+		return ErrMessageBoundary
+	}
+	old := c.messageCursor.info
+	if c.messageCursor.active && (i.AssocID != old.AssocID || i.Stream != old.Stream || i.PPID != old.PPID || i.Flags&SCTP_UNORDERED != old.Flags&SCTP_UNORDERED || i.Flags&SCTP_UNORDERED == 0 && i.SSN != old.SSN) {
+		return ErrMessageBoundary
+	}
+	if r.EndOfRecord() {
+		c.messageCursor = messageCursor{}
+	} else {
+		c.messageCursor = messageCursor{info: i, active: true}
+	}
+	return nil
+}

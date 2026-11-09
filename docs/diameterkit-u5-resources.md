@@ -107,3 +107,11 @@ Remaining external gates are explicit: exact-candidate upstream review/commit
 and release pipeline, native matrix results (including required IPv6 namespace
 cases), then diameterkit SCTP adapter budget/admission/Peer integration and DRA
 acceptance. No new notification families or protocol design rounds are required.
+
+## Superseding machine-readable ledger
+
+The above is the historical batch62 accounting. The A–E bounded-setup candidate
+now exports `SetupRequirements`; its `bounded-setup-v2/linux/<arch>` ledger includes
+new listener/continuity state and audited construction peaks. Consumers must query
+it instead of copying the old8192 or address formula. See [the current ledger and
+concurrency assumptions](bounded-setup.md) and [candidate evidence](bounded-setup-delivery.md).

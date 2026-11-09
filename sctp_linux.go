@@ -18,6 +18,8 @@
 package sctp
 
 import (
+	"context"
+	"errors"
 	"io"
 	"net"
 	"os"
@@ -315,6 +317,13 @@ func ListenSCTPExt(network string, laddr *SCTPAddr, options InitMsg) (*SCTPListe
 
 // listenSCTPExtConfig - start listener on specified address/port with given SCTP options and socket configuration
 func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network, address string, c syscall.RawConn) error, notificationHandler NotificationHandler, messages ...*MessageOptions) (*SCTPListener, error) {
+	return listenSCTPContextConfig(context.Background(), false, network, laddr, options, control, notificationHandler, messages...)
+}
+
+func listenSCTPContextConfig(ctx context.Context, bounded bool, network string, laddr *SCTPAddr, options InitMsg, control func(string, string, syscall.RawConn) error, notificationHandler NotificationHandler, messages ...*MessageOptions) (*SCTPListener, error) {
+	if e := contextError(ctx); e != nil {
+		return nil, e
+	}
 	var m *MessageOptions
 	if len(messages) > 0 {
 		m = messages[0]
@@ -349,8 +358,16 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			io.Close()
 		}
 	}()
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	if err = setDefaultSockopts(sock, af, ipv6only); err != nil {
 		return nil, err
+	}
+	if bounded && af == syscall.AF_INET6 {
+		if err = syscall.SetsockoptInt(sock, syscall.IPPROTO_IPV6, syscall.IPV6_V6ONLY, boolint(ipv6only)); err != nil {
+			return nil, err
+		}
 	}
 	if control != nil {
 		rc := io
@@ -362,6 +379,9 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			return nil, err
 		}
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	err = setInitOpts(sock, options)
 	if err != nil {
 		return nil, err
@@ -371,6 +391,9 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 		if err = configureMessageFD(sock, *m); err != nil {
 			return nil, err
 		}
+	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
 	}
 	if laddr != nil {
 		// If IP address and/or port was not provided so far, let's use the unspecified IPv4 or IPv6 address
@@ -386,11 +409,30 @@ func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, contr
 			return nil, err
 		}
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	err = syscall.Listen(sock, syscall.SOMAXCONN)
 	if err != nil {
 		return nil, err
 	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
+	if m != nil {
+		if err = verifyMessageFD(sock, *m); err != nil {
+			return nil, err
+		}
+	}
+	bound, err := boundAddrFD(sock, laddr)
+	if err != nil {
+		return nil, err
+	}
+	if err = contextError(ctx); err != nil {
+		return nil, err
+	}
 	return &SCTPListener{
+			bound:               bound,
 			messages:            m,
 			fd:                  sock,
 			file:                file,
@@ -439,37 +481,11 @@ func FileListener(file *os.File) (*SCTPListener, error) {
 
 // AcceptSCTP waits for and returns the next SCTP connection to the listener.
 func (ln *SCTPListener) AcceptSCTP() (*SCTPConn, error) {
-	raw, err := ln.SyscallConn()
-	if err != nil {
-		return nil, err
+	conn, err := ln.AcceptSCTPContext(context.Background())
+	if errors.Is(err, ErrSocketTimeout) {
+		err = syscall.EAGAIN
 	}
-	var fd int
-	var acceptErr error
-	err = raw.Read(func(listenFD uintptr) bool {
-		for {
-			fd, _, acceptErr = syscall.Accept4(int(listenFD), syscall.SOCK_CLOEXEC|syscall.SOCK_NONBLOCK)
-			if acceptErr != syscall.EINTR {
-				return acceptErr != syscall.EAGAIN
-			}
-		}
-	})
-	if err != nil {
-		return nil, err
-	}
-	if acceptErr != nil {
-		return nil, acceptErr
-	}
-	conn := NewSCTPConn(fd, ln.notificationHandler)
-	conn.singleAssociation = true
-	if conn.initErr != nil {
-		conn.Close()
-		return nil, conn.initErr
-	}
-	if err := finishMessageConn(conn, ln.messages); err != nil {
-		conn.Close()
-		return nil, err
-	}
-	return conn, nil
+	return conn, err
 }
 
 // Accept waits for and returns the next connection connection to the listener.
