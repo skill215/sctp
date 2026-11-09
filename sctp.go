@@ -16,6 +16,7 @@
 package sctp
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"math/bits"
@@ -460,6 +461,9 @@ func SCTPBind(fd int, addr *SCTPAddr, flags int) error {
 }
 
 type SCTPConn struct {
+	messages            *MessageOptions
+	messageAssoc        int32
+	messageReadErr      error // protected by the read direction gate
 	_fd                 atomic.Int32
 	file                *os.File
 	io                  *socketIO
@@ -472,11 +476,14 @@ type SCTPConn struct {
 // socketIO serializes each polling direction so an operation's temporary
 // socket timeout cannot change another operation's poll deadline.
 type socketIO struct {
-	file      *os.File
-	readGate  chan struct{}
-	writeGate chan struct{}
-	closing   chan struct{}
-	closeOnce sync.Once
+	file                        *os.File
+	readGate                    chan struct{}
+	writeGate                   chan struct{}
+	closing                     chan struct{}
+	closeOnce                   sync.Once
+	deadlineMu                  sync.Mutex
+	readDeadline, writeDeadline socketDirection
+	deadlineErr                 error
 }
 
 func (c *SCTPConn) fd() int {
@@ -554,6 +561,9 @@ func (c *SCTPConn) SetInitMsg(numOstreams, maxInstreams, maxAttempts, maxInitTim
 }
 
 func (c *SCTPConn) SubscribeEvents(flags int) error {
+	if c != nil && c.messages != nil {
+		return ErrIOMode
+	}
 	if c == nil {
 		return syscall.EBADF
 	}
@@ -621,6 +631,9 @@ func (c *SCTPConn) SubscribedEvents() (int, error) {
 }
 
 func (c *SCTPConn) enableDataIO() error {
+	if c != nil && c.messages != nil {
+		return ErrIOMode
+	}
 	if c == nil {
 		return syscall.EBADF
 	}
@@ -675,6 +688,9 @@ func (c *SCTPConn) subscribedEvents() (int, error) {
 }
 
 func (c *SCTPConn) SetDefaultSentParam(info *SndRcvInfo) error {
+	if c != nil && c.messages != nil {
+		return ErrIOMode
+	}
 	if info == nil {
 		return syscall.EINVAL
 	}
@@ -739,6 +755,9 @@ func (c *SCTPConn) Getsockopt(optname, optval, optlen uintptr) (r0, r1 uintptr, 
 
 //go:uintptrescapes
 func (c *SCTPConn) Setsockopt(optname, optval, optlen uintptr) (uintptr, uintptr, error) {
+	if c != nil && c.messages != nil {
+		return 0, 0, ErrIOMode
+	}
 	return c.setsockopt(optname, optval, optlen)
 }
 
@@ -890,6 +909,9 @@ func (c *SCTPConn) RemoteAddr() net.Addr {
 // PeelOff transfers an association to a separately owned connection.
 // Association IDs outside the signed 32-bit Linux ABI return EINVAL.
 func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
+	if c != nil && c.messages != nil {
+		return nil, ErrIOMode
+	}
 	var peeledFD int
 	err := c.withFD(func(fd int) error {
 		if err := validateAssociationID(id); err != nil {
@@ -912,18 +934,19 @@ func (c *SCTPConn) PeelOff(id int) (*SCTPConn, error) {
 }
 
 func (c *SCTPConn) SetDeadline(t time.Time) error {
-	return syscall.EOPNOTSUPP
+	return c.setPublicDeadline(true, true, t)
 }
 
 func (c *SCTPConn) SetReadDeadline(t time.Time) error {
-	return syscall.EOPNOTSUPP
+	return c.setPublicDeadline(true, false, t)
 }
 
 func (c *SCTPConn) SetWriteDeadline(t time.Time) error {
-	return syscall.EOPNOTSUPP
+	return c.setPublicDeadline(false, true, t)
 }
 
 type SCTPListener struct {
+	messages            *MessageOptions
 	fd                  int
 	file                *os.File
 	io                  *socketIO
@@ -1039,6 +1062,9 @@ func (c *SCTPSndRcvInfoWrappedConn) GetReadBuffer() (int, error) {
 
 // SocketConfig contains options for the SCTP socket.
 type SocketConfig struct {
+	// Messages selects immutable message I/O; nil preserves legacy stream I/O.
+	// It is copied before socket creation and cannot coexist with callbacks.
+	Messages *MessageOptions
 	// If Control is not nil it is called after the socket is created but before
 	// it is bound or connected.
 	Control func(network, address string, c syscall.RawConn) error
@@ -1049,9 +1075,19 @@ type SocketConfig struct {
 }
 
 func (cfg *SocketConfig) Listen(net string, laddr *SCTPAddr) (*SCTPListener, error) {
-	return listenSCTPExtConfig(net, laddr, cfg.InitMsg, cfg.Control, cfg.NotificationHandler)
+	m, err := copyMessageConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return listenSCTPExtConfig(net, laddr, cfg.InitMsg, cfg.Control, cfg.NotificationHandler, m)
 }
 
 func (cfg *SocketConfig) Dial(net string, laddr, raddr *SCTPAddr) (*SCTPConn, error) {
+	if cfg == nil {
+		return nil, ErrInvalidConfig
+	}
+	if cfg.Messages != nil {
+		return cfg.DialContext(context.Background(), net, laddr, raddr)
+	}
 	return dialSCTPExtConfig(net, laddr, raddr, cfg.InitMsg, cfg.Control, cfg.NotificationHandler)
 }

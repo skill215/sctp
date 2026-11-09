@@ -3,8 +3,8 @@
 package sctp
 
 import (
+	"context"
 	"errors"
-	"net"
 	"os"
 	"syscall"
 	"time"
@@ -43,10 +43,11 @@ func socketTimeout(fd, option int) (time.Duration, error) {
 }
 
 func (s *socketIO) Control(f func(uintptr)) error {
-	select {
-	case <-s.closing:
-		return net.ErrClosed
-	default:
+	s.deadlineMu.Lock()
+	closed := s.closedLocked()
+	s.deadlineMu.Unlock()
+	if closed != nil {
+		return closed
 	}
 	raw, err := s.file.SyscallConn()
 	if err != nil {
@@ -57,33 +58,6 @@ func (s *socketIO) Control(f func(uintptr)) error {
 
 func (s *socketIO) Read(f func(uintptr) bool) error  { return s.poll(true, f) }
 func (s *socketIO) Write(f func(uintptr) bool) error { return s.poll(false, f) }
-
-func (s *socketIO) acquire(gate chan struct{}, deadline time.Time) error {
-	select {
-	case <-s.closing:
-		return net.ErrClosed
-	default:
-	}
-	select {
-	case gate <- struct{}{}:
-		return nil
-	default:
-	}
-	var expired <-chan time.Time
-	if !deadline.IsZero() {
-		timer := time.NewTimer(time.Until(deadline))
-		defer timer.Stop()
-		expired = timer.C
-	}
-	select {
-	case gate <- struct{}{}:
-		return nil
-	case <-s.closing:
-		return net.ErrClosed
-	case <-expired:
-		return syscall.EAGAIN
-	}
-}
 
 func (s *socketIO) poll(read bool, f func(uintptr) bool) error {
 	deadline, err := s.deadline(read)
@@ -96,6 +70,7 @@ func (s *socketIO) poll(read bool, f func(uintptr) bool) error {
 // deadline snapshots the socket timeout once for a whole public operation.
 // A read that consumes notifications reuses it for every readiness wait.
 func (s *socketIO) deadline(read bool) (time.Time, error) {
+	started := time.Now()
 	option := syscall.SO_SNDTIMEO
 	if read {
 		option = syscall.SO_RCVTIMEO
@@ -109,48 +84,21 @@ func (s *socketIO) deadline(read bool) (time.Time, error) {
 		return time.Time{}, optionErr
 	}
 	if timeout > 0 {
-		return time.Now().Add(timeout), nil
+		return started.Add(timeout), nil
 	}
 	return time.Time{}, nil
 }
 
 func (s *socketIO) pollDeadline(read bool, deadline time.Time, f func(uintptr) bool) error {
-	gate := s.writeGate
-	setDeadline := s.file.SetWriteDeadline
-	if read {
-		gate, setDeadline = s.readGate, s.file.SetReadDeadline
-	}
-	if err := s.acquire(gate, deadline); err != nil {
-		return err
-	}
-	defer func() { <-gate }()
-	if !deadline.IsZero() {
-		if time.Until(deadline) <= 0 {
-			return syscall.EAGAIN
-		}
-		if err := setDeadline(deadline); err != nil {
-			return err
-		}
-		// Clear the per-operation deadline before another reader/writer enters.
-		defer setDeadline(time.Time{})
-	}
-	raw, err := s.file.SyscallConn()
-	if err != nil {
-		return err
-	}
-	if read {
-		err = raw.Read(f)
-	} else {
-		err = raw.Write(f)
-	}
-	if !deadline.IsZero() && errors.Is(err, os.ErrDeadlineExceeded) {
+	err := s.pollContext(context.Background(), read, deadline, f)
+	if errors.Is(err, ErrSocketTimeout) {
 		return syscall.EAGAIN
 	}
 	return err
 }
-
 func (s *socketIO) Close() error {
-	// Also release operations queued at a direction gate, outside the poller.
+	s.deadlineMu.Lock()
 	s.closeOnce.Do(func() { close(s.closing) })
+	s.deadlineMu.Unlock()
 	return s.file.Close()
 }

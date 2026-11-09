@@ -91,7 +91,7 @@ func ListenSCTPExt(net string, laddr *SCTPAddr, options InitMsg) (*SCTPListener,
 	return nil, ErrUnsupported
 }
 
-func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network string, address string, c syscall.RawConn) error, handler NotificationHandler) (*SCTPListener, error) {
+func listenSCTPExtConfig(network string, laddr *SCTPAddr, options InitMsg, control func(network string, address string, c syscall.RawConn) error, handler NotificationHandler, messages ...*MessageOptions) (*SCTPListener, error) {
 	return nil, ErrUnsupported
 }
 
