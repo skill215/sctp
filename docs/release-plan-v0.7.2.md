@@ -1,93 +1,93 @@
-# SCTP v0.7.2 发布目标
+# SCTP v0.7.2 Release Goals
 
-制定日期：2026-10-30。设计更新：2026-10-31。实现基线：0.7.1，提交 e864ee06b6c5b0c77661c4715814a75576c23237；实施起点 master 70b338a 的库实现与其相同。
+Prepared: 2026-10-30. Design updated: 2026-10-31. Implementation baseline: 0.7.1, commit e864ee06b6c5b0c77661c4715814a75576c23237; the implementation at starting master 70b338a is identical.
 
-**状态：2026-10-31 已发布 [v0.7.2](https://github.com/skill215/sctp/releases/tag/v0.7.2)，全部门禁通过。** v0.7.2 修复14条经复现及根因隔离确认的缺陷/输入校验缺口，并已实现 #13 的 P3 非阻塞接口一致性改进。Go 最低要求保持1.26，保留公开函数签名、32字节 wrapper 头格式及旧标签指向。
+**Status: [v0.7.2](https://github.com/skill215/sctp/releases/tag/v0.7.2) was published on 2026-10-31 after all gates passed.** v0.7.2 fixes 14 defects/input-validation gaps confirmed through reproduction and root-cause isolation, and implements the P3 non-blocking API consistency improvement in #13. It retains Go 1.26 as the minimum, public function signatures, the 32-byte wrapper header format, and existing tag targets.
 
-完整方案位于 OpenSpec change **fix-v0-7-2-stability**：
+The complete plan is in OpenSpec change **fix-v0-7-2-stability**:
 
-- [提案](../openspec/changes/fix-v0-7-2-stability/proposal.md)：范围、兼容性与影响。
-- [技术设计](../openspec/changes/fix-v0-7-2-stability/design.md)：内核判据、空载荷、地址预算、平台清理和取舍。
-- [实施清单](../openspec/changes/fix-v0-7-2-stability/tasks.md)：按依赖顺序执行的待办。
-- [行为规格](../openspec/changes/fix-v0-7-2-stability/specs/)：六个能力域的可验证场景。
+- [Proposal](../openspec/changes/fix-v0-7-2-stability/proposal.md): scope, compatibility, and impact.
+- [Technical design](../openspec/changes/fix-v0-7-2-stability/design.md): kernel criteria, empty payloads, address budgets, platform cleanup, and trade-offs.
+- [Implementation checklist](../openspec/changes/fix-v0-7-2-stability/tasks.md): tasks in dependency order.
+- [Behavior specifications](../openspec/changes/fix-v0-7-2-stability/specs/): verifiable scenarios for six capability areas.
 
-公开进度及原始复现统一见 [GitHub #3](https://github.com/skill215/sctp/issues/3)。用户已授权实施与发布；只有全部必需验证通过后才创建 v0.7.2 标签并发布。
+Public progress and original reproductions are tracked in [GitHub #3](https://github.com/skill215/sctp/issues/3). The user authorized implementation and publication; v0.7.2 may be tagged and published only after all required validation passes.
 
-## 当前平台支持范围（2026-10-31）
+## Current platform support (2026-10-31)
 
-本库仅支持启用内核 SCTP 的 Linux；Linux/386 仍不支持 SCTP I/O。Windows、macOS、BSD、Solaris/illumos 等非 Linux 平台不在支持范围内，不承诺其编译、测试或运行兼容性。
+The library supports only Linux with kernel SCTP enabled. Linux/386 does not support SCTP I/O. Non-Linux platforms, including Windows, macOS, BSD, and Solaris/illumos, are outside the support scope; compilation, testing, and runtime compatibility are not guaranteed.
 
-下文保留 v0.7.2 实际执行的跨平台编译、stub 和资源清理验证记录。这些检查不扩展平台支持范围；非 Linux 上可复现的测试编译问题属于支持范围外的兼容性问题，不作为 Linux SCTP 运行回归或当前发布阻塞项。架构与验证边界见 [平台说明](comparison.md#go-版本与平台约束)。
+The records below retain the cross-platform compilation, stub, and resource-cleanup checks actually performed for v0.7.2. They do not expand platform support. Reproducible test-compilation issues on non-Linux targets are compatibility issues outside the support scope, not Linux SCTP runtime regressions or current release blockers. See [platform details](comparison.md#go-version-and-platform-constraints) for architecture and validation boundaries.
 
-## 缺陷与修复边界
+## Defects and fix boundaries
 
-| Issue | 范围 | 设计选择 |
+| Issue | Scope | Design choice |
 | --- | --- | --- |
-| [#1](https://github.com/skill215/sctp/issues/1) | P1，0.5起的接收回归 | 接收先交付数据，仅在EAGAIN后于明确单关联范围查询合法SCTP_STATUS；无关联返回ENOTCONN，空闲及一对多继续等待。保留poller和同一超时预算。 |
-| [#2](https://github.com/skill215/sctp/issues/2) | P2，共享地址race | 地址与IP存储复制后内部补齐通配值，不修改调用方或别名切片。 |
-| [#4](https://github.com/skill215/sctp/issues/4) | P1，空接收丢数据 | 活跃连接空Read/SCTPRead为零计数无操作；wrapper缓冲区不超过32返回0、EINVAL，不接收数据。 |
-| [#5](https://github.com/skill215/sctp/issues/5) | P1，空发送注入字节 | 所有空payload走真实零载荷sendmsg，保留显式/默认控制参数和内核错误。普通空消息被拒绝时不注入字节、不虚报wrapper头消费。 |
-| [#6](https://github.com/skill215/sctp/issues/6) | P2，EOF常量 | 显式EOF=0x200，与零载荷控制发送配套验收。 |
-| [#7](https://github.com/skill215/sctp/issues/7) | P2，结构化端口校验 | 内核操作前拒绝负数或大于65535的端口，保留本地端口0。 |
-| [#8](https://github.com/skill215/sctp/issues/8) | P2，订阅覆盖 | 在配置锁内合并old掩码与DATA_IO；无error构造器保存初始化错误并由I/O返回。 |
-| [#9](https://github.com/skill215/sctp/issues/9) | P2，无metadata头残留 | 返回帧的头完整初始化；metadata缺失时全零，保留原通知载荷。 |
-| [#10](https://github.com/skill215/sctp/issues/10) | P2，缺失远端参数 | 高层Dial在创建socket/执行Control之前返回地址错误，不panic。 |
-| [#11](https://github.com/skill215/sctp/issues/11) | P2，不完整多地址 | 拒绝多地址空host，不清空显式前缀；保留单段合法通配形式。 |
-| [#12](https://github.com/skill215/sctp/issues/12) | P1，wrapper非法计数 | 消除负数与虚报头部，保留有效部分数据及错误，io.ReadAll不panic。 |
-| [#14](https://github.com/skill215/sctp/issues/14) | P2，地址查询容量 | 地址区从4KiB按ENOMEM增长至明确1MiB预算；仅成功后解码完整列表，保留local/peer长度ABI差异。 |
-| [#15](https://github.com/skill215/sctp/issues/15) | P2，跨平台API | ErrUnsupported共同导出，unsupported Listener补齐SyscallConn。 |
-| [#16](https://github.com/skill215/sctp/issues/16) | P2，unsupported fd清理 | 构造失败时使用平台正确socket关闭原语立即释放接管的fd，覆盖0和句柄宽度，不重复关闭复用数字。 |
-| [#13](https://github.com/skill215/sctp/issues/13) | P3，非阻塞改进 | 已规范Accept错误返回nil接口；保留P3非阻塞分类。 |
+| [#1](https://github.com/skill215/sctp/issues/1) | P1, receive regression since 0.5 | Deliver data first; only after EAGAIN, query SCTP_STATUS with a valid ABI in a known single-association scope. Return ENOTCONN when the association is absent; idle and one-to-many endpoints continue waiting. Preserve the poller and original timeout budget. |
+| [#2](https://github.com/skill215/sctp/issues/2) | P2, shared-address race | Copy addresses and IP storage before filling internal wildcard values; never mutate caller or aliased slices. |
+| [#4](https://github.com/skill215/sctp/issues/4) | P1, empty receive loses data | Empty Read/SCTPRead on a live connection is a zero-count no-op. Wrapper buffers of at most 32 bytes return 0, EINVAL without receiving data. |
+| [#5](https://github.com/skill215/sctp/issues/5) | P1, empty send injects a byte | All empty payloads use a real zero-payload sendmsg, retaining explicit/default controls and kernel errors. Rejected ordinary empty messages inject no byte and report no wrapper-header consumption. |
+| [#6](https://github.com/skill215/sctp/issues/6) | P2, EOF constant | Define EOF=0x200 explicitly and validate it together with zero-payload control sends. |
+| [#7](https://github.com/skill215/sctp/issues/7) | P2, structured port validation | Reject negative ports and ports above 65535 before kernel operations; retain local port 0. |
+| [#8](https://github.com/skill215/sctp/issues/8) | P2, subscription overwrite | Merge the old mask with DATA_IO under a configuration lock. Constructors without an error return retain initialization errors for subsequent I/O. |
+| [#9](https://github.com/skill215/sctp/issues/9) | P2, stale header without metadata | Initialize the complete returned frame header; zero it when metadata is absent and preserve the original notification payload. |
+| [#10](https://github.com/skill215/sctp/issues/10) | P2, missing remote argument | High-level Dial returns an address error before socket creation/Control instead of panicking. |
+| [#11](https://github.com/skill215/sctp/issues/11) | P2, incomplete multi-address input | Reject empty hosts in multi-address input without discarding explicit prefixes; retain valid single-segment wildcards. |
+| [#12](https://github.com/skill215/sctp/issues/12) | P1, invalid wrapper counts | Eliminate negative counts and fictitious headers, retain valid partial data with errors, and prevent io.ReadAll panics. |
+| [#14](https://github.com/skill215/sctp/issues/14) | P2, address-query capacity | Grow the address area from 4 KiB on ENOMEM up to an explicit 1 MiB budget. Decode complete lists only after success and retain local/peer length ABI differences. |
+| [#15](https://github.com/skill215/sctp/issues/15) | P2, cross-platform API | Export ErrUnsupported in shared code and add SyscallConn to the unsupported Listener. |
+| [#16](https://github.com/skill215/sctp/issues/16) | P2, unsupported fd cleanup | Immediately release an owned fd when construction fails, using the platform's socket-close primitive. Cover fd 0 and handle width; never close a reused number again. |
+| [#13](https://github.com/skill215/sctp/issues/13) | P3, non-blocking improvement | Accept now returns a nil interface on error; retain its P3 non-blocking classification. |
 
-#7、#10、#11是非法或不完整输入的校验与健壮性问题。#15、#16限定为可移植性及unsupported资源生命周期，不描述成正常Linux I/O普遍故障。
+#7, #10, and #11 concern validation and robustness for invalid/incomplete inputs. #15 and #16 are limited to portability and unsupported-platform resource lifecycles; they are not general failures of normal Linux I/O.
 
-## 实施顺序
+## Implementation sequence
 
-| 批次 | 内容 | 验证重点 |
+| Batch | Content | Validation focus |
 | --- | --- | --- |
-| A | #4/#12、#9、#8 | 读取计数与wrapper帧完整性，handler投递和初始化失败 |
-| B | #1 | 优先修复回归；单关联判据、PeelOff、一对多、缓冲数据、超时与Close |
-| C | #5/#6 | 真正零载荷、默认发送控制参数、EOF/ABORT及ABI |
-| D | #2/#7/#10/#11、#14 | 输入快照、先校验后副作用、完整地址查询 |
-| E | #15/#16、#13可选 | 外部消费者编译、Unix/Windows资源释放和复用 |
-| F | 集成复查与发布准备 | 所有阻塞回归、平台门禁、规范版本标签 |
+| A | #4/#12, #9, #8 | Read counts, wrapper frame integrity, handler delivery, initialization failure |
+| B | #1 | Prioritize the regression; single-association criteria, PeelOff, one-to-many endpoints, buffered data, timeouts, Close |
+| C | #5/#6 | True zero payloads, default send controls, EOF/ABORT, ABI |
+| D | #2/#7/#10/#11, #14 | Input snapshots, validation before side effects, complete address queries |
+| E | #15/#16, optional #13 | External consumer compilation, Unix/Windows release and reuse |
+| F | Integration review and release preparation | All blocking regressions, platform gates, canonical version tag |
 
-每批先记录正式回归在基线的失败原因，再实施修复。历史探针中期待未修复行为的观察断言不能直接作为修复后的验收标准。
+For each batch, first record why formal regressions fail on the baseline, then implement the fix. Historical probe assertions expecting unfixed behavior cannot directly become post-fix acceptance criteria.
 
-## 关键设计门禁
+## Key design gates
 
-- #1 不使用Getpeername判断存活：探针已确认关联终止后仍可能返回缓存地址。SCTP_STATUS的EINVAL只有在合法ABI和明确单关联范围内才可用于无关联判定，其他错误不伪装EOF。
-- #5 不统一吞掉空写：默认控制参数的适用性由内核决定；本轮内核对空的默认ABORT返回EINVAL，并非保证每种默认控制都可用。真实零载荷syscall保留内核当时的参数及错误，避免补字节和用户态查询/重放默认参数的竞态。
-- #14 的1MiB是显式资源预算。Linux的ENOMEM同时可能表示容量不足或真实分配失败；到预算仍失败即停止并保留errno，不返回部分列表。
-- #16 不把Winsock句柄当普通文件关闭，不先截断成int32，也不盲目重试close/EINTR。
-- 外部模型不明的raw端点保守处理；本库Dial/Accept/PeelOff的来源必须完整保留。导入fd同时确认SO_PROTOCOL=132；状态查询发现无关联后再接收一次，避免与正常关闭竞态时丢失刚到达的数据或EOF。
+- #1 must not use Getpeername as a liveness test: probes confirmed that cached addresses may survive association termination. SCTP_STATUS EINVAL establishes absence only with a valid ABI and known single-association scope; other errors must not become EOF.
+- #5 must not silently turn all empty writes into no-ops. The kernel determines whether default controls apply; the tested kernel returns EINVAL for an empty default ABORT, so not every default control is guaranteed to work. A real zero-payload syscall retains the kernel's current parameters and error, avoiding byte injection and races from userspace default-parameter query/replay.
+- #14's 1 MiB is an explicit resource budget. Linux ENOMEM can mean insufficient buffer capacity or an actual allocation failure. Stop at the budget, retain errno, and return no partial list.
+- #16 must not close Winsock handles as ordinary files, truncate them to int32 first, or blindly retry close/EINTR.
+- Handle raw endpoints with unknown models conservatively. Preserve provenance from this library's Dial/Accept/PeelOff. Confirm SO_PROTOCOL=132 for imported fds; after a status query finds no association, receive once more to avoid losing newly arrived data or EOF during normal shutdown races.
 
-## 发布验收
+## Release acceptance
 
-- [x] 14条阻塞项都有正式回归、基线失败证据、修复后通过证据及正常/原始调用对照。
-- [x] Go1.26.x、1.27.x各十轮完整race/shuffle测试；每轮独立进程、单轮timeout=120s，记录补丁版本、seed和内核。
-- [x] #1在至少两个实际原生Linux内核环境通过，不以交叉编译代替协议运行。
-- [x] 两套Go通过vet、严格checkptr、低GOGC和四类fuzz smoke。
-- [x] ARM、ARM64、MIPS、MIPS64、PPC64、s390x交叉编译及QEMU非SCTP ABI/编码检查通过，覆盖新增零iov发送路径。
-- [x] Linux/386实际执行unsupported及真实SCTP fd清理；Windows/amd64原生执行stub和Winsock资源测试。
-- [x] 外部消费者在Linux/amd64、Linux/386、Darwin/amd64、FreeBSD/amd64、Windows/amd64的两个Go版本均可编译。
-- [x] 数字接口名/索引冲突在隔离namespace实际执行三轮；指定必需CI任务不得以skip代替。
-- [x] README示例可编译且原生回显验证payload、stream和PPID；说明记录纠正后的空操作、帧头、资源预算和能力限制。
-- [x] 独立复查确认本次修复没有引入新的已确认阻塞问题；#13状态如实记录。
-- [x] 发布工作流支持v0.*，保留旧标签；publish依赖全部必需job并校验带注释标签。
-- [x] 后续发布阶段使用规范标签v0.7.2；候选提交先独立验证，正式标签发布后再核对go get @v0.7.2解析为规范版本及tag/release提交一致。
+- [x] All 14 blockers have formal regressions, baseline failure evidence, post-fix pass evidence, and normal/raw-call controls.
+- [x] Go1.26.x and 1.27.x each complete ten full race/shuffle rounds, each in an independent process with timeout=120s; record patch version, seed, and kernel.
+- [x] #1 passes in at least two actual native Linux kernel environments; cross-compilation does not replace protocol execution.
+- [x] Both Go versions pass vet, strict checkptr, low GOGC, and four fuzz smoke categories.
+- [x] ARM, ARM64, MIPS, MIPS64, PPC64, and s390x cross-compilation and QEMU non-SCTP ABI/encoding checks pass, including the new zero-iov send path.
+- [x] Linux/386 actually executes unsupported and real SCTP fd cleanup tests; native Windows/amd64 executes stub and Winsock resource tests.
+- [x] External consumers compile for Linux/amd64, Linux/386, Darwin/amd64, FreeBSD/amd64, and Windows/amd64 under both Go versions.
+- [x] Numeric interface-name/index conflicts execute for three rounds in an isolated namespace; required CI jobs must not substitute skips.
+- [x] README examples compile and native echo validates payload, stream, and PPID; documentation records corrected empty-operation semantics, frame headers, resource budgets, and limitations.
+- [x] Independent review finds no new confirmed blockers introduced by these fixes; #13 status is recorded accurately.
+- [x] The release workflow supports v0.*, preserves old tags, makes publish depend on all required jobs, and validates annotated tags.
+- [x] The publication stage uses canonical tag v0.7.2. Independently validate the candidate first; after publication, verify that go get @v0.7.2 resolves to the canonical version and tag/release commits agree.
 
-分批实现及 review 证据见 [实施验证记录](../openspec/changes/fix-v0-7-2-stability/evidence/implementation.md)。发布验收状态按实际完成证据更新。历史验证见[真实性复核](issue-verification-2026-10-30.md)、[0.3来源追溯](repro/0.3-history-results.json)及GitHub #3。
+Batch implementation and review evidence: [implementation validation record](../openspec/changes/fix-v0-7-2-stability/evidence/implementation.md). Acceptance status follows completed evidence. Historical checks: [verification audit](issue-verification-2026-10-30.md), [0.3 provenance](repro/0.3-history-results.json), and GitHub #3.
 
-## 后续功能版本
+## Subsequent feature release
 
-v0.8.0另行设计ReadMsg/ReadMsgExt、标准deadline与DialContext、类型化通知、常用socket配置、benchmark及更广泛的跨内核互操作验证。对比依据见[其他Go SCTP库对比](comparison.md)。
+Design v0.8.0 separately for ReadMsg/ReadMsgExt, standard deadlines and DialContext, typed notifications, common socket configuration, benchmarks, and broader cross-kernel interoperability validation. See the [comparison with other Go SCTP libraries](comparison.md).
 
-## 发布结果（2026-10-31）
+## Publication result (2026-10-31)
 
-- [PR #17](https://github.com/skill215/sctp/pull/17) 已合并；规范注释标签 `v0.7.2` 指向 `5359b448f9a2dbc21d779e485b92c5751f9f2237`，全部旧标签引用保持不变。
-- [候选 CI](https://github.com/skill215/sctp/actions/runs/41163857034) 14 个 job 与[发布工作流](https://github.com/skill215/sctp/actions/runs/41164226789) 全部通过。
-- Linux 6.8 / 7.0 × Go 1.26.10 / 1.27.3 各十轮独立进程 race/shuffle，附带 vet、checkptr、低 GOGC、四类 fuzz、真实 namespace 三轮、五目标消费者、README 示例；Windows、Linux/386 和六架构 QEMU 也有实际运行证据。
-- 独立模块 `go get @v0.7.2` 和 `@latest` 均解析为 `v0.7.2`；下载版本的公开 API 与真实 SCTP payload/stream/PPID 已通过。
-- 14 条缺陷、#13 改进和 #3 跟踪均已补写英文证据并关闭；OpenSpec 50/50 项完成。
-- 标签注释沿用 Git 默认清理，过滤了以 `#1` 开头的 issue 引用行；Release 正文完整。已发布标签保持不可变，后续工作流改用经隔离仓库验证的 `--cleanup=verbatim`。
+- [PR #17](https://github.com/skill215/sctp/pull/17) was merged. Canonical annotated tag `v0.7.2` points to `5359b448f9a2dbc21d779e485b92c5751f9f2237`; all previous tag references remain unchanged.
+- All 14 [candidate CI](https://github.com/skill215/sctp/actions/runs/41163857034) jobs and the [release workflow](https://github.com/skill215/sctp/actions/runs/41164226789) passed.
+- Linux 6.8 / 7.0 × Go 1.26.10 / 1.27.3 each completed ten independent-process race/shuffle rounds, plus vet, checkptr, low GOGC, four fuzz categories, three real namespace rounds, five-target consumers, and README examples. Windows, Linux/386, and six-architecture QEMU checks also have execution evidence.
+- Independent-module go get @v0.7.2 and @latest both resolved to v0.7.2. Public APIs and real SCTP payload/stream/PPID passed using the downloaded version.
+- English evidence was added to all 14 defect issues, #13, and tracker #3, which were then closed. OpenSpec is 50/50 complete.
+- Git's default tag-annotation cleanup removed issue-reference lines beginning with #1; the Release body is complete. Published tags remain immutable. Future workflows use --cleanup=verbatim, verified in an isolated repository.

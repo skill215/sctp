@@ -1,54 +1,141 @@
-// Copy to main.go in an independent module, require the exact candidate version,
-// and run with GOWORK=off. No replace directive is needed.
+// Copy to main.go in an independent module, run:
+//
+//	go mod init example.com/bounded-consumer
+//	go get github.com/skill215/sctp@v0.8.0
+//	GOWORK=off go run .
+//
+// Linux kernel SCTP is required. No replace directive is needed.
 package main
 
 import (
- "context"
- "errors"
- "fmt"
- "os"
- "time"
- "github.com/skill215/sctp"
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/skill215/sctp"
 )
-func must(e error) { if e!=nil { panic(e) } }
+
+func must(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
 func main() {
- m:=sctp.MessageOptions{ReceiveInfo:sctp.ReceiveInfoSNDRCV,NoDelay:true,AllowFragmentation:true,Events:sctp.SCTP_EVENT_ASSOCIATION|sctp.SCTP_EVENT_ADDRESS|sctp.SCTP_EVENT_SEND_FAILURE|sctp.SCTP_EVENT_SHUTDOWN|sctp.SCTP_EVENT_PARTIAL_DELIVERY}
- cfg:=sctp.SetupConfig{Socket:sctp.SocketConfig{Messages:&m,InitMsg:sctp.InitMsg{NumOstreams:3,MaxInstreams:5}},Limits:sctp.AddressLimits{MaxAddresses:16,MaxZoneBytes:256,MaxAddressBytes:4096}}
- req,e:=sctp.SetupRequirements(cfg);must(e)
- fmt.Printf("ledger=%s dialer=%d listener=%d establish=%d conn=%d candidate=%d\n",req.LedgerVersion,req.DialerBytes,req.ListenerBytes,req.EstablishBytes,req.ConnectionBytes,req.DialerBytes+max(req.EstablishBytes,req.ConnectionBytes))
- // The caller reserves listener/candidate/application budgets before construction.
- setup,cancel:=context.WithTimeout(context.Background(),3*time.Second);defer cancel()
- ln,e:=sctp.ListenContext(setup,"sctp4","127.0.0.1:0",cfg);must(e);defer ln.Close()
- idle,stop:=context.WithTimeout(context.Background(),5*time.Millisecond)
- _,e=ln.AcceptSCTPContext(idle);stop();if !errors.Is(e,context.DeadlineExceeded){panic(fmt.Sprintf("idle cancel: %v",e))}
- must(ln.SetDeadline(time.Now().Add(-time.Second)))
- _,e=ln.AcceptSCTPContext(context.Background());if !errors.Is(e,os.ErrDeadlineExceeded){panic(fmt.Sprintf("listener deadline: %v",e))};must(ln.SetDeadline(time.Time{}))
- addr,e:=ln.BoundAddr();must(e)
- dial,e:=sctp.NewDialer("sctp4","",addr.String(),cfg);must(e)
- client,e:=dial.DialContext(setup);must(e);defer client.Close()
- server,e:=ln.AcceptSCTPContext(setup);must(e);defer server.Close()
- cancel() // successful handoff detached both objects from setup cancellation
- must(client.SetSocketTimeouts(0,0));must(server.SetSocketTimeouts(0,0))
- state,e:=server.GetMessageOptions();must(e);fmt.Println("layout="+state.Layout)
- status,e:=client.GetStatus();must(e);if status.Ostreams<2{panic("example needs stream1")}
- data:=make([]byte,4);notification:=make([]byte,4096);oob:=make([]byte,req.IORequirements.OOBMin)
- for _,ppid:=range []uint32{0,46} {
-  ioctx,done:=context.WithTimeout(context.Background(),time.Second)
-  payload:=[]byte("public-api-roundtrip")
-  n,e:=client.WriteMsgContext(ioctx,payload,sctp.SndInfo{SID:1,PPID:ppid});must(e);if n!=len(payload){panic("partial write")}
-  total:=0
-  for {
-   r,e:=server.ReadEvent(ioctx,data,notification,oob);must(e)
-   if r.CloseRequired{panic("close required")}
-   if r.Kind==sctp.ReadNotification{event,e:=sctp.ParseNotification(notification[:r.N]);must(e);fmt.Printf("notification=%d\n",event.Kind);continue}
-   if r.Kind!=sctp.ReadData||!r.InfoPresent||r.Info.Stream!=1||r.Info.PPID!=ppid{panic("unexpected receive metadata")}
-   for j:=0;j<r.N;j++{if total+j>=len(payload)||data[j]!=payload[total+j]{panic("payload mismatch")}}
-   total+=r.N;if r.EndOfRecord(){break}
-  }
-  done();if total!=len(payload){panic("wrong length")}
- }
- stopped,stop:=context.WithCancel(context.Background());stop()
- _,e=server.ReadEvent(stopped,data,notification,oob);if !errors.Is(e,context.Canceled){panic(e)}
- must(server.Close());must(client.Close());must(ln.Close())
- fmt.Println("bounded setup, fragmented stream1 PPID0/46, cancellation and close: PASS")
+	m := sctp.MessageOptions{
+		ReceiveInfo: sctp.ReceiveInfoSNDRCV, NoDelay: true, AllowFragmentation: true,
+		Events: sctp.SCTP_EVENT_ASSOCIATION | sctp.SCTP_EVENT_ADDRESS |
+			sctp.SCTP_EVENT_SEND_FAILURE | sctp.SCTP_EVENT_SHUTDOWN | sctp.SCTP_EVENT_PARTIAL_DELIVERY,
+	}
+	cfg := sctp.SetupConfig{
+		Socket: sctp.SocketConfig{Messages: &m, InitMsg: sctp.InitMsg{NumOstreams: 3, MaxInstreams: 5}},
+		Limits: sctp.AddressLimits{MaxAddresses: 16, MaxZoneBytes: 256, MaxAddressBytes: 4096},
+	}
+	req, e := sctp.SetupRequirements(cfg)
+	must(e)
+	fmt.Printf("ledger=%s dialer=%d listener=%d establish=%d conn=%d candidate=%d\n", req.LedgerVersion, req.DialerBytes, req.ListenerBytes, req.EstablishBytes, req.ConnectionBytes, req.DialerBytes+max(req.EstablishBytes, req.ConnectionBytes))
+	// The caller reserves listener/candidate/application budgets before construction.
+	setup, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	ln, e := sctp.ListenContext(setup, "sctp4", "127.0.0.1:0", cfg)
+	must(e)
+	defer ln.Close()
+	idle, stop := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	_, e = ln.AcceptSCTPContext(idle)
+	stop()
+	if !errors.Is(e, context.DeadlineExceeded) {
+		panic(fmt.Sprintf("idle cancel: %v", e))
+	}
+	must(ln.SetDeadline(time.Now().Add(-time.Second)))
+	_, e = ln.AcceptSCTPContext(context.Background())
+	if !errors.Is(e, os.ErrDeadlineExceeded) {
+		panic(fmt.Sprintf("listener deadline: %v", e))
+	}
+	must(ln.SetDeadline(time.Time{}))
+	addr, e := ln.BoundAddr()
+	must(e)
+	dial, e := sctp.NewDialer("sctp4", "", addr.String(), cfg)
+	must(e)
+	client, e := dial.DialContext(setup)
+	must(e)
+	defer client.Close()
+	server, e := ln.AcceptSCTPContext(setup)
+	must(e)
+	defer server.Close()
+	cancel() // successful handoff detached both objects from setup cancellation
+	must(client.SetSocketTimeouts(0, 0))
+	must(server.SetSocketTimeouts(0, 0))
+	state, e := server.GetMessageOptions()
+	must(e)
+	fmt.Println("layout=" + state.Layout)
+	status, e := client.GetStatus()
+	must(e)
+	if status.Ostreams < 2 {
+		panic("example needs stream1")
+	}
+	data := make([]byte, 4)
+	notification := make([]byte, 4096)
+	oob := make([]byte, req.IORequirements.OOBMin)
+	for _, ppid := range []uint32{0, 46} {
+		ioctx, done := context.WithTimeout(context.Background(), time.Second)
+		payload := []byte("public-api-roundtrip")
+		n, e := client.WriteMsgContext(ioctx, payload, sctp.SndInfo{SID: 1, PPID: ppid})
+		must(e)
+		if n != len(payload) {
+			panic("partial write")
+		}
+		total := 0
+		notifications := 0
+		for {
+			r, e := server.ReadEvent(ioctx, data, notification, oob)
+			// Preserve valid terminal notification facts before checking the error
+			// or CloseRequired. Malformed/unconsumed records are not valid events.
+			if r.Kind == sctp.ReadNotification && r.Consumed && r.EndOfRecord() &&
+				r.N >= 8 && r.N <= len(notification) && !errors.Is(e, sctp.ErrMessageBoundary) &&
+				(e == nil || errors.Is(e, sctp.ErrAssociationChanged)) {
+				event, parseErr := sctp.ParseNotification(notification[:r.N])
+				must(parseErr)
+				fmt.Printf("notification=%d association=%+v partial=%+v\n", event.Kind, event.Association, event.PartialDelivery)
+				// event.Tail borrows notification; do not retain it for another read.
+			}
+			must(e)
+			if r.CloseRequired {
+				panic("close required")
+			}
+			if r.Kind == sctp.ReadNotification {
+				notifications++
+				if notifications > 64 {
+					panic("notification limit exceeded")
+				}
+				continue
+			}
+			if r.Kind != sctp.ReadData || !r.InfoPresent || r.Info.Stream != 1 || r.Info.PPID != ppid {
+				panic("unexpected receive metadata")
+			}
+			for j := 0; j < r.N; j++ {
+				if total+j >= len(payload) || data[j] != payload[total+j] {
+					panic("payload mismatch")
+				}
+			}
+			total += r.N
+			if r.EndOfRecord() {
+				break
+			}
+		}
+		done()
+		if total != len(payload) {
+			panic("wrong length")
+		}
+	}
+	stopped, stop := context.WithCancel(context.Background())
+	stop()
+	_, e = server.ReadEvent(stopped, data, notification, oob)
+	if !errors.Is(e, context.Canceled) {
+		panic(e)
+	}
+	must(server.Close())
+	must(client.Close())
+	must(ln.Close())
+	fmt.Println("bounded setup, fragmented stream1 PPID0/46, cancellation and close: PASS")
 }

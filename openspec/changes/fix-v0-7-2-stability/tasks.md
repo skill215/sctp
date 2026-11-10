@@ -1,73 +1,73 @@
-## 1. 固定实施基线与验收证据
+## 1. Fix the implementation baseline and acceptance evidence
 
-- [x] 1.1 在 codex/fix-v0-7-2-stability 分支准备实现，记录起点提交与已有未提交审计证据，保持历史标签及证据不变。
-- [x] 1.2 将14条阻塞项映射到正式测试名，记录0.7.1失败原因及正常对照；排除期待旧错误行为的观察断言。
-- [x] 1.3 在本机及另一原生Linux内核核对SCTP_STATUS的有效结构体大小、单关联EINVAL边界和PeelOff类型；保存设计判据的可重跑探针。
-- [x] 1.4 确认消息表中的空读、空写真实syscall、默认控制位、header-only、部分数据加error及对象错误优先级都有明确预期；若与设计不一致，先更新设计。
+- [x] 1.1 Prepare implementation on codex/fix-v0-7-2-stability, record the starting commit and existing uncommitted audit evidence, and preserve historical tags and evidence.
+- [x] 1.2 Map all 14 blockers to formal test names; record 0.7.1 failure causes and normal controls, excluding observation assertions that expect the old erroneous behavior.
+- [x] 1.3 Verify the valid SCTP_STATUS structure size, single-association EINVAL boundary, and PeelOff type locally and on another native Linux kernel; retain rerunnable probes for the design criteria.
+- [x] 1.4 Confirm explicit expectations for empty reads, real empty-write syscalls, default control flags, header-only frames, partial data with errors, and object-error precedence. Update the design first if they differ.
 
-## 2. 批次A 读取与wrapper完整性
+## 2. Batch A: reads and wrapper integrity
 
-- [x] 2.1 为#4加入nil/empty、32字节wrapper缓冲区、通知及排队数据的非消费回归，验证随后标记payload完整。
-- [x] 2.2 实现零容量接收短路和wrapper短缓冲区错误，保持nil/关闭/初始化失败对象的错误结果。
-- [x] 2.3 为#12加入真实reset、EOF、timeout、Close及io.ReadAll回归，消除SCTPRead和wrapper的负数/虚报计数，保留有效部分数据。
-- [x] 2.4 为#9加入SENDER_DRY、缓冲区复用和正常metadata对照，确保无metadata帧清零完整头部。
-- [x] 2.5 为#8加入既有事件保留、重复包装、并发配置和实际handler投递回归，实现eventsMu及内部配置helper。
-- [x] 2.6 保存并传播wrapper订阅初始化错误，验证Read/Write不偷偷I/O且Close仍释放底层资源。
-- [x] 2.7 两套Go运行受影响的I/O、通知、codec、timeout和生命周期race测试，独立复核#4/#8/#9/#12修复边界。
+- [x] 2.1 Add #4 non-consumption regressions for nil/empty and 32-byte wrapper buffers, notifications, and queued data; verify the subsequent marker payload remains complete.
+- [x] 2.2 Implement zero-capacity receive short-circuiting and short-wrapper-buffer errors, preserving errors for nil/closed/initialization-failed objects.
+- [x] 2.3 Add #12 regressions for real reset, EOF, timeout, Close, and io.ReadAll; eliminate negative/fictitious SCTPRead and wrapper counts while retaining valid partial data.
+- [x] 2.4 Add #9 SENDER_DRY, buffer-reuse, and normal-metadata controls; zero the entire header in frames without metadata.
+- [x] 2.5 Add #8 regressions for preserved events, repeated wrapping, concurrent configuration, and actual handler delivery; implement eventsMu and internal configuration helpers.
+- [x] 2.6 Retain and propagate wrapper subscription initialization errors; verify Read/Write perform no hidden I/O and Close still releases underlying resources.
+- [x] 2.7 Run affected I/O, notification, codec, timeout, and lifecycle race tests under both Go versions; independently review #4/#8/#9/#12 fix boundaries.
 
-## 3. 批次B 关联终止与接收liveness
+## 3. Batch B: association termination and receive liveness
 
-- [x] 3.1 为#1补充Read/SCTPRead/wrapped入口，覆盖reset未消费、Write/原始I/O已消费、读已阻塞、并发读写及重复读取。
-- [x] 3.2 保留Dial/Accept/PeelOff的单关联来源，验证NewSCTPConn对已连接raw fd的分类及未知端点的保守行为。
-- [x] 3.3 仅在接收EAGAIN后于已固定fd内执行合法SCTP_STATUS查询，关联消失返回ENOTCONN，其他错误不伪装EOF。
-- [x] 3.4 验证活跃空闲连接、一对多无关联/其他关联、peeled连接和已缓冲数据对照，不新增忙等或提前关闭。
-- [x] 3.5 回归通知单一预算、queued I/O预算、Close唤醒、正常SHUTDOWN及Read/Write/Accept/Connect超时。
-- [x] 3.6 在至少两个记录版本的原生Linux内核、两套Go下验证B批次，并单独review该回归修复。
+- [x] 3.1 Cover #1 through Read/SCTPRead/wrapped entry points, including unconsumed reset, reset consumed by Write/raw I/O, already-blocked reads, concurrent reads/writes, and repeated reads.
+- [x] 3.2 Preserve single-association provenance for Dial/Accept/PeelOff; verify NewSCTPConn classification of connected raw fds and conservative handling of unknown endpoints.
+- [x] 3.3 Query SCTP_STATUS with a valid ABI in the pinned-fd callback only after receive EAGAIN. Return ENOTCONN when the association disappears; never disguise other errors as EOF.
+- [x] 3.4 Verify controls for live idle connections, one-to-many endpoints with no/other associations, peeled connections, and buffered data; introduce no busy waiting or premature closure.
+- [x] 3.5 Regress the single notification budget, queued I/O budget, Close wakeup, normal SHUTDOWN, and Read/Write/Accept/Connect timeouts.
+- [x] 3.6 Validate batch B on at least two native Linux kernels with recorded versions and both Go versions; separately review this regression fix.
 
-## 4. 批次C 空载荷与控制发送
+## 4. Batch C: empty payloads and control sends
 
-- [x] 4.1 为#5加入空普通写、空metadata写和header-only数据帧回归，用原始sendmsg/标记payload证明没有注入字节。
-- [x] 4.2 为所有空payload加入私有Linux sendmsg helper，放入已有Write gate、EINTR/EAGAIN和超时流程，保留ancillary及对象生存期。
-- [x] 4.3 保留内核默认发送参数；验证显式控制、info=nil默认ABORT、普通空消息拒绝及wrapper失败零计数，避免空写被吞成no-op。
-- [x] 4.4 为#6显式定义EOF=0x200；验证one-to-many EOF、ABORT、abort reason及控制组合/不适用socket的内核错误。
-- [x] 4.5 验证调用方SndRcvInfo不变、PPID字节序、失败发送零计数和wrapped frame重试。
-- [x] 4.6 用非SCTP socket验证零iov/ancillary的32位、大端及对齐ABI，再运行原生SCTP控制消息回归。
+- [x] 4.1 Add #5 regressions for empty ordinary writes, empty metadata writes, and header-only data frames; use raw sendmsg/marker payloads to prove no byte injection.
+- [x] 4.2 Add a private Linux sendmsg helper for all empty payloads within the existing Write gate, EINTR/EAGAIN, and timeout flow; preserve ancillary data and object lifetimes.
+- [x] 4.3 Preserve kernel default send parameters; verify explicit controls, info=nil default ABORT, rejected ordinary empty messages, and zero wrapper counts on failure. Do not silently turn empty writes into no-ops.
+- [x] 4.4 Define EOF=0x200 explicitly for #6; verify one-to-many EOF, ABORT, abort reasons, and kernel errors for control combinations/inapplicable sockets.
+- [x] 4.5 Verify unchanged caller SndRcvInfo, PPID byte order, zero failed-send counts, and wrapped-frame retries.
+- [x] 4.6 Verify zero-iov/ancillary ABI on 32-bit and big-endian targets, including alignment, using non-SCTP sockets; then run native SCTP control-message regressions.
 
-## 5. 批次D 地址准备与查询
+## 5. Batch D: address preparation and queries
 
-- [x] 5.1 为#2加入共享Listen/Dial、len=0/cap>0别名、IPv4/IPv6及失败路径的输入不变/race回归。
-- [x] 5.2 实现地址深副本和内部通配补齐，保持Control观察到的原地址字符串语义及既有zone处理。
-- [x] 5.3 为#7/#10加入负数/65536/大整数端口、nil raddr、各高层入口及低层Bind/Connect回归，断言socket和Control前拒绝。
-- [x] 5.4 在地址准备层实现net.AddrError校验，保留本地端口0、nil laddr和现有公开签名。
-- [x] 5.5 为#11加入IPv4/IPv6、不同位置空host、多段输入及合法单段通配对照，实现不丢弃前缀的解析。
-- [x] 5.6 为#14实现4KiB到1MiB的有界查询，重置头/optlen，保留local/peer长度差异、错误errno和完整性校验。
-- [x] 5.7 验证300 IPv4地址原生查询，以及混合family、IPv6 stride、增长边界、持续ENOMEM、其他错误、非法数量和截断缓冲区。
-- [x] 5.8 两套Go执行地址相关race/fuzz及现有数字zone/网络名回归，记录查询资源预算的可观察行为。
+- [x] 5.1 Add #2 input-immutability/race regressions for shared Listen/Dial addresses, len=0/cap>0 aliases, IPv4/IPv6, and failure paths.
+- [x] 5.2 Implement deep address copies and internal wildcard completion, preserving the original address-string semantics observed by Control and existing zone handling.
+- [x] 5.3 Add #7/#10 regressions for negative/65536/large-integer ports, nil raddr, all high-level entry points, and low-level Bind/Connect; assert rejection before socket creation and Control.
+- [x] 5.4 Implement net.AddrError validation in address preparation, preserving local port 0, nil laddr, and existing public signatures.
+- [x] 5.5 Add #11 IPv4/IPv6, empty-host-position, multi-segment, and valid single-segment wildcard controls; parse without dropping prefixes.
+- [x] 5.6 Implement #14 bounded queries from 4 KiB to 1 MiB, resetting headers/optlen and preserving local/peer length differences, errno, and integrity checks.
+- [x] 5.7 Verify native queries with 300 IPv4 addresses, mixed families, IPv6 stride, growth boundaries, persistent ENOMEM, other errors, invalid counts, and truncated buffers.
+- [x] 5.8 Run address-related race/fuzz tests and existing numeric-zone/network-name regressions under both Go versions; record observable address-query budget behavior.
 
-## 6. 批次E 平台API与所有权
+## 6. Batch E: platform API and ownership
 
-- [x] 6.1 为#15建立外部消费者编译矩阵，引用ErrUnsupported并断言Conn/Listener实现syscall.Conn。
-- [x] 6.2 将ErrUnsupported移至共同文件，补齐unsupported Listener.SyscallConn，保持sentinel和正常Linux错误行为。
-- [x] 6.3 为#16加入真实Linux/386 SCTP fd、fd=0子进程、数字复用及并发/重复Close回归。
-- [x] 6.4 实现unsupported构造失败立即释放、fd=-1与initErr，使用Unix/Windows正确socket关闭helper，避免句柄截断和close重试。
-- [x] 6.5 在Windows原生验证真实Winsock handle释放；验证清理错误可保留且errors.Is(ErrUnsupported)成立。
-- [x] 6.6 处理#13：优先实现Accept错误返回nil接口并保留原error；若延期，明确记录P3非阻塞而不关闭为已修复。
-- [x] 6.7 复核#15与#16独立验收、初始化失败资源路径和公开API兼容，无新增协议支持承诺。
+- [x] 6.1 Establish the #15 external-consumer compilation matrix, referencing ErrUnsupported and asserting that Conn/Listener implement syscall.Conn.
+- [x] 6.2 Move ErrUnsupported to shared code and add unsupported Listener.SyscallConn, preserving the sentinel and normal Linux error behavior.
+- [x] 6.3 Add #16 regressions for real Linux/386 SCTP fds, fd=0 in a subprocess, descriptor-number reuse, and concurrent/repeated Close.
+- [x] 6.4 Immediately release owned fds on unsupported construction failure, set fd=-1 and initErr, and use correct Unix/Windows socket-close helpers without handle truncation or close retries.
+- [x] 6.5 Verify real Winsock handle release on native Windows; verify cleanup errors are retained and errors.Is(ErrUnsupported) remains true.
+- [x] 6.6 Address #13: prefer returning a nil interface with the original Accept error. If deferred, record its P3 non-blocking status without closing it as fixed.
+- [x] 6.7 Independently review #15 and #16 acceptance, initialization-failure resource paths, and public API compatibility without adding protocol-support commitments.
 
-## 7. 批次F 集成复查与CI门禁
+## 7. Batch F: integration review and CI gates
 
-- [x] 7.1 独立review A–E：检查锁顺序、buffer/metadata计数、raw指针生存期、fd复用及错误优先级；对新疑点做正常对照。
-- [x] 7.2 两套Go各用独立进程运行十轮完整race/shuffle测试，单轮timeout=120s，失败即停止；记录Go补丁版、seed和内核。
-- [x] 7.3 两套Go通过vet、严格checkptr、低GOGC及四类fuzz smoke；保留种子和失败复现方式。
-- [x] 7.4 更新六种架构QEMU ABI门禁，加入新增sendmsg及地址增长相关边界；区分编译、非SCTP ABI与原生协议证据。
-- [x] 7.5 增加Linux/386和Windows原生unsupported资源测试及五目标外部消费者编译，必需job不得以skip代替运行。
-- [x] 7.6 隔离namespace中的数字接口名/索引冲突实际运行三轮；验证必需权限缺失会使指定CI任务失败。
-- [x] 7.7 编译并原生运行README回显/超时示例，核对payload、stream和PPID；更新14条issue的修复证据与#13状态。
+- [x] 7.1 Independently review A–E: lock ordering, buffer/metadata counts, raw-pointer lifetimes, fd reuse, and error precedence; use normal controls for new concerns.
+- [x] 7.2 Run ten full race/shuffle rounds per Go version in independent processes with timeout=120s per round, stopping on failure; record Go patch version, seed, and kernel.
+- [x] 7.3 Pass vet, strict checkptr, low GOGC, and four fuzz smoke categories under both Go versions; retain seeds and failure reproduction procedures.
+- [x] 7.4 Update six-architecture QEMU ABI gates with new sendmsg and address-growth boundaries; distinguish compilation, non-SCTP ABI checks, and native protocol evidence.
+- [x] 7.5 Add native Linux/386 and Windows unsupported-resource tests plus five-target external-consumer compilation; required jobs must execute rather than skip.
+- [x] 7.6 Actually run three rounds of numeric interface-name/index conflict tests in an isolated namespace; verify that missing required privileges fail the designated CI job.
+- [x] 7.7 Compile and natively run README echo/timeout examples, checking payload, stream, and PPID; update fix evidence for all 14 issues and #13 status.
 
-## 8. 发布准备与后续发布阶段
+## 8. Release preparation and subsequent publication
 
-- [x] 8.1 更新README、审计/发布计划及v0.7.2说明，记录空操作、wrapper头部、地址预算、平台清理和#1回归来源。
-- [x] 8.2 修改release工作流接受v0.*标签、保留旧标签指向，并使publish依赖所有新增必需job及带注释标签校验。
-- [x] 8.3 在独立模块验证候选提交的API、示例和版本可用性；确认14项阻塞条件均已满足，#13若延期有明确记录。
-- [x] 8.4 后续收到发布指令且门禁全绿后，创建规范带注释标签v0.7.2并发布；本设计阶段不执行此动作。
-- [x] 8.5 发布后核对tag/release提交一致、说明完整、go get @v0.7.2解析为规范版本；失败时保留事实并按新补丁版本流程处理。
+- [x] 8.1 Update README, audit/release plans, and v0.7.2 notes with empty-operation semantics, wrapper headers, address budgets, platform cleanup, and #1 regression provenance.
+- [x] 8.2 Make the release workflow accept v0.* tags, retain old tag targets, and require all newly added jobs and annotated-tag validation before publication.
+- [x] 8.3 Verify candidate APIs, examples, and version availability in an independent module; confirm all 14 blocking conditions are satisfied and explicitly record any #13 deferral.
+- [x] 8.4 After receiving publication instructions and passing all gates, create canonical annotated tag v0.7.2 and publish. Do not execute publication during the design stage.
+- [x] 8.5 After publication, verify matching tag/release commits, complete notes, and canonical resolution of go get @v0.7.2. Preserve failure facts and use a new patch-version process if needed.

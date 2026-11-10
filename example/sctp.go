@@ -1,3 +1,5 @@
+// Command example demonstrates legacy wrapper/metadata I/O. For the v0.8.0
+// message, notification, context, and bounded setup APIs, run ./example/message.
 package main
 
 import (
@@ -31,13 +33,13 @@ func serveClient(conn net.Conn, bufsize int) error {
 }
 
 func main() {
-	var server = flag.Bool("server", false, "")
-	var ip = flag.String("ip", "0.0.0.0", "")
-	var port = flag.Int("port", 0, "")
-	var lport = flag.Int("lport", 0, "")
-	var bufsize = flag.Int("bufsize", 256, "")
-	var sndbuf = flag.Int("sndbuf", 0, "")
-	var rcvbuf = flag.Int("rcvbuf", 0, "")
+	var server = flag.Bool("server", false, "run the legacy wrapper echo server")
+	var ip = flag.String("ip", "0.0.0.0", "comma-separated local (server) or remote (client) IPs")
+	var port = flag.Int("port", 0, "local server port or remote client port")
+	var lport = flag.Int("lport", 0, "optional client local port")
+	var bufsize = flag.Int("bufsize", 256, "legacy payload buffer bytes; no EOR-based reassembly")
+	var sndbuf = flag.Int("sndbuf", 0, "socket send buffer bytes; zero keeps the default")
+	var rcvbuf = flag.Int("rcvbuf", 0, "socket receive buffer bytes; zero keeps the default")
 
 	flag.Parse()
 

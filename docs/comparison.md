@@ -1,86 +1,86 @@
-# Go SCTP 库对比
+# Go SCTP library comparison
 
-比较日期：2026-10-29。
+Comparison date: 2026-10-29.
 
-`skill215/sctp` 适合需要延续 `ishidawataru/sctp` 调用方式、使用 Linux 原生 SCTP，且能接受 Go 1.26 最低要求的项目。这个 fork 的主要优势是底层正确性修复和回归验证；高层网络 API 的完整性仍落后于 `georgeyanev/go-sctp`。对于没有兼容包袱的新项目，后者值得并行验证；对于 WebRTC DataChannel，应优先考虑 Pion 生态。
+`skill215/sctp` suits projects that need to retain the `ishidawataru/sctp` calling model, use native Linux SCTP, and accept a Go 1.26 minimum. This fork's main strengths are low-level correctness fixes and regression validation; its high-level networking API is still less complete than `georgeyanev/go-sctp`. For new projects without compatibility constraints, evaluate the latter in parallel; for WebRTC DataChannels, prefer evaluating the Pion ecosystem.
 
-## 实现方式与适用场景
+## Implementation models and use cases
 
-这些库分为两类：
+These libraries fall into two categories:
 
-- **内核 SCTP 封装**：本库、`ishidawataru/sctp`、`free5gc/sctp` 和 `georgeyanev/go-sctp`。Go 代码调用 Linux socket API，重传、拥塞控制和路径管理由内核负责。应用及部署环境需要内核 SCTP 支持。
-- **用户态 SCTP 协议栈**：`pion/sctp`。协议逻辑在 Go 中实现，由调用方提供底层 `NetConn`，主要用于 WebRTC。WebRTC 中通常由上层提供 DTLS 传输；`pion/sctp` 本身不包办 ICE 和 DTLS，也不能直接替换本库的 Linux SCTP socket API。[Pion 配置源码](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/association.go#L407-L444)
+- **Kernel SCTP wrappers**: this library, `ishidawataru/sctp`, `free5gc/sctp`, and `georgeyanev/go-sctp`. Go calls Linux socket APIs, while the kernel handles retransmission, congestion control, and path management. Applications and deployment environments need kernel SCTP support.
+- **Userspace SCTP stack**: `pion/sctp`. Protocol logic is implemented in Go over a caller-provided `NetConn`, mainly for WebRTC. Higher layers normally supply DTLS in WebRTC; `pion/sctp` itself does not provide all of ICE and DTLS and cannot directly replace this library's Linux SCTP socket API. [Pion configuration source](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/association.go#L407-L444)
 
-“不使用 cgo”与“自行实现协议栈”是不同属性。本库不使用 cgo，但仍依赖 Linux 内核实现 SCTP。选择时应先确定需要原生 SCTP socket，还是由应用提供传输通道的用户态协议栈。
+“No cgo” and “implements its own protocol stack” are separate properties. This library uses no cgo but still relies on the Linux kernel for SCTP. First decide whether the application needs native SCTP sockets or a userspace stack over an application-provided transport.
 
-| 库 | 实现及定位 | 主要优势 | 主要限制 |
+| Library | Implementation and role | Main strengths | Main limits |
 | --- | --- | --- | --- |
-| `skill215/sctp` | Linux 内核封装，延续上游主要 API | fd 生命周期、poller、超时与 ABI 回归覆盖；零外部 Go 模块依赖 | 仅支持 Linux，且不支持 Linux/386；缺少标准 deadline、Context 拨号与接收 flags |
-| `ishidawataru/sctp` | 本库的上游，Linux 内核封装 | API 简单；支持较旧的 Go 版本 | 底层实现较旧；RawConn 的 Read 和 Write 回调仍会 panic |
-| `free5gc/sctp` | 同源的 Linux 内核封装，增加电信场景配置 | RTO、关联参数和 MaxSeg 配置；部分类型化通知 | Deadline 仍不支持；`SCTPRead` 签名与本库不同 |
-| `georgeyanev/go-sctp` | 更接近 Go 标准库 API 的 Linux 内核封装 | Context、deadline、接收 flags、事件解析、动态绑定及更多 socket 配置 | 仍依赖 Linux；迁移需要调整 API |
-| `pion/sctp` | 面向 WebRTC 的 Go 用户态协议栈 | 不依赖内核 SCTP；跨平台；独立 Stream 对象与部分可靠性 API | 需要提供底层传输通道；与内核 socket API 的模型不同 |
+| `skill215/sctp` | Linux kernel wrapper retaining the main upstream API | fd lifecycle, poller, timeout, and ABI regressions; no external Go module dependencies | Linux only, excluding Linux/386; lacks standard deadlines, Context dialing, and receive flags |
+| `ishidawataru/sctp` | This library's upstream; Linux kernel wrapper | Simple API; supports older Go versions | Older low-level implementation; RawConn Read and Write callbacks still panic |
+| `free5gc/sctp` | Related Linux kernel wrapper with telecom configuration | RTO, association parameters, MaxSeg, and some typed notifications | Deadlines remain unsupported; `SCTPRead` has a different signature |
+| `georgeyanev/go-sctp` | Linux kernel wrapper closer to Go's standard networking API | Context, deadlines, receive flags, event parsing, dynamic binding, and more socket settings | Still Linux-dependent; migration requires API changes |
+| `pion/sctp` | Go userspace stack focused on WebRTC | No kernel SCTP dependency; cross-platform; independent Stream objects and partial reliability APIs | Requires a transport; its model differs from kernel socket APIs |
 
-上游和 free5GC 的 RawConn 行为分别见其 [上游实现](https://github.com/ishidawataru/sctp/blob/19ddcbc6aae2b602d6384cc4048e5f91f0e84e5d/sctp_linux.go#L64-L87)与 [free5GC 实现](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp_linux.go#L67-L82)。free5GC 的配置和通知见 [SocketConfig](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp.go#L952-L986) 与 [Notification](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp_notification.go)。go-sctp 的能力见其 [连接 API](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/sctp_conn.go)和 [Dialer](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/dial.go)。
+RawConn behavior is documented in the [upstream implementation](https://github.com/ishidawataru/sctp/blob/19ddcbc6aae2b602d6384cc4048e5f91f0e84e5d/sctp_linux.go#L64-L87) and [free5GC implementation](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp_linux.go#L67-L82). See free5GC's [SocketConfig](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp.go#L952-L986) and [Notification](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp_notification.go), and go-sctp's [connection API](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/sctp_conn.go) and [Dialer](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/dial.go).
 
-## 本库的优势
+## Strengths of this library
 
-### 延续上游 API
+### Retaining the upstream API
 
-本库保留了 `DialSCTP`、`ListenSCTP`、`SCTPRead`、`SCTPWrite`、`SndRcvInfo` 和 wrapped connection 等主要接口。已有 ishidawataru 项目迁移时，可以延续原有调用结构，再核对 Go 版本要求、fd 所有权、超时与 PPID 等行为变化。[本库 API](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp.go)
+The library retains key interfaces such as `DialSCTP`, `ListenSCTP`, `SCTPRead`, `SCTPWrite`, `SndRcvInfo`, and wrapped connections. Existing ishidawataru users can keep their call structure while checking changes in Go requirements, fd ownership, timeouts, and PPID handling. [Library API](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp.go)
 
-这与直接切换其他库的成本不同。例如，free5GC 的 `SCTPRead` 增加了通知返回值；go-sctp 使用 `ReadMsg`、`SndInfo` 和 `RcvInfo` 等接口；Pion 则使用 Association 和 Stream 模型。它们都需要做调用与语义适配。
+This differs from switching libraries outright. For example, free5GC adds a notification return value to `SCTPRead`; go-sctp uses `ReadMsg`, `SndInfo`, and `RcvInfo`; Pion uses Association and Stream objects. Each requires adapting calls and semantics.
 
-### 底层修复有回归测试
+### Regression tests for low-level fixes
 
-本库已针对以下行为补充测试：
+Tests have been added for:
 
-- fd 所有权、描述符复用、并发关闭，以及关闭后唤醒阻塞或排队的 I/O。
-- RawConn 回调期间保持 fd 有效，并支持通过运行时 poller 等待可读或可写。
-- Read、Write、Accept 和建连超时，以及读取通知时保持同一超时预算。
-- 大端 `socklen_t`、未对齐 metadata 解码、PPID 字节序、混合地址列表及数字接口名与索引冲突。
+- fd ownership, descriptor reuse, concurrent closure, and waking blocked or queued I/O after closure.
+- Keeping fds valid during RawConn callbacks and waiting for readability/writability through the runtime poller.
+- Read, Write, Accept, and connection timeouts, including a shared timeout budget while consuming notifications.
+- Big-endian `socklen_t`, unaligned metadata decoding, PPID byte order, mixed address lists, and numeric interface-name/index conflicts.
 
-相关实现与覆盖见 [fd 生命周期测试](../sctp_lifecycle_linux_test.go)、[超时测试](../sctp_timeout_linux_test.go)、[ABI 与编码回归测试](../sctp_regression_linux_test.go)及 [接口名冲突测试](../sctp_zone_linux_test.go)。这些测试支持对具体修复的判断，不能据此推导所有生产场景下的可靠性排名。
+See [fd lifecycle tests](../sctp_lifecycle_linux_test.go), [timeout tests](../sctp_timeout_linux_test.go), [ABI/encoding regressions](../sctp_regression_linux_test.go), and [interface-name conflict tests](../sctp_zone_linux_test.go). These support conclusions about specific fixes, not a reliability ranking across all production workloads.
 
-### 依赖和实现范围较小
+### Small dependency and implementation scope
 
-本库的 [go.mod](../go.mod) 没有外部模块依赖。协议处理交给内核，Go 层主要负责 socket API、缓冲区、描述符和运行时 poller 的衔接。
+The library's [go.mod](../go.mod) has no external module dependencies. The kernel processes the protocol; Go mainly integrates socket APIs, buffers, descriptors, and the runtime poller.
 
-这降低了维护用户态协议状态机的负担，但 Linux 内核版本、参数和部署网络仍影响行为。借助内核协议栈也是其他内核封装库共有的优势，并非本库独有。
+This reduces the burden of maintaining a userspace protocol state machine, but kernel versions, settings, and deployment networks still affect behavior. Delegating protocol processing to the kernel is shared by other kernel wrappers and is not unique to this library.
 
-## 本库的主要差距
+## Main gaps
 
-### 标准 deadline 与 Context
+### Standard deadlines and Context
 
-本库虽然实现 `net.Conn`，但 `SetDeadline`、`SetReadDeadline` 和 `SetWriteDeadline` 仍返回 `syscall.EOPNOTSUPP`，没有 `DialContext`。现有 `SO_RCVTIMEO` 和 `SO_SNDTIMEO` 提供每次操作的相对超时；操作开始时获取超时预算，无法提供标准 deadline 更新后影响当前阻塞操作的完整体验。[本库 deadline 接口](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp.go#L829-L839)、[超时实现](../socket_io_linux.go)
+Although the library implements `net.Conn`, `SetDeadline`, `SetReadDeadline`, and `SetWriteDeadline` still return `syscall.EOPNOTSUPP`, and there is no `DialContext`. Existing `SO_RCVTIMEO` and `SO_SNDTIMEO` provide relative per-operation timeouts sampled at operation start; they do not provide the full behavior of updating a standard deadline to affect an already blocked operation. [Deadline API](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp.go#L829-L839), [timeout implementation](../socket_io_linux.go)
 
-go-sctp 已通过 `os.File` 实现连接 deadline，并提供带 Context 的 Dialer 和更一致的 `net.OpError` 上下文。需要接入超时、取消和统一错误处理的 Go 服务时，这些接口可以减少业务代码中的适配。[连接实现](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/conn.go)、[拨号接口](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/dial.go)
+go-sctp implements connection deadlines through `os.File`, provides a Context-aware Dialer, and supplies more consistent `net.OpError` context. These can reduce adaptation in Go services that need timeouts, cancellation, and consistent error handling. [Connection implementation](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/conn.go), [dialing API](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/dial.go)
 
-### 消息边界和接收标志
+### Message boundaries and receive flags
 
-本库 `SCTPRead` 只返回长度、`SndRcvInfo` 和错误，没有暴露 `recvmsg` 的 `MSG_EOR`、`MSG_NOTIFICATION`、`MSG_CTRUNC` 等 flags。接收缓冲区不足以容纳完整消息时，调用方难以判断消息边界；通知区分和辅助数据截断的处理也受限。wrapped connection 添加的是本地 metadata 头，不能补足这些接收标志。[本库读取实现](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp_linux.go#L181-L231)
+This library's `SCTPRead` returns only a length, `SndRcvInfo`, and an error. It does not expose recvmsg flags such as `MSG_EOR`, `MSG_NOTIFICATION`, or `MSG_CTRUNC`. When the receive buffer cannot hold an entire message, callers have limited ability to determine message boundaries, distinguish notifications, or handle ancillary truncation. The wrapped connection adds a local metadata header, which cannot supply those receive flags. [Read implementation](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/sctp_linux.go#L181-L231)
 
-go-sctp 的 `ReadMsg/ReadMsgExt` 返回接收 flags，文档说明如何通过 EOR 判断消息是否完整；`ReadMsgExt` 还允许调用方复用 oob 缓冲区。这个设计适合在不破坏现有 `SCTPRead` 签名的前提下借鉴。[ReadMsg API](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/sctp_conn.go#L91-L138)
+go-sctp's `ReadMsg/ReadMsgExt` return receive flags and document EOR-based completeness checks; `ReadMsgExt` also permits oob-buffer reuse. This is a useful design reference for adding functionality without breaking the existing `SCTPRead` signature. [ReadMsg API](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/sctp_conn.go#L91-L138)
 
-### 通知解析和常用配置
+### Notification parsing and common configuration
 
-本库主要通过原始字节回调处理通知，常用配置之外的功能往往需要调用方自行操作 socket option。free5GC 提供部分类型化通知，以及 RTO、关联参数和 MaxSeg 配置；go-sctp 提供更多事件解析、心跳、动态地址绑定和半关闭接口。[free5GC 配置源码](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp.go)、[go-sctp 事件解析](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/event.go)
+This library primarily handles notifications through raw-byte callbacks, and less common settings often require direct socket-option handling. free5GC supplies some typed notifications plus RTO, association parameters, and MaxSeg settings; go-sctp provides more event parsing, heartbeat settings, dynamic address binding, and half-close APIs. [free5GC configuration](https://github.com/free5gc/sctp/blob/e86160f55c756c02d7bdd1ab7c852fc3676c6dbd/sctp.go), [go-sctp event parsing](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/event.go)
 
-底层 socket option 允许扩展能力，但调用方需要理解结构体布局、长度、字节序和调用时机。类型化接口可以把这部分工作集中到库中，减少重复实现。
+Low-level socket options enable extensions but require callers to understand structure layout, size, byte order, and timing. Typed interfaces can centralize this work and reduce duplicate implementations.
 
-### Go 版本与平台约束
+### Go version and platform constraints
 
-平台支持范围于 2026-10-31 明确：**本库仅支持启用内核 SCTP 的 Linux，且不支持 Linux/386。** Windows、macOS、BSD、Solaris 和 illumos 均不在支持范围内；不承诺这些平台能够编译、运行或通过测试。
+The support scope was clarified on 2026-10-31: **only Linux with kernel SCTP is supported, excluding Linux/386.** Windows, macOS, BSD, Solaris, and illumos are outside scope; compilation, execution, and passing tests on them are not guaranteed.
 
-现有 unsupported stub、`ErrUnsupported`、跨平台 API 声明及非 Linux 兼容性检查，不构成平台支持承诺。非 Linux 测试编译问题按支持范围外的兼容性问题记录，不据此认定 Linux SCTP 功能存在回归。Linux/386 的描述符清理测试同样不表示支持该架构的 SCTP I/O。
+Existing unsupported stubs, `ErrUnsupported`, cross-platform API declarations, and non-Linux compatibility checks do not constitute a support promise. Non-Linux test-compilation failures are recorded as out-of-scope compatibility issues, not evidence of Linux SCTP regressions. Linux/386 descriptor-cleanup tests likewise do not establish SCTP I/O support on that architecture.
 
-已知范围外问题：v0.7.2 的 Solaris/illumos 测试编译会因 fd 回归测试引用 `syscall.Dup2` 而失败，库本身仍能编译。2026-10-31 确认当前业务仅使用 Linux，故此项仅记录、暂不修复，也不作为发布阻塞项。复现及对照见 [review 结果](repro/v0.7.2-review-results.json)。
+Known out-of-scope issue: v0.7.2 Solaris/illumos test compilation fails because fd regressions reference `syscall.Dup2`, although the library itself builds. On 2026-10-31, the current application was confirmed to use only Linux, so this remains documented, deferred, and non-blocking for release. Reproduction and controls are in the [review results](repro/v0.7.2-review-results.json).
 
-原生 SCTP 集成验证目前在 Linux/amd64 执行；其他 Linux 架构的 QEMU 检查覆盖 ABI、字节序和编码，不能等同于完整的协议验证。具体检查范围见 [README](../README.md#testing)。
+Native SCTP integration checks currently run on Linux/amd64. QEMU checks for other Linux architectures cover ABI, byte order, and encoding rather than complete protocol validation. See [README testing](../README.md#testing) for the exact scope.
 
-本库最低要求 Go 1.26。与最低要求较低的库相比，这会增加旧项目的升级成本。Go 版本现代化有利于内部实现和维护，但本身不增加 SCTP 协议能力。
+The minimum Go version is 1.26. Compared with libraries requiring older versions, this increases upgrade costs for legacy projects. A newer Go baseline helps implementation and maintenance but does not itself add SCTP protocol capabilities.
 
-| 库 | 比较快照的 go.mod 声明 |
+| Library | go.mod declaration in the comparison snapshot |
 | --- | --- |
 | [skill215/sctp](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/go.mod) | Go 1.26.0 |
 | [ishidawataru/sctp](https://github.com/ishidawataru/sctp/blob/19ddcbc6aae2b602d6384cc4048e5f91f0e84e5d/go.mod) | Go 1.12 |
@@ -88,39 +88,39 @@ go-sctp 的 `ReadMsg/ReadMsgExt` 返回接收 flags，文档说明如何通过 E
 | [georgeyanev/go-sctp](https://github.com/georgeyanev/go-sctp/blob/a06447f4a276a8d3c79b807215728c74324dee1d/go.mod) | Go 1.20 |
 | [pion/sctp](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/go.mod) | Go 1.24.0 |
 
-## 测试覆盖与性能判断
+## Test coverage and performance assessment
 
-本库 CI 在 Linux/amd64 上运行 Go 1.26 和 1.27 的集成测试。发布检查要求每个 Go 版本完成十轮 race 测试，并实际运行隔离网络命名空间中的接口名冲突测试。ARM、ARM64、MIPS、MIPS64、PPC64 和 s390x 的 QEMU 检查覆盖 socket-option ABI、对齐和编码；它们不覆盖完整的 SCTP 关联。[CI 配置](../.github/workflows/ci.yaml)、[架构检查](../.github/workflows/arch.yaml)
+CI runs Linux/amd64 integration tests with Go 1.26 and 1.27. Release checks require ten race rounds per Go version and actual interface-name conflict tests in isolated network namespaces. QEMU checks on ARM, ARM64, MIPS, MIPS64, PPC64, and s390x cover socket-option ABI, alignment, and encoding, not complete SCTP associations. [CI configuration](../.github/workflows/ci.yaml), [architecture checks](../.github/workflows/arch.yaml)
 
-Pion 的 CI 包括 Windows、macOS、wasm 和定期 fuzz。它覆盖的是用户态协议栈，不能与内核封装的测试范围直接等同。[Pion 平台检查](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/test.yaml)、[Pion fuzz](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/fuzz.yaml)
+Pion CI includes Windows, macOS, wasm, and periodic fuzzing. It validates a userspace stack, so its scope cannot be equated directly with kernel-wrapper tests. [Pion platform checks](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/test.yaml), [Pion fuzzing](https://github.com/pion/sctp/blob/6ec762ebc1106ae8c5ce1a69208a98dfcfdddaaf/.github/workflows/fuzz.yaml)
 
-截至 2026-10-31，v0.7.2 已有 sockaddr、ancillary、codec 和地址往返四类 fuzz 目标；benchmark 与业务集成压力测试仍待补齐。这次比较没有同场性能数据，因此不对各库的吞吐、延迟、内存或 CPU 消耗排序。性能验证应固定硬件、内核、socket 参数和负载，再比较消息大小、并发关联数、stream 数、丢包条件、分配次数和尾延迟。用户态与内核实现还应说明底层传输和进程内存、内核资源的统计范围。
+As of 2026-10-31, v0.7.2 has four fuzz targets: sockaddr, ancillary, codec, and address round trips. Benchmarks and application-integration stress tests remain to be added. This comparison has no performance data from identical environments and does not rank throughput, latency, memory, or CPU. Performance testing should fix hardware, kernel, socket settings, and workload, then compare message sizes, concurrent associations, stream counts, packet loss, allocations, and tail latency. Userspace/kernel comparisons must also state the underlying transport and the scope of process-memory and kernel-resource accounting.
 
-## 发布版本规范
+## Release version conventions
 
-2026-10-31 更新：规范注释标签 `v0.7.2` 已发布，独立模块的 `go get @v0.7.2` 与 `@latest` 均已验证解析为 `v0.7.2`。以下保留比较日的历史观察；版本标签问题已解决，不再是当前缺口。
+Update, 2026-10-31: canonical annotated tag `v0.7.2` is published. An independent module verified that both `go get @v0.7.2` and `@latest` resolve to `v0.7.2`. The historical comparison-date observations below are retained; tag naming is resolved and is no longer a current gap.
 
-截至比较日，本库使用 `0.7.1` 等不带 `v` 的标签，发布工作流也仅匹配 `0.*`。GitHub Release 已存在，但这些标签不符合 Go 模块的规范语义版本形式。Go 工具可以按标签查询并解析为伪版本；正式版本发现与升级体验需要改进。[当前发布工作流](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/.github/workflows/release.yaml#L3-L10)、[Go 模块版本规则](https://go.dev/ref/mod#versions)
+At the comparison date, tags such as `0.7.1` lacked the `v` prefix, and the release workflow matched only `0.*`. GitHub Releases existed, but these tags were not canonical Go semantic versions. Go could resolve a tag query to a pseudo-version; formal version discovery and upgrades needed improvement. [Release workflow at that snapshot](https://github.com/skill215/sctp/blob/bd2fa276b5be3bdebef3a4a9756cae7567505359/.github/workflows/release.yaml#L3-L10), [Go module version rules](https://go.dev/ref/mod#versions)
 
-比较时执行 `go list -m -json github.com/skill215/sctp@0.7.1`，得到版本 `v0.0.0-20261029085721-e864ee06b6c5`；`go list -m -versions github.com/skill215/sctp` 未列出规范语义版本。后续应采用 `v0.7.1` 形式的标签，并同步调整工作流的触发规则。
+At comparison time, `go list -m -json github.com/skill215/sctp@0.7.1` returned `v0.0.0-20261029085721-e864ee06b6c5`; `go list -m -versions github.com/skill215/sctp` listed no canonical semantic versions. Subsequent releases should use tags in the form `v0.7.1` and update workflow triggers accordingly.
 
-## 改进优先级
+## Improvement priorities
 
-| 优先级 | 建议 | 目的 |
+| Priority | Recommendation | Purpose |
 | --- | --- | --- |
-| 1 | 规范带 `v` 前缀的版本标签和发布流程 | 改善模块版本发现、固定版本依赖与升级体验 |
-| 2 | 增加 `ReadMsg/ReadMsgExt`，保留原有读写 API | 暴露消息边界、通知和辅助数据截断标志，支持缓冲区复用 |
-| 3 | 实现标准 deadline 和 `DialContext` | 完善取消、超时及 Go 网络 API 的集成 |
-| 4 | 增加类型化通知解析与常用 socket 配置 | 降低业务代码操作原始字节和 ABI 的负担 |
-| 5 | 建立 benchmark、fuzz 和跨内核互操作测试 | 量化性能并扩大输入、内核与协议行为覆盖 |
+| 1 | Canonical `v`-prefixed tags and release workflow | Improve version discovery, pinned dependencies, and upgrades |
+| 2 | Add `ReadMsg/ReadMsgExt` while retaining existing I/O APIs | Expose message boundaries, notification and ancillary-truncation flags, and buffer reuse |
+| 3 | Implement standard deadlines and `DialContext` | Improve cancellation, timeouts, and Go networking integration |
+| 4 | Add typed notification parsing and common socket settings | Reduce application-level raw-byte and ABI handling |
+| 5 | Establish benchmarks, fuzzing, and cross-kernel interoperability tests | Quantify performance and expand input/kernel/protocol coverage |
 
-这些是后续建议，不代表当前版本已经具备对应能力。
+These are future recommendations, not a claim that the compared version already has the capabilities.
 
-## 源码比较基线
+## Source comparison baselines
 
-下列固定提交用于说明比较范围；后续选型应重新核对目标版本的 API、依赖和测试结果。
+These pinned commits define the comparison scope. Recheck target-version APIs, dependencies, and test results before later library selection.
 
-| 库 | 源码快照 |
+| Library | Source snapshot |
 | --- | --- |
 | skill215/sctp | [bd2fa27](https://github.com/skill215/sctp/commit/bd2fa276b5be3bdebef3a4a9756cae7567505359) |
 | ishidawataru/sctp | [19ddcbc](https://github.com/ishidawataru/sctp/commit/19ddcbc6aae2b602d6384cc4048e5f91f0e84e5d) |

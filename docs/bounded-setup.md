@@ -1,16 +1,18 @@
 # Bounded setup and message continuity
 
-Incremental A–E enhancement on the existing U2–U5 working tree, Go 1.26 and pure
-Go production builds. This does not implement the separate SCTP v1 proposal or
-modify diameterkit. Candidate provenance and actual test results are recorded in
-[the delivery report](bounded-setup-delivery.md); local results are not remote CI
-or a release.
+These APIs are released in [v0.8.0](https://github.com/skill215/sctp/releases/tag/v0.8.0),
+with Go 1.26 and pure-Go production builds. A–E extend the message, context,
+notification, and resource APIs developed in U2–U5. This is not the separate SCTP
+v1 proposal and does not implement diameterkit's downstream integration.
+See the [README](../README.md) for runnable examples and the
+[publication record](evidence/v0.8.0/publication-result.md) for final release evidence.
+The [delivery report](bounded-setup-delivery.md) retains candidate-stage provenance.
 
 ## Public API mapping
 
-Every proposed signature is implemented with its proposed name:
+Released signatures and their contracts:
 
-| Proposed / exported API | Contract |
+| Exported API | Contract |
 | --- | --- |
 | `(*SCTPListener).AcceptSCTPContext(context.Context)` | Same read gate and fd as Accept/AcceptSCTP; cancellable queue and runtime poller wait |
 | `(*SCTPListener).SetDeadline(time.Time)` | Current/future accepts; zero clears; never inherited by returned connections |
@@ -195,9 +197,9 @@ PPID46/0 policy and application frame length versus EOR remain application polic
 
 ## Compatibility and migration
 
-No existing exported struct gains fields in this change (private state grows).
-New types are additive. The pre-existing U2 SocketConfig.Messages field already
-requires keyed literals when migrating from v0.7.4. Legacy resolver service-port
+The A–E increment added no fields to existing exported structs (private state grows).
+Across the complete v0.8.0 release, SocketConfig.Messages was added in U2:
+use keyed literals when migrating from v0.7.4. Legacy resolver service-port
 syntax, old nil-Messages entrypoints and zero-value SocketConfig stay intact.
 Message-mode validation is intentionally stricter: previously returned missing or
 inconsistent data metadata now fails closed. There is no optional second reader
@@ -206,16 +208,16 @@ ErrUnsupported. Raw-fd mutation is outside these guarantees.
 
 The [standalone consumer source](examples/bounded-consumer/main.go.txt) covers
 requirements, listen/dial/accept, timeout clearing, fragments, notification
-parsing, cancellation, post-handoff operation and Close. Use the exact module and
-go.sum in the delivery report with GOWORK=off; a development replace is not
-publication evidence.
+parsing, cancellation, post-handoff operation and Close. Require the exact v0.8.0
+module with GOWORK=off; official go.sum values are in the publication record.
+A development replace is not publication evidence.
 
-After upstream acceptance, diameterkit can delete its20ms accept loop, direct
+With v0.8.0, diameterkit can replace its 20ms accept loop, direct
 setsockopt/getsockname, duplicated N/Z/D parsing/copying, hardcoded8192/copied
 upstream formulas and, after E acceptance, SCTP metadata continuity checks. Keep
 Diameter20-byte/24-bit length and prefix/body/discard logic, whole-frame deadlines,
 notification limits, transport events/ConnectionID/Sequence/first cause, CEA/DWR
 barriers, stream/PPID policy, Peer election/Watchdog/REOPEN/DPR/DPA, pending/attempt
 completion and Node admission/retirement. No upstream success certifies that
-migration; the separate diameterkit session must pin the candidate and rerun
+migration; the separate diameterkit session must pin the release and rerun
 batches64/65 Base/S6c, budgets, cancellation/Close, election, REOPEN and no replay.

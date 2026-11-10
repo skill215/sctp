@@ -1,65 +1,65 @@
-# SCTP issue 真实性复核
+# SCTP issue verification
 
-复核日期：2026-10-30。
+Review date: 2026-10-30.
 
-**结论：#1、#2、#4–#11 的十项现象均重新复现，未发现应按测试误报关闭的条目。** 其中七项是功能或数据正确性缺陷，#7、#10、#11 是非法或不完整输入下的参数校验与健壮性问题，不能描述为正常连接流程必然出错。#3 是发布规划，不计入 bug 数量。
+**Conclusion: all ten reported behaviors in #1, #2, and #4–#11 were reproduced again; none should be closed as a false-positive test.** Seven are functional or data-correctness defects. Issues #7, #10, and #11 concern validation and robustness for invalid or incomplete input, not inevitable failures of normal connection flows. Issue #3 is release planning and is excluded from the bug count.
 
-所有问题仍未修复。实际修复进度统一见 [v0.7.2 发布规划 #3](https://github.com/skill215/sctp/issues/3)。
+All issues remain unfixed. Actual fix progress is tracked in [v0.7.2 release plan #3](https://github.com/skill215/sctp/issues/3).
 
-## 复核方法与范围
+## Method and scope
 
-- 使用正式标签 `0.7.1` 的独立源码归档，提交为 `e864ee06b6c5b0c77661c4715814a75576c23237`。
-- 环境为 Linux/amd64，内核 `6.6.114.1-microsoft-standard-WSL2`。
-- Go 1.26.10 和 Go 1.27.2 分别执行全部已登记复现用例五轮，启用 race detector。
-- 两套版本分别执行六组对照测试三轮，核验正常收发、原始空载荷 sendmsg、reset 是否被消耗、地址是否共享、公开通知回调和实际绑定地址。
-- 核对 Go 的 Reader 语义、Go 标准库地址校验行为，以及 Linux SCTP UAPI 和 EOF 的适用 socket 类型。
+- Use an independent source archive of release tag `0.7.1`, commit `e864ee06b6c5b0c77661c4715814a75576c23237`.
+- Environment: Linux/amd64, kernel `6.6.114.1-microsoft-standard-WSL2`.
+- Run all registered reproductions five times each under Go 1.26.10 and Go 1.27.2 with the race detector.
+- Run six control groups three times on each version, checking normal I/O, raw zero-payload sendmsg, whether reset is consumed, address sharing, public notification callbacks, and actual bound addresses.
+- Check Go Reader semantics, standard-library address validation, Linux SCTP UAPI, and the socket types to which EOF applies.
 
-失败用例的原始断言针对修复后应有的行为；在未修复的 0.7.1 上仍失败。对照测试用于排除错误归因，有些断言刻意描述未修复行为，不能原样充当修复后的验收测试。
+The failing cases assert the intended post-fix behavior and continue to fail on unfixed 0.7.1. Controls rule out incorrect attribution; some deliberately describe unfixed behavior and cannot be reused unchanged as post-fix acceptance tests.
 
-## 逐项结论
+## Findings by issue
 
-| Issue | 分类 | 再次确认的事实与对照 |
+| Issue | Classification | Reconfirmed facts and controls |
 | --- | --- | --- |
-| [#1](https://github.com/skill215/sctp/issues/1) | 功能缺陷，P1 | reset 未被消费时 Read 能取得终止错误；Write 消费 reset 后，Read 等待超过1秒仍不返回，Close 才唤醒。断连前 GetStatus 为 ESTABLISHED，断连后查询返回 EINVAL，排除了单纯的250ms调度延迟疑虑。 |
-| [#2](https://github.com/skill215/sctp/issues/2) | 并发缺陷，P2 | 共用同一通配地址触发 race，并改写输入的 IPAddrs；每个调用分别持有地址对象的对照无 race。动态证据针对 Listen，Dial 的同类原地修改路径仍需在修复时补回归。 |
-| [#4](https://github.com/skill215/sctp/issues/4) | 数据正确性缺陷，P1 | Read(nil) 返回1并丢失首字节；32字节 wrapper 缓冲区返回33。正常容量的 payload 与 metadata 收发对照通过。 |
-| [#5](https://github.com/skill215/sctp/issues/5) | 数据正确性缺陷，P1 | 库的空 payload 加 metadata 发送注入0x00；原始零载荷 sendmsg 返回 EINVAL，不向对端注入字节，随后正常发送仍成功。 |
-| [#6](https://github.com/skill215/sctp/issues/6) | UAPI 常量错误，P2 | 在适用 EOF 的 one-to-many socket 上，原始 sendmsg 使用0x10被拒绝，使用正确的0x200后对端收到 EOF。测试避开了 Go SendmsgN 补字节行为。 |
-| [#7](https://github.com/skill215/sctp/issues/7) | 参数校验问题，P2 | 高层 Listen 接受65536并实际绑定其他端口，Dial 接受65536+p并实际连接p；Go ListenTCP 对非法端口返回错误。 |
-| [#8](https://github.com/skill215/sctp/issues/8) | 功能缺陷，P2 | 使用公开的 SocketConfig.NotificationHandler 配置：未包装时收到一次 SHUTDOWN 回调，包装后回调为零且直接得到 EOF，证明影响实际通知投递。 |
-| [#9](https://github.com/skill215/sctp/issues/9) | 数据正确性缺陷，P2 | 无 metadata 的 SENDER_DRY 通知导致返回头部保留0xa5旧内容；正常 payload 的 wrapper 对照能正确覆盖头部并返回 stream=1、PPID=42。 |
-| [#10](https://github.com/skill215/sctp/issues/10) | 输入健壮性问题，P2 | nil raddr 导致 panic；Go DialTCP 对同类缺失地址返回 missing address。有效 raddr 配合 nil laddr 的自动绑定正常。 |
-| [#11](https://github.com/skill215/sctp/issues/11) | 输入校验与语义风险，P2 | 127.0.0.1/:0 被解析成通配地址，实际 Getsockname 为0.0.0.0；合法单地址127.0.0.1:0仍绑定127.0.0.1，单独:0的合法通配行为也正常。 |
+| [#1](https://github.com/skill215/sctp/issues/1) | Functional defect, P1 | Read receives the terminal error while reset is unconsumed. After Write consumes reset, Read remains blocked for over one second until Close wakes it. GetStatus was ESTABLISHED before disconnect and EINVAL afterward, ruling out a mere 250ms scheduling delay. |
+| [#2](https://github.com/skill215/sctp/issues/2) | Concurrency defect, P2 | Sharing one wildcard address triggers a race and mutates input IPAddrs; separate address objects per call do not race. Dynamic evidence covers Listen; the similar in-place Dial path still needs a fix regression. |
+| [#4](https://github.com/skill215/sctp/issues/4) | Data-correctness defect, P1 | Read(nil) returns 1 and loses the first byte; a 32-byte wrapper buffer returns 33. Normal-capacity payload/metadata controls pass. |
+| [#5](https://github.com/skill215/sctp/issues/5) | Data-correctness defect, P1 | Empty payload with metadata injects 0x00 through the library; raw zero-payload sendmsg returns EINVAL without injecting bytes, and a subsequent normal send succeeds. |
+| [#6](https://github.com/skill215/sctp/issues/6) | UAPI constant defect, P2 | On a one-to-many socket where EOF applies, raw sendmsg rejects 0x10, whereas the correct 0x200 delivers EOF to the peer. The test avoids Go SendmsgN's padding behavior. |
+| [#7](https://github.com/skill215/sctp/issues/7) | Parameter validation, P2 | High-level Listen accepts 65536 and binds another port; Dial accepts 65536+p and connects to p. Go ListenTCP rejects invalid ports. |
+| [#8](https://github.com/skill215/sctp/issues/8) | Functional defect, P2 | Using public SocketConfig.NotificationHandler, an unwrapped connection receives one SHUTDOWN callback; after wrapping, it receives none and returns EOF directly, proving an effect on actual notification delivery. |
+| [#9](https://github.com/skill215/sctp/issues/9) | Data-correctness defect, P2 | A SENDER_DRY notification without metadata leaves stale 0xa5 bytes in the returned header. The normal-payload wrapper control overwrites the header correctly and reports stream=1, PPID=42. |
+| [#10](https://github.com/skill215/sctp/issues/10) | Input robustness, P2 | nil raddr panics; Go DialTCP reports missing address for the equivalent input. Automatic binding with valid raddr and nil laddr works. |
+| [#11](https://github.com/skill215/sctp/issues/11) | Input validation and semantic risk, P2 | 127.0.0.1/:0 resolves as wildcard and Getsockname reports 0.0.0.0. Valid 127.0.0.1:0 still binds 127.0.0.1, and standalone :0 retains valid wildcard behavior. |
 
-## 触发范围与记录修正
+## Trigger scope and record corrections
 
-### 读取长度有明确接口约束
+### Read counts have an explicit interface contract
 
-Go Reader 要求返回计数不超过缓冲区长度，并明确零长度缓冲区应返回零计数。#4 的计数与丢字节现象违反该约束，不能解释为调用方提供空缓冲区后的正常行为。[Go Reader 文档](https://pkg.go.dev/io#Reader)
+Go Reader requires the returned count not to exceed the buffer length and specifies a zero count for a zero-length buffer. Issue #4 violates this contract through its count and byte loss; it is not normal behavior caused by the caller supplying an empty buffer. [Go Reader documentation](https://pkg.go.dev/io#Reader)
 
-### 空消息与关闭标志需要分别验证
+### Empty messages and shutdown flags need separate verification
 
-#5 不要求内核必须支持空 SCTP 用户消息；拒绝空消息是可接受的行为，静默造出一个 payload 字节才是缺陷。
+Issue #5 does not require the kernel to support empty SCTP user messages. Rejecting an empty message is acceptable; silently inventing a payload byte is the defect.
 
-#6 核对的是 Linux 导出的常量，且动态验证使用 one-to-many socket。它不表示所有 SOCK_STREAM 发送都能用 SCTP_EOF，也不表示 SCTPConn.Close 普遍无法关闭。RFC 6458 说明了 one-to-many 的零数据 EOF 关闭方式；Linux UAPI 将 SCTP_EOF 定义为 MSG_FIN。[RFC 6458 第3.3节](https://www.rfc-editor.org/rfc/rfc6458.html#section-3.3)、[Linux v6.6 UAPI](https://github.com/torvalds/linux/blob/v6.6/include/uapi/linux/sctp.h#L310-L319)
+Issue #6 checks the exported Linux constant, with dynamic verification on one-to-many sockets. It does not mean every SOCK_STREAM send supports SCTP_EOF, or that SCTPConn.Close generally fails to close. RFC 6458 describes zero-data EOF shutdown for one-to-many sockets, and Linux UAPI defines SCTP_EOF as MSG_FIN. [RFC 6458 section 3.3](https://www.rfc-editor.org/rfc/rfc6458.html#section-3.3), [Linux v6.6 UAPI](https://github.com/torvalds/linux/blob/v6.6/include/uapi/linux/sctp.h#L310-L319)
 
-### 三项参数问题不扩大为正常 I/O 故障
+### The three parameter issues are not general I/O failures
 
-- #7 针对高层网络入口缺少端口范围校验。低层转换函数发生整数截断本身不足以证明 bug；本条的依据是实际监听或连接目标改变，却没有返回错误。
-- #10 针对缺失远端地址的输入健壮性。它不意味着有效远端地址也会 panic，也没有据此认定可由远端流量直接触发的安全漏洞。Go 标准库的对照是明确拒绝 nil raddr。[Go 1.26.10 DialTCP](https://github.com/golang/go/blob/go1.26.10/src/net/tcpsock.go#L317-L329)
-- #11 针对不完整多地址输入的处理，不声称合法多地址输入普遍失败。纯解析用例不要求内核 SCTP 模块或 socket 权限；本轮额外的实际绑定范围对照才需要这些条件。原 issue 的通用环境说明应据此收窄。
+- #7 concerns missing port-range validation at high-level networking entry points. Integer truncation in a low-level converter alone would not prove a bug; the evidence is that the actual listen/connect target changes without an error.
+- #10 concerns a missing remote address. It does not imply a panic for valid addresses or establish a vulnerability directly triggerable by remote traffic. The Go standard-library control explicitly rejects nil raddr. [Go 1.26.10 DialTCP](https://github.com/golang/go/blob/go1.26.10/src/net/tcpsock.go#L317-L329)
+- #11 concerns incomplete multihoming input, not general failure of valid multihoming. Pure parsing cases need neither the kernel SCTP module nor socket permissions; only the additional actual-binding controls require them. Narrow the original issue's generic environment description accordingly.
 
-### 未重复登记相同根因
+### Shared root causes were not registered twice
 
-#4 的普通 Read 和 header-only wrapped Read 是同一缺陷的两个入口。#4 与 #5 都涉及 Go 系统调用的临时字节，但方向、丢失或注入数据的行为及修复边界不同。#8 是订阅配置副作用，#9 是无 metadata 时的输出完整性问题；它们可能互相暴露，但可分别验证。
+The plain Read and header-only wrapped Read cases in #4 are two entry points for one defect. Both #4 and #5 involve temporary bytes in Go syscall handling, but differ in direction, data loss versus injection, and fix boundaries. Issue #8 is a subscription side effect; #9 is incomplete output without metadata. They can expose one another but are independently testable.
 
-## 可复现测试
+## Reproducible tests
 
-- [首轮两个缺陷](repro/0.7.1-regressions_test.go.txt)。
-- [后续八项缺陷](repro/0.7.1-additional-regressions_test.go.txt)。
-- [本轮真实性对照](repro/0.7.1-issue-confirmation-controls_test.go.txt)。
+- [First two defects](repro/0.7.1-regressions_test.go.txt).
+- [Eight subsequent defects](repro/0.7.1-additional-regressions_test.go.txt).
+- [Verification controls](repro/0.7.1-issue-confirmation-controls_test.go.txt).
 
-在仓库根目录准备独立发布版源码：
+Prepare an independent release-source directory from the repository root:
 
 ```sh
 sctp_verify_dir="$(mktemp -d)"
@@ -69,7 +69,7 @@ cp docs/repro/0.7.1-additional-regressions_test.go.txt "$sctp_verify_dir/additio
 cp docs/repro/0.7.1-issue-confirmation-controls_test.go.txt "$sctp_verify_dir/confirmation_controls_linux_test.go"
 ```
 
-对未修复版本，对照测试应通过，缺陷断言应失败。两套 Go 工具链分别执行：
+On the unfixed release, controls should pass and defect assertions should fail. Run with each Go toolchain:
 
 ```sh
 (
@@ -79,4 +79,4 @@ cp docs/repro/0.7.1-issue-confirmation-controls_test.go.txt "$sctp_verify_dir/co
 )
 ```
 
-上述结论只涵盖所列基线、环境和触发条件；issue 真实性确认不等于完整库已无其他缺陷，也不等于修复已完成。
+These conclusions cover only the stated baseline, environment, and triggers. Confirming issue validity does not establish that the library has no other defects or that the fixes are complete.

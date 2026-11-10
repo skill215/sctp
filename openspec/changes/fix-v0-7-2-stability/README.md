@@ -1,3 +1,3 @@
 # fix-v0-7-2-stability
 
-修复14项已确认缺陷并覆盖1项非阻塞接口一致性改进，保持Go1.26和现有API兼容；本阶段仅设计。
+Fix 14 confirmed defects and cover one non-blocking interface-consistency improvement while retaining Go 1.26 and existing API compatibility; this stage is design only.

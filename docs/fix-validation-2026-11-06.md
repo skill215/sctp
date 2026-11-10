@@ -1,61 +1,43 @@
-# SCTP 修复验证记录
+# SCTP fix validation record
 
-日期：2026-11-06。基线：v0.7.3 / e4154064。候选为本地未发布工作区；范围仅限
-SCTP 仓库。此前的 review 文档及证据保留。
+Date: 2026-11-06. Baseline: v0.7.3 / e4154064. The candidate is a local, unpublished working tree; scope is limited to the SCTP repository. Earlier review documents and evidence are retained.
 
-## 修复和回归
+## Fixes and regressions
 
-| Issue | 修复 | 验证重点 |
+| Issue | Fix | Validation focus |
 | --- | --- | --- |
-| [#19](https://github.com/skill215/sctp/issues/19) | FileListener 在源文件 RawConn.Control 内复制 fd | 修改前触发 race detector；修改后并发 Close/复用只会正确导入或失败；副本与原文件各自关闭 |
-| [#20](https://github.com/skill215/sctp/issues/20) | CLI 地址解析失败立即退出 | 全部无效及混合有效/无效地址都在监听前退出，实际子进程验证 |
-| [#21](https://github.com/skill215/sctp/issues/21) | SetInitMsg 先校验四个整数，再转换为 uint16 | 每个字段的负值及超限值返回 EINVAL，内核读回值不变；保留 0 和 65535 |
-| [#22](https://github.com/skill215/sctp/issues/22) | 示例配置与 buffer 实际读回值使用不同变量 | 三个连续客户端，显式配置和未设置两种情况都保持配置；显式配置有独立 socket 控制对照 |
-| [#23](https://github.com/skill215/sctp/issues/23) | 地址查询和 PeelOff 拒绝 signed 32-bit 不可表示的关联 ID | id±2^32、int64 极值不能选择其他关联；拒绝后合法 ID 仍能 PeelOff 并传输 payload；架构单测确认非法查询未调用 kernel callback |
-| [#24](https://github.com/skill215/sctp/issues/24) | 统一非阻塞 one-to-many 测试 setup，以真实 payload/元数据确认就绪 | 低 GC 发现，SIGURG 和独立 syscall 确认；新增带信号的 setup/PeelOff/payload 回归 |
+| [#19](https://github.com/skill215/sctp/issues/19) | FileListener duplicates the fd inside the source file's RawConn.Control | The pre-fix probe triggered the race detector; after the fix, concurrent Close/reuse either imports correctly or fails; source and duplicate close independently |
+| [#20](https://github.com/skill215/sctp/issues/20) | Exit immediately on CLI address parsing failure | All-invalid and mixed valid/invalid inputs exit before listening, verified with actual subprocesses |
+| [#21](https://github.com/skill215/sctp/issues/21) | Validate all four SetInitMsg integers before converting to uint16 | Negative and excessive values in every field return EINVAL without changing kernel readbacks; preserve 0 and 65535 |
+| [#22](https://github.com/skill215/sctp/issues/22) | Separate example configuration variables from actual buffer readbacks | Three consecutive clients preserve both explicit and unset configurations; explicit settings have an independent socket control |
+| [#23](https://github.com/skill215/sctp/issues/23) | Address queries and PeelOff reject association IDs not representable as signed 32-bit values | id±2^32 and int64 extremes cannot select another association; a valid ID still permits PeelOff and payload transfer after rejection; architecture unit tests confirm invalid queries never invoke the kernel callback |
+| [#24](https://github.com/skill215/sctp/issues/24) | Share nonblocking one-to-many test setup and confirm readiness using real payload/metadata | Discovered under low GC and confirmed by SIGURG and independent syscalls; add setup/PeelOff/payload regressions with signals |
 
-参数验证保留 unsupported stub 的 ErrUnsupported 优先级，增加专门回归。
-公开签名、原始 SCTPConnect errno、标准 deadline 不支持的合同均保持。
+Parameter validation preserves ErrUnsupported precedence in unsupported stubs, with dedicated regressions. Public signatures, raw SCTPConnect errno behavior, and the contract that standard deadlines are unsupported remain unchanged.
 
-## 最终验证
+## Final validation
 
-- Go 1.26.10、1.27.3：各五个独立的全库 race/shuffle 进程通过，seed 为
-  72611061–72611065。针对性回归每版本再执行 count=3。
-- 两版本的 vet、strict checkptr、GOGC=1 全库 race，以及 RawSockaddr、
-  Ancillary、Codec、AddressRoundTrip fuzz 全部通过。每个 fuzz 预算 10 秒，
-  输入最小化预算 1 秒。上述主记录共 26 个通过的命令组。
-- 最终测试源在 ARM、ARM64、MIPS、MIPS64、PPC64、s390x 上，各用两版本
-  交叉编译通过，共 12 个编译命令组。本机没有执行 QEMU。
-- 核心修复后，两版本的 Linux/386 原生 stub 测试、强制执行的命名空间
-  接口名冲突测试 count=3、独立 API 消费者编译、README 示例执行均通过，
-  共 8 个命令组。后续改动仅为 Linux 测试夹具，不改变这些检查的库代码。
-- Solaris 的 Go 1.26 库构建通过；已知范围外测试编译缺口继续延期，不修改。
+- Go 1.26.10 and 1.27.3 each passed five independent full-library race/shuffle processes with seeds 72611061–72611065. Targeted regressions also ran with count=3 on each version.
+- Both versions passed vet, strict checkptr, GOGC=1 full-library race, and RawSockaddr, Ancillary, Codec, and AddressRoundTrip fuzzing. Each fuzz target had a 10-second budget and a 1-second minimization budget. The main record contains 26 passed command groups.
+- The final test sources cross-compiled for ARM, ARM64, MIPS, MIPS64, PPC64, and s390x using both versions: 12 compilation command groups. QEMU was not run locally.
+- After the core fixes, both versions passed native Linux/386 stub tests, three mandatory namespace interface-name conflict runs, independent API consumer compilation, and README example execution: eight command groups. Later changes affected only Linux test fixtures, not the library code covered by these checks.
+- The Solaris library built with Go 1.26; the known out-of-scope test-compilation gap remains deferred and unchanged.
 
-本地使用一个 Linux/amd64 内核。这里不代表第二个原生内核、Windows 原生
-执行、QEMU 或远端完整发布矩阵已经通过。五轮复查也没有替代发布流程每个
-native job 十轮验证的要求。
+Local testing used one Linux/amd64 kernel. These results do not establish a pass on a second native kernel, native Windows, QEMU, or the complete remote release matrix. Five review rounds do not replace the release requirement of ten rounds per native job.
 
-## 保留失败记录及原因
+## Retained failures and causes
 
-最初修复后的一次 Go 1.26 低 GC 检查在旧 TestPeelOffCloseOnExec 的阻塞建连
-setup 返回 EISCONN；这条失败没有被覆盖为成功。无显式信号的独立 100 次重跑
-通过。随后 SIGURG probe 对包装函数和直接 CONNECTX3 各运行 1000 次，都复现
-EISCONN，且原生 peer 查询及 Accept 证明关联已建立。
+An initial Go 1.26 low-GC check after the fixes returned EISCONN from the old blocking connection setup in TestPeelOffCloseOnExec. That failure was not overwritten as a success. An independent 100-run control without explicit signals passed. A subsequent SIGURG probe ran both the wrapper and direct CONNECTX3 1000 times each, reproducing EISCONN in both, while native peer queries and Accept proved that the association had been established.
 
-据此登记并修复 #24 的夹具假设，而非改变原始 syscall 接口去吞掉任意 EISCONN。
-统一夹具后，针对性 GOGC=1/race 三次测试和最终完整两版本验证通过。
-最终复查未再确认其他独立 bug。
+This led to issue #24 and a fix to the fixture assumption, rather than changing the raw syscall interface to swallow arbitrary EISCONN. After unifying the fixture, three targeted GOGC=1/race repetitions and the final complete two-version validation passed. The final review confirmed no other independent bug.
 
-## 证据与交付状态
+## Evidence and delivery status
 
-[最终命令](repro/fixes-2026-11-06/checks.json)、
-[架构编译](repro/fixes-2026-11-06/architecture.json)、
-[兼容检查](repro/fixes-2026-11-06/compatibility.json)、
-[结果摘要](repro/fixes-2026-11-06/results.json)、
-[修复前后证据说明](repro/fixes-2026-11-06/README.md)、
-[源码指纹](repro/fixes-2026-11-06/source-manifest.json)。
+[Final commands](repro/fixes-2026-11-06/checks.json),
+[architecture compilation](repro/fixes-2026-11-06/architecture.json),
+[compatibility checks](repro/fixes-2026-11-06/compatibility.json),
+[result summary](repro/fixes-2026-11-06/results.json),
+[before/after evidence](repro/fixes-2026-11-06/README.md),
+[source fingerprints](repro/fixes-2026-11-06/source-manifest.json).
 
-#23 和 #24 已用英文创建并回读核对；所有问题保持 open，避免把本地修复描述为
-已经合并或发布。代码、回归和文档位于工作区，未提交、push 或发布 release。
-架构结论及下一阶段的组织/错误模型建议见
-[架构 review](architecture-review-2026-11-06.md)。
+Issues #23 and #24 were created in English and read back for verification. All issues remain open so that local fixes are not presented as merged or released. Code, regressions, and documentation are in the working tree; they have not been committed, pushed, or released. Architecture conclusions and next-stage organization/error-model recommendations are in the [architecture review](architecture-review-2026-11-06.md).
