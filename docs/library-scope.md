@@ -9,10 +9,10 @@ public API and documented socket behavior.
 | Area | Owned here |
 | --- | --- |
 | Socket lifecycle | Listen, Dial, Accept, Close, descriptor ownership, FileListener and PeelOff |
-| Message I/O | Read/Write, SCTPRead/SCTPWrite, streams, PPID and ancillary metadata |
+| Message I/O | Legacy Read/Write and SCTPRead/SCTPWrite; opt-in ReadEvent/WriteMsgContext, streams, PPID and ancillary metadata |
 | Association state | Kernel notifications, event subscriptions, status and peer/address queries |
 | Addressing | IPv4/IPv6, multihoming, interface zones and bind/connect encoding |
-| Waiting and errors | Runtime poller integration, relative socket timeouts, close wakeups and syscall errors |
+| Waiting and errors | Runtime poller integration, relative socket timeouts, mutable deadlines, context cancellation, close wakeups and errors |
 | ABI | Structure sizes, alignment, native byte order and supported Linux architectures |
 | Delivery | Package documentation, examples, module compatibility, CI, tags and releases |
 
@@ -26,18 +26,24 @@ library defect, reproduce it with a focused test using this package and, where
 needed, an independent kernel/syscall control. Adapter failures alone do not
 justify changing the SCTP implementation or publishing a library patch release.
 
-## Existing API limits
+## v0.8.0 API scope
 
 The minimum Go version remains 1.26. Linux with kernel SCTP is the supported
 platform; Linux/386 is excluded. Existing unsupported-target stubs and cleanup
 checks are compatibility safeguards, not additional supported platforms.
 Solaris/illumos gaps remain documented and deferred.
 
-Standard SetDeadline/SetReadDeadline/SetWriteDeadline currently return
-EOPNOTSUPP. Relative SO_RCVTIMEO/SO_SNDTIMEO semantics are documented in the
-README. DialContext, standard deadlines and additional message/notification APIs
-require separate feature design; application workarounds must not silently
-redefine these contracts.
+On supported targets, standard SetDeadline/SetReadDeadline/SetWriteDeadline
+affect active and future I/O, including legacy and wrapped connections. Relative
+SO_RCVTIMEO/SO_SNDTIMEO budgets remain independent. v0.8.0 also provides context
+dialing and accept, bounded setup, opt-in message I/O, typed notifications, and
+queryable logical resource requirements. See the [README](../README.md),
+[bounded setup contract](bounded-setup.md), and
+[0.4 to v0.8.0 compatibility guide](compatibility-v0.4-v0.8.0.md).
+
+These APIs do not provide application framing/reassembly, automatic retries,
+reconnection, or an allocator/RSS bound for arbitrary concurrency. Application
+workarounds must not silently redefine the documented contracts.
 
 ## Library release acceptance
 
@@ -45,7 +51,7 @@ redefine these contracts.
    of adjacent descriptor, concurrency, timeout and error behavior.
 2. The existing native matrix passes on Go 1.26.x/1.27.x and two Linux kernels:
    ten independent race/shuffle processes, vet, strict checkptr, low-GOGC tests,
-   the four fuzz targets and required namespace regressions.
+   the five fuzz targets and required namespace regressions.
 3. Architecture checks exercise the affected ABI/encoding paths. QEMU checks
    are not represented as full SCTP association validation on those targets.
 4. Examples and independent API compilation pass. The synthetic consumer in

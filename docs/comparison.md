@@ -2,6 +2,13 @@
 
 Comparison date: 2026-10-29.
 
+**Historical snapshot:** the comparisons below describe that date, including
+then-missing APIs. As of v0.8.0, this fork supports standard deadlines, context
+setup/accept, and explicit message receive flags and typed notifications. For
+current capabilities and upgrade constraints, use the [README](../README.md)
+and [compatibility guide](compatibility-v0.4-v0.8.0.md). This note does not
+reassess the other libraries or claim identical behavior to the upstream API.
+
 `skill215/sctp` suits projects that need to retain the `ishidawataru/sctp` calling model, use native Linux SCTP, and accept a Go 1.26 minimum. This fork's main strengths are low-level correctness fixes and regression validation; its high-level networking API is still less complete than `georgeyanev/go-sctp`. For new projects without compatibility constraints, evaluate the latter in parallel; for WebRTC DataChannels, prefer evaluating the Pion ecosystem.
 
 ## Implementation models and use cases

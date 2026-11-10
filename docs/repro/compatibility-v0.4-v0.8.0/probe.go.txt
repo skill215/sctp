@@ -1,0 +1,164 @@
+// Linux-only compatibility probe. Run each version in a separate process/module.
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"net"
+	"os"
+	"runtime"
+	"syscall"
+	"time"
+
+	"github.com/skill215/sctp"
+)
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+type rawOwner interface {
+	SyscallConn() (syscall.RawConn, error)
+}
+
+func flags(owner rawOwner) map[string]bool {
+	raw, err := owner.SyscallConn()
+	must(err)
+	var status, descriptor uintptr
+	var e syscall.Errno
+	must(raw.Control(func(fd uintptr) {
+		status, _, e = syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_GETFL, 0)
+		if e != 0 {
+			panic(e)
+		}
+		descriptor, _, e = syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_GETFD, 0)
+		if e != 0 {
+			panic(e)
+		}
+	}))
+	return map[string]bool{"nonblock": status&syscall.O_NONBLOCK != 0, "cloexec": descriptor&syscall.FD_CLOEXEC != 0}
+}
+func errorText(e error) string {
+	if e == nil {
+		return ""
+	}
+	return e.Error()
+}
+func main() {
+	out := map[string]any{"go": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH}
+	addr, err := sctp.ResolveSCTPAddr("sctp4", "127.0.0.1:0")
+	must(err)
+	var controlFlags map[string]bool
+	cfg := sctp.SocketConfig{Control: func(_, _ string, raw syscall.RawConn) error {
+		return raw.Control(func(fd uintptr) {
+			v, _, e := syscall.Syscall(syscall.SYS_FCNTL, fd, syscall.F_GETFL, 0)
+			if e != 0 {
+				panic(e)
+			}
+			controlFlags = map[string]bool{"nonblock": v&syscall.O_NONBLOCK != 0}
+		})
+	}}
+	ln, err := cfg.Listen("sctp4", addr)
+	must(err)
+	defer ln.Close()
+	out["listener_flags"] = flags(ln)
+	out["control_flags"] = controlFlags
+	accepted := make(chan *sctp.SCTPConn, 1)
+	go func() { c, e := ln.AcceptSCTP(); must(e); accepted <- c }()
+	select {
+	case c := <-accepted:
+		c.Close()
+		panic("accept returned before arrival")
+	case <-time.After(100 * time.Millisecond):
+		out["accept_waits_before_arrival"] = true
+	}
+	client, err := sctp.DialSCTP("sctp4", nil, ln.Addr().(*sctp.SCTPAddr))
+	must(err)
+	defer client.Close()
+	var peer *sctp.SCTPConn
+	select {
+	case peer = <-accepted:
+	case <-time.After(2 * time.Second):
+		panic("accept failed to return after arrival")
+	}
+	defer peer.Close()
+	out["accepted_flags"] = flags(peer)
+	out["dialed_flags"] = flags(client)
+	out["clear_deadline_error"] = errorText(client.SetDeadline(time.Time{}))
+	must(peer.SubscribeEvents(sctp.SCTP_EVENT_DATA_IO))
+	must(client.SetDefaultSentParam(&sctp.SndRcvInfo{PPID: 0x01020304}))
+	n, err := client.SCTPWrite([]byte("p"), nil)
+	must(err)
+	if n != 1 {
+		panic(n)
+	}
+	b := make([]byte, 8)
+	n, info, err := peer.SCTPRead(b)
+	must(err)
+	if n != 1 || info == nil {
+		panic("missing echo metadata")
+	}
+	out["default_ppid_requested"] = uint32(0x01020304)
+	out["default_ppid_received"] = info.PPID
+	// FileListener duplicates ownership, but O_NONBLOCK belongs to the shared
+	// open file description. Inspect through Control, never File.Fd().
+	fd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, syscall.IPPROTO_SCTP)
+	must(err)
+	source := os.NewFile(uintptr(fd), "probe-sctp")
+	defer source.Close()
+	must(syscall.Bind(fd, &syscall.SockaddrInet4{Addr: [4]byte{127, 0, 0, 1}}))
+	must(syscall.Listen(fd, 4))
+	out["import_source_before"] = flags(source)
+	imported, err := sctp.FileListener(source)
+	must(err)
+	defer imported.Close()
+	out["import_source_after"] = flags(source)
+	out["imported_flags"] = flags(imported)
+	// Bound the 0.5 timeout regression with an external close, not a fake pass.
+	timeoutCfg := sctp.SocketConfig{Control: func(_, _ string, raw syscall.RawConn) error {
+		var e error
+		outer := raw.Control(func(fd uintptr) {
+			tv := syscall.NsecToTimeval((80 * time.Millisecond).Nanoseconds())
+			e = syscall.SetsockoptTimeval(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVTIMEO, &tv)
+		})
+		if outer != nil {
+			return outer
+		}
+		return e
+	}}
+	timed, err := timeoutCfg.Listen("sctp4", &sctp.SCTPAddr{IPAddrs: []net.IPAddr{{IP: net.IPv4(127, 0, 0, 1)}}})
+	must(err)
+	type result struct {
+		err    error
+		nonnil bool
+	}
+	done := make(chan result, 1)
+	started := time.Now()
+	go func() {
+		c, e := timed.Accept()
+		done <- result{e, c != nil}
+		if c != nil {
+			c.Close()
+		}
+	}()
+	var resultValue result
+	select {
+	case resultValue = <-done:
+		out["accept_timeout_before_safety_close"] = true
+	case <-time.After(500 * time.Millisecond):
+		out["accept_timeout_before_safety_close"] = false
+		timed.Close()
+		resultValue = <-done
+	}
+	timed.Close()
+	out["accept_timeout_ms"] = time.Since(started).Milliseconds()
+	out["accept_timeout_error"] = errorText(resultValue.err)
+	out["accept_error_has_non_nil_interface"] = resultValue.nonnil
+	out["constants"] = map[string]int{"SCTP_EOF": sctp.SCTP_EOF, "SCTP_ACTIVE": int(sctp.SCTP_ACTIVE), "SCTP_ESTABLISHED": int(sctp.SCTP_ESTABLISHED)}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	must(enc.Encode(out))
+	fmt.Fprintln(os.Stderr, "compatibility probe completed")
+}

@@ -52,6 +52,11 @@ it with `Read`/`Write`, `SCTPRead`/`SCTPWrite`, wrappers, or notification
 callbacks. The bounded setup API rejects `Control` and `NotificationHandler`;
 use its public configuration methods instead.
 
+Upgrading from an older release? Read the
+[0.4 to v0.8.0 compatibility and migration guide](docs/compatibility-v0.4-v0.8.0.md).
+Nonblocking descriptors started in 0.5; public Accept still waits. The guide
+covers raw fd integration, deadlines, changed constants, PPID, and wrapper behavior.
+
 ## Run the message example
 
 From a checkout of this repository:

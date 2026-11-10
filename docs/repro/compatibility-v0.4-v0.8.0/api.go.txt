@@ -1,0 +1,109 @@
+package main
+
+import (
+	"encoding/json"
+	"go/ast"
+	"go/build"
+	"go/importer"
+	"go/parser"
+	"go/token"
+	"go/types"
+	"os"
+	"path/filepath"
+)
+
+func signature(t types.Type) string {
+	s, ok := t.(*types.Signature)
+	if !ok {
+		return types.TypeString(t, func(p *types.Package) string { return p.Name() })
+	}
+	var p, r []string
+	for i := 0; i < s.Params().Len(); i++ {
+		p = append(p, signature(s.Params().At(i).Type()))
+	}
+	for i := 0; i < s.Results().Len(); i++ {
+		r = append(r, signature(s.Results().At(i).Type()))
+	}
+	b, _ := json.Marshal([]any{p, r, s.Variadic()})
+	return string(b)
+}
+
+func main() {
+	all := map[string]any{}
+	for _, dir := range os.Args[1:] {
+		fs := token.NewFileSet()
+		var files []*ast.File
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			panic(err)
+		}
+		for _, entry := range entries {
+			if filepath.Ext(entry.Name()) != ".go" {
+				continue
+			}
+			ok, err := build.Default.MatchFile(dir, entry.Name())
+			if err != nil {
+				panic(err)
+			}
+			if !ok {
+				continue
+			}
+			f, err := parser.ParseFile(fs, filepath.Join(dir, entry.Name()), nil, 0)
+			if err != nil {
+				panic(err)
+			}
+			files = append(files, f)
+		}
+		cfg := types.Config{Importer: importer.Default()}
+		pkg, err := cfg.Check("github.com/skill215/sctp", fs, files, nil)
+		if err != nil {
+			panic(err)
+		}
+		api := map[string]any{}
+		for _, name := range pkg.Scope().Names() {
+			if !ast.IsExported(name) {
+				continue
+			}
+			obj := pkg.Scope().Lookup(name)
+			switch v := obj.(type) {
+			case *types.Const:
+				api[name] = map[string]any{"kind": "const", "type": signature(v.Type()), "value": v.Val().ExactString()}
+			case *types.Func:
+				api[name] = map[string]any{"kind": "func", "type": signature(v.Type())}
+			case *types.Var:
+				api[name] = map[string]any{"kind": "var", "type": signature(v.Type())}
+			case *types.TypeName:
+				n, ok := v.Type().(*types.Named)
+				if !ok {
+					panic(name)
+				}
+				item := map[string]any{"kind": "type"}
+				if s, ok := n.Underlying().(*types.Struct); ok {
+					var fields []any
+					for i := 0; i < s.NumFields(); i++ {
+						f := s.Field(i)
+						if f.Exported() {
+							fields = append(fields, []string{f.Name(), signature(f.Type()), s.Tag(i)})
+						}
+					}
+					item["fields"] = fields
+				} else {
+					item["underlying"] = signature(n.Underlying())
+				}
+				api[name] = item
+				for i := 0; i < n.NumMethods(); i++ {
+					m := n.Method(i)
+					if m.Exported() {
+						api[name+"."+m.Name()] = map[string]any{"kind": "method", "type": signature(m.Type())}
+					}
+				}
+			}
+		}
+		all[filepath.Base(dir)] = api
+	}
+	e := json.NewEncoder(os.Stdout)
+	e.SetIndent("", "  ")
+	if err := e.Encode(all); err != nil {
+		panic(err)
+	}
+}

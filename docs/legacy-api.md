@@ -5,6 +5,12 @@ For new message-oriented applications, start with the [README](../README.md)
 and [message example](../example/message/main.go). Legacy `SCTPRead` does not
 expose EOR, so it cannot by itself establish complete application messages.
 
+API availability does not imply identical behavior to 0.4. Since 0.5, owned
+descriptors are nonblocking while public Accept waits through the Go poller.
+Standard deadlines become active in v0.8.0 even in legacy mode. Review the
+[version-by-version compatibility guide](compatibility-v0.4-v0.8.0.md) before
+upgrading code that uses raw fds, duplicates, old constants, or timeout workarounds.
+
 The original [echo example](../example/sctp.go) uses the 32-byte local wrapper
 format on the server and `SCTPRead`/`SCTPWrite` on the client. It is retained for
 compatibility; run it with `-ip`, `-port`, and optionally `-lport`, `-bufsize`,

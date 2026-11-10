@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""Audit immutable local tags; requires Linux/amd64, Go 1.26+, and kernel SCTP.
+
+No checkout is changed. Sources, binaries and results go in a fresh temporary
+directory. Historical modules use local replaces; this does not test the Go
+module proxy or original toolchains. Each native process has a 15-second limit.
+"""
+
+import hashlib
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import tempfile
+
+
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2]
+TAGS = {
+    "0.4": "064eb3743937897074643814b2e0558e7e07ad95",
+    "0.5": "7f50b6f4ccc2b9741dee7441d00fb5808ce8f5ae",
+    "0.6": "f2af417253a0c7441a63f699de2bfcab7cf022ff",
+    "0.7": "2506dfd2111269f19505e08ca3f765fd46334903",
+    "0.7.1": "e864ee06b6c5b0c77661c4715814a75576c23237",
+    "v0.7.2": "5359b448f9a2dbc21d779e485b92c5751f9f2237",
+    "v0.7.3": "e4154064dc9928274bcf4615c5382dd6fd81ad21",
+    "v0.7.4": "62ad388be958f0bd19d29d63dfc05743726779a1",
+    "v0.8.0": "bce1b3cf3ea32a32a86262c7f655d565bb40055c",
+}
+PROBED = ["0.4", "0.5", "0.6", "0.7", "v0.7.2", "v0.7.4", "v0.8.0"]
+
+
+def run(args, cwd=ROOT, timeout=120):
+    result = subprocess.run(args, cwd=cwd, env=ENV, capture_output=True,
+                            text=True, timeout=timeout)
+    if result.returncode:
+        raise RuntimeError(f"{args!r}\n{result.stdout}\n{result.stderr}")
+    return result.stdout
+
+
+def write_json(path, value):
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n")
+
+
+if __name__ == "__main__":
+    if platform.system() != "Linux" or platform.machine() not in ("x86_64", "amd64"):
+        raise SystemExit("This recorded comparison targets native Linux/amd64 only.")
+    out = Path(tempfile.mkdtemp(prefix="sctp-compatibility-"))
+    print(f"Audit directory: {out}", flush=True)
+    ENV = dict(os.environ, GOOS="linux", GOARCH="amd64", CGO_ENABLED="0",
+               GOWORK="off", GOFLAGS="", GOPROXY="off", GOSUMDB="off")
+    ENV.setdefault("GOCACHE", str(out / "gocache"))
+    sources = {}
+    for tag, commit in TAGS.items():
+        actual = run(["git", "rev-parse", f"{tag}^{{commit}}"]).strip()
+        if actual != commit:
+            raise RuntimeError(f"Unexpected tag {tag}: {actual}; expected {commit}")
+        dest = out / tag
+        dest.mkdir()
+        names = run(["git", "ls-tree", "--name-only", commit]).splitlines()
+        manifest = {}
+        for name in names:
+            if name != "go.mod" and not (name.endswith(".go") and not name.endswith("_test.go")):
+                continue
+            data = run(["git", "show", f"{commit}:{name}"]).encode()
+            (dest / name).write_bytes(data)
+            manifest[name] = hashlib.sha256(data).hexdigest()
+        sources[tag] = {
+            "commit": commit,
+            "go_directive": next(line[3:] for line in (dest / "go.mod").read_text().splitlines()
+                                 if line.startswith("go ")),
+            "exported_source_file_count": len(manifest),
+            "source_manifest_sha256": hashlib.sha256(
+                json.dumps(manifest, sort_keys=True).encode()).hexdigest(),
+        }
+    shutil.copyfile(HERE / "api.go.txt", out / "api.go")
+    api = json.loads(run(["go", "run", "-buildvcs=false", str(out / "api.go"),
+                          *[str(out / tag) for tag in TAGS]], cwd=out))
+    write_json(out / "api-all.json", api)
+    before, after = api["0.4"], api["v0.8.0"]
+    changes = {}
+    for name in sorted(before.keys() & after.keys()):
+        if before[name] == after[name]:
+            continue
+        first = next(tag for tag in TAGS if api[tag].get(name) != before[name])
+        changes[name] = {"before": before[name], "after": after[name], "first_changed_in": first}
+    native = {}
+    for tag in PROBED:
+        dest = out / f"probe-{tag}"
+        dest.mkdir()
+        shutil.copyfile(HERE / "probe.go.txt", dest / "main.go")
+        (dest / "go.mod").write_text(
+            "module example.com/sctp-compatibility-probe\n\ngo 1.26.0\n\n"
+            "require github.com/skill215/sctp v0.0.0\n"
+            f"replace github.com/skill215/sctp => ../{tag}\n")
+        run(["go", "build", "-buildvcs=false", "-o", "probe", "."], cwd=dest)
+        result = run([str(dest / "probe")], cwd=dest, timeout=15)
+        native[tag] = json.loads(result)
+        write_json(dest / "stdout.json", native[tag])
+        print(f"{tag}: probe completed", flush=True)
+    audit = {
+        "scope": "Exact tag production sources, Linux/amd64; private fields excluded from API comparison.",
+        "method": "Current toolchain, local replaces, CGO_ENABLED=0, -buildvcs=false; no original-toolchain or proxy certification.",
+        "kernel": platform.release(),
+        "go": run(["go", "version"]).strip(),
+        "sources": sources,
+        "audit_program_sha256": {name: hashlib.sha256((HERE / name).read_bytes()).hexdigest()
+                                 for name in ("api.go.txt", "probe.go.txt", "compare.py.txt")},
+        "api": {
+            "baseline_entries": len(before), "destination_entries": len(after),
+            "removed": sorted(before.keys() - after.keys()),
+            "changed": changes,
+            "added": {name: after[name] for name in sorted(after.keys() - before.keys())},
+            "unchanged_production_api_pairs": [
+                ["0.7", "0.7.1"], ["v0.7.2", "v0.7.3"]],
+        },
+        "native": native,
+        "limits": [
+            "Single kernel and architecture; no external consumer certification.",
+            "100 ms idle-accept observation, 80 ms SO timeout, 500 ms safety Close.",
+            "0.5 reaching safety Close records a timeout regression, not a pass.",
+            "Timing values vary between runs; tags 0.7.1 and v0.7.3 have no production-library changes and are not probed separately.",
+        ],
+    }
+    write_json(out / "audit.json", audit)
+    print(f"Results: {out / 'audit.json'}", flush=True)

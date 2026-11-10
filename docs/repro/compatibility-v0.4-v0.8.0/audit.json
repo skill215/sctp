@@ -1,0 +1,1272 @@
+{
+  "api": {
+    "added": {
+      "AddressLimits": {
+        "fields": [
+          [
+            "MaxAddresses",
+            "int",
+            ""
+          ],
+          [
+            "MaxZoneBytes",
+            "int",
+            ""
+          ],
+          [
+            "MaxAddressBytes",
+            "int",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "AssociationChange": {
+        "fields": [
+          [
+            "State",
+            "sctp.SCTPState",
+            ""
+          ],
+          [
+            "Error",
+            "uint16",
+            ""
+          ],
+          [
+            "OutboundStreams",
+            "uint16",
+            ""
+          ],
+          [
+            "InboundStreams",
+            "uint16",
+            ""
+          ],
+          [
+            "AssocID",
+            "sctp.SCTPAssocID",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "Dialer": {
+        "fields": null,
+        "kind": "type"
+      },
+      "Dialer.DialContext": {
+        "kind": "method",
+        "type": "[[\"context.Context\"],[\"*sctp.SCTPConn\",\"error\"],false]"
+      },
+      "ErrAssociationChanged": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrBoundAddrUnavailable": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrIOMode": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrInvalidConfig": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrMessageBoundary": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrNotificationTooLarge": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrReadUnusable": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrShortBuffer": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrSocketTimeout": {
+        "kind": "var",
+        "type": "error"
+      },
+      "ErrUnsupported": {
+        "kind": "var",
+        "type": "error"
+      },
+      "IORequirements": {
+        "fields": [
+          [
+            "OOBMin",
+            "int",
+            ""
+          ],
+          [
+            "NotificationMin",
+            "int",
+            ""
+          ],
+          [
+            "PeekScratchBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "ReadScratchBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "WriteScratchBytes",
+            "uint64",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "ListenContext": {
+        "kind": "func",
+        "type": "[[\"context.Context\",\"string\",\"string\",\"sctp.SetupConfig\"],[\"*sctp.SCTPListener\",\"error\"],false]"
+      },
+      "MessageIORequirements": {
+        "kind": "func",
+        "type": "[[\"sctp.MessageOptions\"],[\"sctp.IORequirements\",\"error\"],false]"
+      },
+      "MessageOptionState": {
+        "fields": [
+          [
+            "Options",
+            "sctp.MessageOptions",
+            ""
+          ],
+          [
+            "Layout",
+            "string",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "MessageOptions": {
+        "fields": [
+          [
+            "ReceiveInfo",
+            "sctp.ReceiveInfoMode",
+            ""
+          ],
+          [
+            "Events",
+            "uint32",
+            ""
+          ],
+          [
+            "NoDelay",
+            "bool",
+            ""
+          ],
+          [
+            "FragmentInterleave",
+            "uint8",
+            ""
+          ],
+          [
+            "AllowFragmentation",
+            "bool",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "NewDialer": {
+        "kind": "func",
+        "type": "[[\"string\",\"string\",\"string\",\"sctp.SetupConfig\"],[\"*sctp.Dialer\",\"error\"],false]"
+      },
+      "Notification": {
+        "fields": [
+          [
+            "Header",
+            "sctp.NotificationHeader",
+            ""
+          ],
+          [
+            "Kind",
+            "sctp.NotificationKind",
+            ""
+          ],
+          [
+            "Association",
+            "sctp.AssociationChange",
+            ""
+          ],
+          [
+            "PeerAddress",
+            "sctp.PeerAddressChange",
+            ""
+          ],
+          [
+            "SendFailure",
+            "sctp.SendFailure",
+            ""
+          ],
+          [
+            "Shutdown",
+            "sctp.ShutdownNotification",
+            ""
+          ],
+          [
+            "PartialDelivery",
+            "sctp.PartialDeliveryNotification",
+            ""
+          ],
+          [
+            "Tail",
+            "[]byte",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "NotificationAddress": {
+        "fields": [
+          [
+            "Family",
+            "uint16",
+            ""
+          ],
+          [
+            "Port",
+            "uint16",
+            ""
+          ],
+          [
+            "IP",
+            "netip.Addr",
+            ""
+          ],
+          [
+            "ScopeID",
+            "uint32",
+            ""
+          ],
+          [
+            "FlowInfo",
+            "uint32",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "NotificationAssociationChange": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "1"
+      },
+      "NotificationKind": {
+        "kind": "type",
+        "underlying": "uint8"
+      },
+      "NotificationPartialDelivery": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "5"
+      },
+      "NotificationPeerAddressChange": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "2"
+      },
+      "NotificationSendFailure": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "3"
+      },
+      "NotificationShutdown": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "4"
+      },
+      "NotificationUnknown": {
+        "kind": "const",
+        "type": "sctp.NotificationKind",
+        "value": "0"
+      },
+      "ParseNotification": {
+        "kind": "func",
+        "type": "[[\"[]byte\"],[\"sctp.Notification\",\"error\"],false]"
+      },
+      "PartialDeliveryAborted": {
+        "kind": "const",
+        "type": "uint32",
+        "value": "0"
+      },
+      "PartialDeliveryNotification": {
+        "fields": [
+          [
+            "Indication",
+            "uint32",
+            ""
+          ],
+          [
+            "AssocID",
+            "sctp.SCTPAssocID",
+            ""
+          ],
+          [
+            "Stream",
+            "uint32",
+            ""
+          ],
+          [
+            "Sequence",
+            "uint32",
+            ""
+          ],
+          [
+            "StreamPresent",
+            "bool",
+            ""
+          ],
+          [
+            "SequencePresent",
+            "bool",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "PeerAddressChange": {
+        "fields": [
+          [
+            "Address",
+            "sctp.NotificationAddress",
+            ""
+          ],
+          [
+            "State",
+            "int32",
+            ""
+          ],
+          [
+            "Error",
+            "int32",
+            ""
+          ],
+          [
+            "AssocID",
+            "sctp.SCTPAssocID",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "ReadData": {
+        "kind": "const",
+        "type": "sctp.ReadKind",
+        "value": "1"
+      },
+      "ReadEOF": {
+        "kind": "const",
+        "type": "sctp.ReadKind",
+        "value": "3"
+      },
+      "ReadKind": {
+        "kind": "type",
+        "underlying": "uint8"
+      },
+      "ReadNone": {
+        "kind": "const",
+        "type": "sctp.ReadKind",
+        "value": "0"
+      },
+      "ReadNotification": {
+        "kind": "const",
+        "type": "sctp.ReadKind",
+        "value": "2"
+      },
+      "ReadResult": {
+        "fields": [
+          [
+            "Kind",
+            "sctp.ReadKind",
+            ""
+          ],
+          [
+            "N",
+            "int",
+            ""
+          ],
+          [
+            "OOBN",
+            "int",
+            ""
+          ],
+          [
+            "RecvFlags",
+            "int",
+            ""
+          ],
+          [
+            "Info",
+            "sctp.SndRcvInfo",
+            ""
+          ],
+          [
+            "InfoPresent",
+            "bool",
+            ""
+          ],
+          [
+            "Consumed",
+            "bool",
+            ""
+          ],
+          [
+            "CloseRequired",
+            "bool",
+            ""
+          ],
+          [
+            "RequiredNotificationBytes",
+            "uint32",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "ReadResult.EndOfRecord": {
+        "kind": "method",
+        "type": "[null,[\"bool\"],false]"
+      },
+      "ReceiveInfoMode": {
+        "kind": "type",
+        "underlying": "uint8"
+      },
+      "ReceiveInfoSNDRCV": {
+        "kind": "const",
+        "type": "sctp.ReceiveInfoMode",
+        "value": "1"
+      },
+      "ReceiveInfoUnspecified": {
+        "kind": "const",
+        "type": "sctp.ReceiveInfoMode",
+        "value": "0"
+      },
+      "ResolveSCTPAddrContext": {
+        "kind": "func",
+        "type": "[[\"context.Context\",\"string\",\"string\"],[\"*sctp.SCTPAddr\",\"error\"],false]"
+      },
+      "SCTPConn.GetMessageOptions": {
+        "kind": "method",
+        "type": "[null,[\"sctp.MessageOptionState\",\"error\"],false]"
+      },
+      "SCTPConn.ReadEvent": {
+        "kind": "method",
+        "type": "[[\"context.Context\",\"[]byte\",\"[]byte\",\"[]byte\"],[\"sctp.ReadResult\",\"error\"],false]"
+      },
+      "SCTPConn.SetSocketTimeouts": {
+        "kind": "method",
+        "type": "[[\"time.Duration\",\"time.Duration\"],[\"error\"],false]"
+      },
+      "SCTPConn.WriteMsgContext": {
+        "kind": "method",
+        "type": "[[\"context.Context\",\"[]byte\",\"sctp.SndInfo\"],[\"int\",\"error\"],false]"
+      },
+      "SCTPListener.AcceptSCTPContext": {
+        "kind": "method",
+        "type": "[[\"context.Context\"],[\"*sctp.SCTPConn\",\"error\"],false]"
+      },
+      "SCTPListener.BoundAddr": {
+        "kind": "method",
+        "type": "[null,[\"*sctp.SCTPAddr\",\"error\"],false]"
+      },
+      "SCTPListener.SetDeadline": {
+        "kind": "method",
+        "type": "[[\"time.Time\"],[\"error\"],false]"
+      },
+      "SCTP_EMPTY": {
+        "kind": "const",
+        "type": "sctp.StatusState",
+        "value": "0"
+      },
+      "SCTP_PF": {
+        "kind": "const",
+        "type": "sctp.PeerState",
+        "value": "1"
+      },
+      "SCTP_SOCKOPT_PEELOFF_FLAGS": {
+        "kind": "const",
+        "type": "untyped int",
+        "value": "122"
+      },
+      "SCTP_UNKNOWN": {
+        "kind": "const",
+        "type": "sctp.PeerState",
+        "value": "65535"
+      },
+      "SendFailure": {
+        "fields": [
+          [
+            "Error",
+            "uint32",
+            ""
+          ],
+          [
+            "Info",
+            "sctp.SndRcvInfo",
+            ""
+          ],
+          [
+            "AssocID",
+            "sctp.SCTPAssocID",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "SendFailureDataSent": {
+        "kind": "const",
+        "type": "uint16",
+        "value": "1"
+      },
+      "SendFailureDataUnsent": {
+        "kind": "const",
+        "type": "uint16",
+        "value": "0"
+      },
+      "SetupConfig": {
+        "fields": [
+          [
+            "Socket",
+            "sctp.SocketConfig",
+            ""
+          ],
+          [
+            "Limits",
+            "sctp.AddressLimits",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "SetupRequirements": {
+        "kind": "func",
+        "type": "[[\"sctp.SetupConfig\"],[\"sctp.SetupResourceRequirements\",\"error\"],false]"
+      },
+      "SetupResourceRequirements": {
+        "fields": [
+          [
+            "LedgerVersion",
+            "string",
+            ""
+          ],
+          [
+            "DialerBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "ListenerBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "EstablishBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "ConnectionBytes",
+            "uint64",
+            ""
+          ],
+          [
+            "IORequirements",
+            "sctp.IORequirements",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "ShutdownNotification": {
+        "fields": [
+          [
+            "AssocID",
+            "sctp.SCTPAssocID",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "SocketConfig.DialContext": {
+        "kind": "method",
+        "type": "[[\"context.Context\",\"string\",\"*sctp.SCTPAddr\",\"*sctp.SCTPAddr\"],[\"*sctp.SCTPConn\",\"error\"],false]"
+      },
+      "SocketTimeoutUpdateError": {
+        "fields": [
+          [
+            "Option",
+            "string",
+            ""
+          ],
+          [
+            "ReadApplied",
+            "bool",
+            ""
+          ],
+          [
+            "Err",
+            "error",
+            ""
+          ]
+        ],
+        "kind": "type"
+      },
+      "SocketTimeoutUpdateError.Error": {
+        "kind": "method",
+        "type": "[null,[\"string\"],false]"
+      },
+      "SocketTimeoutUpdateError.Unwrap": {
+        "kind": "method",
+        "type": "[null,[\"error\"],false]"
+      }
+    },
+    "baseline_entries": 161,
+    "changed": {
+      "SCTP_ACTIVE": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "2"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "1"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_BOUND": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "-1"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "1"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_CLOSED": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "1"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "0"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_COOKIE_ECHOED": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "3"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "4"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_COOKIE_WAIT": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "2"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "3"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_EOF": {
+        "after": {
+          "kind": "const",
+          "type": "untyped int",
+          "value": "512"
+        },
+        "before": {
+          "kind": "const",
+          "type": "untyped int",
+          "value": "16"
+        },
+        "first_changed_in": "v0.7.2"
+      },
+      "SCTP_ESTABLISHED": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "4"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "5"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_INACTIVE": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "0"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "2"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_LISTEN": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "-2"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "2"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_SHUTDOWN_ACK_SENT": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "8"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "9"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_SHUTDOWN_PENDING": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "5"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "6"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_SHUTDOWN_RECEIVED": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "7"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "8"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_SHUTDOWN_SENT": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "6"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.StatusState",
+          "value": "7"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SCTP_UNCONFIRMED": {
+        "after": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "3"
+        },
+        "before": {
+          "kind": "const",
+          "type": "sctp.PeerState",
+          "value": "0"
+        },
+        "first_changed_in": "0.5"
+      },
+      "SocketConfig": {
+        "after": {
+          "fields": [
+            [
+              "Messages",
+              "*sctp.MessageOptions",
+              ""
+            ],
+            [
+              "Control",
+              "[[\"string\",\"string\",\"syscall.RawConn\"],[\"error\"],false]",
+              ""
+            ],
+            [
+              "NotificationHandler",
+              "sctp.NotificationHandler",
+              ""
+            ],
+            [
+              "InitMsg",
+              "sctp.InitMsg",
+              ""
+            ]
+          ],
+          "kind": "type"
+        },
+        "before": {
+          "fields": [
+            [
+              "Control",
+              "[[\"string\",\"string\",\"syscall.RawConn\"],[\"error\"],false]",
+              ""
+            ],
+            [
+              "NotificationHandler",
+              "sctp.NotificationHandler",
+              ""
+            ],
+            [
+              "InitMsg",
+              "sctp.InitMsg",
+              ""
+            ]
+          ],
+          "kind": "type"
+        },
+        "first_changed_in": "v0.8.0"
+      }
+    },
+    "destination_entries": 227,
+    "removed": [],
+    "unchanged_production_api_pairs": [
+      [
+        "0.7",
+        "0.7.1"
+      ],
+      [
+        "v0.7.2",
+        "v0.7.3"
+      ]
+    ]
+  },
+  "audit_program_sha256": {
+    "api.go.txt": "fd7480363667d872cee28ac4cf78cb1a1c4fa954113c7abe0225444a324a4d92",
+    "compare.py.txt": "39f8e262178b0460165feeba503b0ea018af1943658dce57d43b6baaa04a1346",
+    "probe.go.txt": "23c0c25e93412a30ae98e973659af8f6f79734bcfdb5685cfc00d7f47cd45068"
+  },
+  "go": "go version go1.26.10 linux/amd64",
+  "kernel": "6.6.114.1-microsoft-standard-WSL2",
+  "limits": [
+    "Single kernel and architecture; no external consumer certification.",
+    "100 ms idle-accept observation, 80 ms SO timeout, 500 ms safety Close.",
+    "0.5 reaching safety Close records a timeout regression, not a pass.",
+    "Timing values vary between runs; tags 0.7.1 and v0.7.3 have no production-library changes and are not probed separately."
+  ],
+  "method": "Current toolchain, local replaces, CGO_ENABLED=0, -buildvcs=false; no original-toolchain or proxy certification.",
+  "native": {
+    "0.4": {
+      "accept_error_has_non_nil_interface": true,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 83,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": false,
+        "nonblock": false
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 1,
+        "SCTP_EOF": 16,
+        "SCTP_ESTABLISHED": 5
+      },
+      "control_flags": {
+        "nonblock": false
+      },
+      "default_ppid_received": 67305985,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "os": "linux"
+    },
+    "0.5": {
+      "accept_error_has_non_nil_interface": true,
+      "accept_timeout_before_safety_close": false,
+      "accept_timeout_error": "use of closed file",
+      "accept_timeout_ms": 500,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 16,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 67305985,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    },
+    "0.6": {
+      "accept_error_has_non_nil_interface": true,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 80,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 16,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 67305985,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    },
+    "0.7": {
+      "accept_error_has_non_nil_interface": true,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 80,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 16,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 16909060,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    },
+    "v0.7.2": {
+      "accept_error_has_non_nil_interface": false,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 80,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 512,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 16909060,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    },
+    "v0.7.4": {
+      "accept_error_has_non_nil_interface": false,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 80,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "operation not supported",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 512,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 16909060,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    },
+    "v0.8.0": {
+      "accept_error_has_non_nil_interface": false,
+      "accept_timeout_before_safety_close": true,
+      "accept_timeout_error": "resource temporarily unavailable",
+      "accept_timeout_ms": 80,
+      "accept_waits_before_arrival": true,
+      "accepted_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "arch": "amd64",
+      "clear_deadline_error": "",
+      "constants": {
+        "SCTP_ACTIVE": 2,
+        "SCTP_EOF": 512,
+        "SCTP_ESTABLISHED": 4
+      },
+      "control_flags": {
+        "nonblock": true
+      },
+      "default_ppid_received": 16909060,
+      "default_ppid_requested": 16909060,
+      "dialed_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "go": "go1.26.10",
+      "import_source_after": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "import_source_before": {
+        "cloexec": true,
+        "nonblock": false
+      },
+      "imported_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "listener_flags": {
+        "cloexec": true,
+        "nonblock": true
+      },
+      "os": "linux"
+    }
+  },
+  "scope": "Exact tag production sources, Linux/amd64; private fields excluded from API comparison.",
+  "sources": {
+    "0.4": {
+      "commit": "064eb3743937897074643814b2e0558e7e07ad95",
+      "exported_source_file_count": 5,
+      "go_directive": "1.18",
+      "source_manifest_sha256": "da8aa3bc17d1dfbc02584f4692e0be3cdd2b790d6b584240de767a73f6289fe7"
+    },
+    "0.5": {
+      "commit": "7f50b6f4ccc2b9741dee7441d00fb5808ce8f5ae",
+      "exported_source_file_count": 5,
+      "go_directive": "1.18",
+      "source_manifest_sha256": "26b0056637f8f90101ece37fd30e486fab002800b5b42fbdbef40786b552e929"
+    },
+    "0.6": {
+      "commit": "f2af417253a0c7441a63f699de2bfcab7cf022ff",
+      "exported_source_file_count": 6,
+      "go_directive": "1.18",
+      "source_manifest_sha256": "0f080dee1204a777807a1fdf285d373e264d4a2712e25db774a64f790c214569"
+    },
+    "0.7": {
+      "commit": "2506dfd2111269f19505e08ca3f765fd46334903",
+      "exported_source_file_count": 7,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "60eabed2ac7200cf5c25b4d28e48cd3311b289c2f18e63241b6eeb19250ace0f"
+    },
+    "0.7.1": {
+      "commit": "e864ee06b6c5b0c77661c4715814a75576c23237",
+      "exported_source_file_count": 7,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "60eabed2ac7200cf5c25b4d28e48cd3311b289c2f18e63241b6eeb19250ace0f"
+    },
+    "v0.7.2": {
+      "commit": "5359b448f9a2dbc21d779e485b92c5751f9f2237",
+      "exported_source_file_count": 12,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "6e8ad901509d03981bf21349ba79670c1de5c07fae4cb1147a95969ca8e89714"
+    },
+    "v0.7.3": {
+      "commit": "e4154064dc9928274bcf4615c5382dd6fd81ad21",
+      "exported_source_file_count": 12,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "6e8ad901509d03981bf21349ba79670c1de5c07fae4cb1147a95969ca8e89714"
+    },
+    "v0.7.4": {
+      "commit": "62ad388be958f0bd19d29d63dfc05743726779a1",
+      "exported_source_file_count": 13,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "dd9be9408466288969fc1f8ccb9125f4a1bf73ff675ae6d1f12256468c237f74"
+    },
+    "v0.8.0": {
+      "commit": "bce1b3cf3ea32a32a86262c7f655d565bb40055c",
+      "exported_source_file_count": 33,
+      "go_directive": "1.26.0",
+      "source_manifest_sha256": "fe8b9d8883beb5295d9ccd8774d6976f87736bc27a32d87ee99553ea7597ff1f"
+    }
+  }
+}
