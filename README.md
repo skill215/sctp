@@ -57,6 +57,10 @@ Upgrading from an older release? Read the
 Nonblocking descriptors started in 0.5; public Accept still waits. The guide
 covers raw fd integration, deadlines, changed constants, PPID, and wrapper behavior.
 
+The [I/O interface design](docs/io-interface-design.md) retains synchronous APIs
+over nonblocking descriptors and defines upper-layer channel boundaries,
+ownership, resource accounting, and acceptance requirements.
+
 ## Run the message example
 
 From a checkout of this repository:

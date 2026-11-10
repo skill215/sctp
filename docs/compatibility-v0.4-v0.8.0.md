@@ -13,6 +13,10 @@ for a connection through Go's runtime poller. Code using raw descriptors, shared
 duplicates, blocking syscalls, or SO timeouts needs explicit review. Keeping old
 function names is not a promise of identical 0.4 behavior.
 
+The [I/O interface design](io-interface-design.md) records the decision to retain
+these interfaces and defines when upper-layer channels are appropriate, with
+ownership, ordering, shutdown, resource, and acceptance requirements.
+
 ## Version boundaries
 
 | First version | Compatibility changes |

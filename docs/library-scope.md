@@ -45,6 +45,11 @@ These APIs do not provide application framing/reassembly, automatic retries,
 reconnection, or an allocator/RSS bound for arbitrary concurrency. Application
 workarounds must not silently redefine the documented contracts.
 
+The [I/O interface design](io-interface-design.md) keeps synchronous public calls
+over nonblocking descriptors. Optional channel delivery belongs to the adapter
+or session layer and requires its own ownership, queue, resource, and acceptance
+contract; it is not a new library API or an extension of the existing ledger.
+
 ## Library release acceptance
 
 1. Each included defect has a library-level before/after regression, with review
