@@ -1,8 +1,30 @@
 # diameterkit Session: SCTP v0.8.0 Integration Handoff
 
+## Current status update: 2026-11-10
+
+The original handoff below describes the 2026-11-09 batch66 starting point; it
+is retained as historical guidance, not a current list of unfinished work.
+Local consumer records report official v0.8.0 pinning and batch64/65/66 regression
+in batch67, and explicit OrderedMultiStream/PPID0 policies in batch72. Do not
+repeat those migrations or infer that the consumer still requires a candidate
+pseudo-version. These policies belong to the consumer and do not change SCTP's
+transport-level APIs or automatically enable application modes.
+
+The [I/O acceptance audit](io-acceptance-audit.md) froze a local batch74 consumer
+snapshot while its workspace was advancing. It verified SCTP v0.8.0 with the
+original sums and no replace, checked offline dependency/source manifests, and
+ran focused core/adapter race checks. It also distinguishes Node.Wait's I/O and
+borrower barrier from CompletionPort-owned results that remain charged until
+Receive or Port.Close. The audit does not rerun the complete batch64/65 acceptance
+matrix or certify real DRA/OCS interoperability, consumer publication, or RSS.
+Use its exact hashes and coverage table for this round's evidence; inspect the
+consumer's current workspace before planning later work.
+
+## Historical handoff: 2026-11-09
+
 Handoff date: 2026-11-09 (Asia/Shanghai). Objective: pin the independent SCTP adapter to published v0.8.0, review the existing thin-adapter migration, and rerun batch 64/65 runtime acceptance and batch 66 migration regressions against the official version. Baseline: Go 1.26, production CGO_ENABLED=0, pure Go, no persistence.
 
-**Actual starting point: diameterkit has completed batch 66 candidate migration but has not switched to the official version.** At the time of writing, `adapters/sctp/go.mod` still uses `v0.7.5-0.20261109072213-bb739b612088`, and existing code already calls A–E APIs. Do not reimplement polling, syscalls, address algorithms, or continuity checks already removed, based on historical batch 64/65 documents. Reinspect the workspace when the next session starts and protect existing changes. This handoff neither modifies diameterkit nor runs its tests with the official version pinned.
+**Historical starting point: diameterkit had completed batch 66 candidate migration but had not switched to the official version.** At the time of writing, `adapters/sctp/go.mod` still uses `v0.7.5-0.20261109072213-bb739b612088`, and existing code already calls A–E APIs. Do not reimplement polling, syscalls, address algorithms, or continuity checks already removed, based on historical batch 64/65 documents. Reinspect the workspace when the next session starts and protect existing changes. This handoff neither modifies diameterkit nor runs its tests with the official version pinned.
 
 ## 1. Exact version and provenance
 

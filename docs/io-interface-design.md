@@ -238,6 +238,10 @@ Any new queue or worker requires updated consumer resource evidence.
 
 ## 8. Evidence, delivery, and reconsideration
 
+The subsequent [A1-A11 coverage audit](io-acceptance-audit.md) maps this design
+to existing library/consumer paths, records focused validation, and identifies
+partial coverage and optional mechanisms that are not currently applicable.
+
 The [0.4-v0.8.0 audit](compatibility-v0.4-v0.8.0.md#9-evidence-and-limits)
 records historical API comparison, seven-version native probes, and focused
 race regressions. Those establish the existing behavior; they do not validate

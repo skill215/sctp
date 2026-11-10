@@ -60,6 +60,8 @@ covers raw fd integration, deadlines, changed constants, PPID, and wrapper behav
 The [I/O interface design](docs/io-interface-design.md) retains synchronous APIs
 over nonblocking descriptors and defines upper-layer channel boundaries,
 ownership, resource accounting, and acceptance requirements.
+The [acceptance coverage audit](docs/io-acceptance-audit.md) maps these requirements
+to existing tests and records verification results and remaining limits.
 
 ## Run the message example
 
